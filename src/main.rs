@@ -14,9 +14,9 @@ struct PlayerBundle {
 }
 
 #[derive(Bundle, Debug)]
-struct WallBundle {
-    start_position: StartPosition,
-    end_position: EndPosition,
+struct Wall {
+    start_position: Position,
+    end_position: Position,
     color: Color,
 }
 
@@ -25,22 +25,6 @@ struct Pixel(u32, u32);
 
 #[derive(Debug, Copy, Clone)]
 struct Position(f32, f32);
-
-#[derive(Debug, Copy, Clone)]
-struct StartPosition(f32, f32);
-impl StartPosition {
-    fn as_position(&self) -> Position {
-        Position(self.0, self.1)
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-struct EndPosition(f32, f32);
-impl EndPosition {
-    fn as_position(&self) -> Position {
-        Position(self.0, self.1)
-    }
-}
 
 #[derive(Debug, Copy, Clone)]
 struct Velocity(f32, f32);
@@ -102,27 +86,27 @@ fn setup_system(mut commands: Commands) {
         direction: Direction(0.0),
     });
 
-    commands.spawn().insert_bundle(WallBundle {
-        start_position: StartPosition(120.0, 50.0),
-        end_position: EndPosition(200.0, 150.0),
+    commands.spawn().insert(Wall {
+        start_position: Position(120.0, 50.0),
+        end_position: Position(200.0, 150.0),
         color: Color(0xff, 0xff, 0x00, 0xff),
     });
 
-    commands.spawn().insert_bundle(WallBundle {
-        start_position: StartPosition(200.0, 150.0),
-        end_position: EndPosition(200.0, 200.0),
+    commands.spawn().insert(Wall {
+        start_position: Position(200.0, 150.0),
+        end_position: Position(200.0, 200.0),
         color: Color(0x00, 0xff, 0x00, 0xff),
     });
 
-    commands.spawn().insert_bundle(WallBundle {
-        start_position: StartPosition(200.0, 200.0),
-        end_position: EndPosition(50.0, 200.0),
+    commands.spawn().insert(Wall {
+        start_position: Position(200.0, 200.0),
+        end_position: Position(50.0, 200.0),
         color: Color(0x00, 0x00, 0xff, 0xff),
     });
 
-    commands.spawn().insert_bundle(WallBundle {
-        start_position: StartPosition(50.0, 200.0),
-        end_position: EndPosition(120.0, 50.0),
+    commands.spawn().insert(Wall {
+        start_position: Position(50.0, 200.0),
+        end_position: Position(120.0, 50.0),
         color: Color(0xff, 0x00, 0xff, 0xff),
     });
 }
@@ -185,15 +169,12 @@ fn draw_player_system(
     }
 }
 
-fn draw_wall_system(
-    mut pixels_resource: ResMut<PixelsResource>,
-    query: Query<(&StartPosition, &EndPosition, &Color)>,
-) {
-    for (start_position, end_position, color) in query.iter() {
-        if let Some(start_pixel) = position_to_pixel(&start_position.as_position()) {
-            if let Some(end_pixel) = position_to_pixel(&end_position.as_position()) {
+fn draw_wall_system(mut pixels_resource: ResMut<PixelsResource>, query: Query<&Wall>) {
+    for wall in query.iter() {
+        if let Some(start_pixel) = position_to_pixel(&wall.start_position) {
+            if let Some(end_pixel) = position_to_pixel(&wall.end_position) {
                 let frame = pixels_resource.pixels.get_frame();
-                draw_line(frame, start_pixel, end_pixel, color.clone());
+                draw_line(frame, start_pixel, end_pixel, wall.color);
             }
         }
     }
