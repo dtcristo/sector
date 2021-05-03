@@ -21,7 +21,7 @@ struct Wall {
 }
 
 #[derive(Debug, Copy, Clone)]
-struct Pixel(u32, u32);
+struct Pixel(isize, isize);
 
 #[derive(Debug, Copy, Clone)]
 struct Position(f32, f32);
@@ -34,6 +34,17 @@ struct Direction(f32);
 
 #[derive(Debug, Copy, Clone)]
 struct Color(u8, u8, u8, u8);
+
+#[derive(Debug, PartialEq)]
+enum View {
+    Absolute2d,
+    FirstPerson2d,
+}
+
+#[derive(Debug)]
+pub struct AppState {
+    view: View,
+}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 enum AppStage {
@@ -58,10 +69,14 @@ fn main() {
             width: WIDTH,
             height: HEIGHT,
         })
+        .insert_resource(AppState {
+            view: View::Absolute2d,
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(PixelsPlugin)
         .add_startup_system(setup_system.system())
         .add_system(exit_on_escape_system.system())
+        .add_system(switch_view_system.system())
         .add_system(player_movement_system.system())
         .add_stage_after(
             PixelsStage::Draw,
@@ -81,32 +96,32 @@ fn main() {
 
 fn setup_system(mut commands: Commands) {
     commands.spawn().insert_bundle(PlayerBundle {
-        position: Position(160.0, 120.0),
+        position: Position(0.0, 0.0),
         velocity: Velocity(0.0, 0.0),
         direction: Direction(0.0),
     });
 
     commands.spawn().insert(Wall {
-        start_position: Position(120.0, 50.0),
-        end_position: Position(200.0, 150.0),
+        start_position: Position(-40.0, -70.0),
+        end_position: Position(40.0, 30.0),
         color: Color(0xff, 0xff, 0x00, 0xff),
     });
 
     commands.spawn().insert(Wall {
-        start_position: Position(200.0, 150.0),
-        end_position: Position(200.0, 200.0),
+        start_position: Position(40.0, 30.0),
+        end_position: Position(40.0, 80.0),
         color: Color(0x00, 0xff, 0x00, 0xff),
     });
 
     commands.spawn().insert(Wall {
-        start_position: Position(200.0, 200.0),
-        end_position: Position(50.0, 200.0),
+        start_position: Position(40.0, 80.0),
+        end_position: Position(-110.0, 80.0),
         color: Color(0x00, 0x00, 0xff, 0xff),
     });
 
     commands.spawn().insert(Wall {
-        start_position: Position(50.0, 200.0),
-        end_position: Position(120.0, 50.0),
+        start_position: Position(-110.0, 80.0),
+        end_position: Position(-40.0, -70.0),
         color: Color(0xff, 0x00, 0xff, 0xff),
     });
 }
@@ -117,6 +132,20 @@ fn exit_on_escape_system(
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
         app_exit_events.send(AppExit);
+    }
+}
+
+fn switch_view_system(keyboard_input: Res<Input<KeyCode>>, mut resource: ResMut<AppState>) {
+    if keyboard_input.just_pressed(KeyCode::Key1) {
+        if resource.view != View::Absolute2d {
+            resource.view = View::Absolute2d;
+            println!("Absolute2d");
+        }
+    } else if keyboard_input.just_pressed(KeyCode::Key2) {
+        if resource.view != View::FirstPerson2d {
+            resource.view = View::FirstPerson2d;
+            println!("FirstPerson2d");
+        }
     }
 }
 
@@ -155,57 +184,74 @@ fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
 fn draw_player_system(
     mut pixels_resource: ResMut<PixelsResource>,
     query: Query<(&Position, &Direction)>,
+    resource: Res<AppState>,
 ) {
     for (position, direction) in query.iter() {
-        if let Some(pixel) = position_to_pixel(position) {
-            let frame = pixels_resource.pixels.get_frame();
-            let end = Pixel(
-                (pixel.0 as f32 + 5.0 * direction.0.to_radians().sin()).round() as u32,
-                (pixel.1 as f32 - 5.0 * direction.0.to_radians().cos()).round() as u32,
-            );
-            draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
-            draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
-        }
-    }
-}
-
-fn draw_wall_system(mut pixels_resource: ResMut<PixelsResource>, query: Query<&Wall>) {
-    for wall in query.iter() {
-        if let Some(start_pixel) = position_to_pixel(&wall.start_position) {
-            if let Some(end_pixel) = position_to_pixel(&wall.end_position) {
-                let frame = pixels_resource.pixels.get_frame();
-                draw_line(frame, start_pixel, end_pixel, wall.color);
+        let frame = pixels_resource.pixels.get_frame();
+        match resource.view {
+            View::Absolute2d => {
+                let pixel = position_to_pixel(position);
+                let end = Pixel(
+                    (pixel.0 as f32 + 5.0 * direction.0.to_radians().sin()).round() as isize,
+                    (pixel.1 as f32 - 5.0 * direction.0.to_radians().cos()).round() as isize,
+                );
+                draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
+                draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
+            }
+            View::FirstPerson2d => {
+                draw_line(
+                    frame,
+                    Pixel(159, 119),
+                    Pixel(159, 114),
+                    Color(0x88, 0x88, 0x88, 0xff),
+                );
+                draw_pixel(frame, Pixel(159, 119), Color(0xff, 0x00, 0x00, 0xff));
             }
         }
     }
 }
 
-fn draw_line(frame: &mut [u8], start: Pixel, end: Pixel, color: Color) {
-    for (x, y) in line_drawing::Bresenham::new(
-        (start.0 as isize, start.1 as isize),
-        (end.0 as isize, end.1 as isize),
-    ) {
-        if x >= 0 && x < WIDTH as isize && y >= 0 && y < HEIGHT as isize {
-            draw_pixel(frame, Pixel(x as u32, y as u32), color);
+fn draw_wall_system(
+    mut pixels_resource: ResMut<PixelsResource>,
+    query: Query<&Wall>,
+    resource: Res<AppState>,
+) {
+    for wall in query.iter() {
+        match resource.view {
+            View::Absolute2d => {
+                let start_pixel = position_to_pixel(&wall.start_position);
+                let end_pixel = position_to_pixel(&wall.end_position);
+                let frame = pixels_resource.pixels.get_frame();
+                draw_line(frame, start_pixel, end_pixel, wall.color);
+            }
+            View::FirstPerson2d => {}
         }
     }
 }
 
-fn position_to_pixel(position: &Position) -> Option<Pixel> {
-    let x = position.0;
-    let y = position.1;
-    if x >= 0.0 && x < WIDTH as f32 && y >= 0.0 && y < HEIGHT as f32 {
-        Some(Pixel(x.floor() as u32, y.floor() as u32))
+fn draw_line(frame: &mut [u8], start: Pixel, end: Pixel, color: Color) {
+    for (x, y) in line_drawing::Bresenham::new((start.0, start.1), (end.0, end.1)) {
+        draw_pixel(frame, Pixel(x, y), color);
+    }
+}
+
+fn position_to_pixel(position: &Position) -> Pixel {
+    Pixel(
+        position.0.round() as isize + (WIDTH / 2) as isize,
+        position.1.round() as isize + (HEIGHT / 2) as isize,
+    )
+}
+
+fn pixel_to_frame_offset(pixel: Pixel) -> Option<usize> {
+    if pixel.0 >= 0 && pixel.0 < WIDTH as isize && pixel.0 >= 0 && pixel.0 < HEIGHT as isize {
+        Some((pixel.1 as u32 * WIDTH * 4 + pixel.0 as u32 * 4) as usize)
     } else {
         None
     }
 }
 
-fn pixel_to_frame_offset(pixel: Pixel) -> usize {
-    (pixel.1 * WIDTH * 4 + pixel.0 * 4) as usize
-}
-
 fn draw_pixel(frame: &mut [u8], pixel: Pixel, color: Color) {
-    let offset = pixel_to_frame_offset(pixel);
-    frame[offset..offset + 4].copy_from_slice(&[color.0, color.1, color.2, color.3]);
+    if let Some(offset) = pixel_to_frame_offset(pixel) {
+        frame[offset..offset + 4].copy_from_slice(&[color.0, color.1, color.2, color.3]);
+    }
 }
