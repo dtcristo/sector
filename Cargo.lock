@@ -328,7 +328,8 @@ dependencies = [
 [[package]]
 name = "bevy_pixels"
 version = "0.1.0"
-source = "git+https://github.com/dtcristo/bevy_pixels?branch=main#dd59930e64b5ddece4fa49e06c0588b061183afe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26d5979ed72a97a2c40126cabb8821bef7fc2f9834b42e97d5ab9447c2915d5f"
 dependencies = [
  "bevy",
  "pixels",
@@ -1602,8 +1603,9 @@ checksum = "dc0e1f259c92177c30a4c9d177246edd0a3568b25756a977d0632cf8fa37e905"
 
 [[package]]
 name = "pixels"
-version = "0.2.0"
-source = "git+https://github.com/parasyte/pixels?rev=9bfed17a7f51733f9042b3b524405229c628003b#9bfed17a7f51733f9042b3b524405229c628003b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "547d9e3272f0dec45b9d0f6aa468a1fdd6c2c8a590c2cb20b2af0a8dfb3f0ed0"
 dependencies = [
  "pollster",
  "raw-window-handle",
