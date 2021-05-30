@@ -1,16 +1,9 @@
 use bevy::{app::AppExit, prelude::*, window::WindowResizeConstraints};
 use bevy_pixels::prelude::*;
-// use rand::prelude::*;
+use glam::{Affine2, Vec2};
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
-
-#[derive(Bundle, Debug)]
-struct PlayerBundle {
-    position: Position,
-    velocity: Velocity,
-    direction: Direction,
-}
 
 #[derive(Bundle, Debug)]
 struct Wall {
@@ -43,6 +36,9 @@ enum View {
 #[derive(Debug)]
 pub struct AppState {
     view: View,
+    position: Position,
+    velocity: Velocity,
+    direction: Direction,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -55,8 +51,8 @@ fn main() {
     App::build()
         .insert_resource(WindowDescriptor {
             title: "prender".to_string(),
-            width: (2 * WIDTH) as f32,
-            height: (2 * HEIGHT) as f32,
+            width: (4 * WIDTH) as f32,
+            height: (4 * HEIGHT) as f32,
             resize_constraints: WindowResizeConstraints {
                 min_width: WIDTH as f32,
                 min_height: HEIGHT as f32,
@@ -70,6 +66,9 @@ fn main() {
         })
         .insert_resource(AppState {
             view: View::Absolute2d,
+            position: Position(0.0, 0.0),
+            velocity: Velocity(0.0, 0.0),
+            direction: Direction(0.0),
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(PixelsPlugin)
@@ -94,12 +93,6 @@ fn main() {
 }
 
 fn setup_system(mut commands: Commands) {
-    commands.spawn().insert_bundle(PlayerBundle {
-        position: Position(0.0, 0.0),
-        velocity: Velocity(0.0, 0.0),
-        direction: Direction(0.0),
-    });
-
     commands.spawn().insert(Wall {
         start_position: Position(-40.0, -70.0),
         end_position: Position(40.0, 30.0),
@@ -134,45 +127,46 @@ fn exit_on_escape_system(
     }
 }
 
-fn switch_view_system(keyboard_input: Res<Input<KeyCode>>, mut resource: ResMut<AppState>) {
+fn switch_view_system(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<AppState>) {
     if keyboard_input.just_pressed(KeyCode::Key1) {
-        if resource.view != View::Absolute2d {
-            resource.view = View::Absolute2d;
+        if state.view != View::Absolute2d {
+            state.view = View::Absolute2d;
             println!("Absolute2d");
         }
     } else if keyboard_input.just_pressed(KeyCode::Key2) {
-        if resource.view != View::FirstPerson2d {
-            resource.view = View::FirstPerson2d;
+        if state.view != View::FirstPerson2d {
+            state.view = View::FirstPerson2d;
             println!("FirstPerson2d");
         }
     }
 }
 
-fn player_movement_system(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&mut Velocity, &mut Direction, &mut Position)>,
-) {
-    if let Ok((mut velocity, mut direction, mut position)) = query.single_mut() {
-        if keyboard_input.pressed(KeyCode::Left) {
-            direction.0 -= 5.0;
-        } else if keyboard_input.pressed(KeyCode::Right) {
-            direction.0 += 5.0;
-        }
-
-        if keyboard_input.pressed(KeyCode::Up) {
-            velocity.0 = direction.0.to_radians().sin();
-            velocity.1 = -direction.0.to_radians().cos();
-        } else if keyboard_input.pressed(KeyCode::Down) {
-            velocity.0 = -direction.0.to_radians().sin();
-            velocity.1 = direction.0.to_radians().cos();
-        } else {
-            velocity.0 = 0.0;
-            velocity.1 = 0.0;
-        }
-
-        position.0 += velocity.0;
-        position.1 += velocity.1;
+fn player_movement_system(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<AppState>) {
+    if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::Q) {
+        state.direction.0 -= 0.08;
+    } else if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::E) {
+        state.direction.0 += 0.08;
     }
+
+    if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
+        state.velocity.0 = state.direction.0.sin();
+        state.velocity.1 = -state.direction.0.cos();
+    } else if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
+        state.velocity.0 = -state.direction.0.sin();
+        state.velocity.1 = state.direction.0.cos();
+    } else if keyboard_input.pressed(KeyCode::A) {
+        state.velocity.0 = -state.direction.0.cos();
+        state.velocity.1 = state.direction.0.sin();
+    } else if keyboard_input.pressed(KeyCode::D) {
+        state.velocity.0 = state.direction.0.cos();
+        state.velocity.1 = -state.direction.0.sin();
+    } else {
+        state.velocity.0 = 0.0;
+        state.velocity.1 = 0.0;
+    }
+
+    state.position.0 += state.velocity.0;
+    state.position.1 += state.velocity.1;
 }
 
 fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
@@ -180,32 +174,26 @@ fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
     frame.copy_from_slice(&[0x00, 0x00, 0x00, 0xff].repeat(frame.len() / 4));
 }
 
-fn draw_player_system(
-    mut pixels_resource: ResMut<PixelsResource>,
-    query: Query<(&Position, &Direction)>,
-    resource: Res<AppState>,
-) {
-    for (position, direction) in query.iter() {
-        let frame = pixels_resource.pixels.get_frame();
-        match resource.view {
-            View::Absolute2d => {
-                let pixel = position_to_pixel(position);
-                let end = Pixel(
-                    (pixel.0 as f32 + 5.0 * direction.0.to_radians().sin()).round() as isize,
-                    (pixel.1 as f32 - 5.0 * direction.0.to_radians().cos()).round() as isize,
-                );
-                draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
-                draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
-            }
-            View::FirstPerson2d => {
-                draw_line(
-                    frame,
-                    Pixel(159, 119),
-                    Pixel(159, 114),
-                    Color(0x88, 0x88, 0x88, 0xff),
-                );
-                draw_pixel(frame, Pixel(159, 119), Color(0xff, 0x00, 0x00, 0xff));
-            }
+fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<AppState>) {
+    let frame = pixels_resource.pixels.get_frame();
+    match state.view {
+        View::Absolute2d => {
+            let pixel = position_to_pixel(&state.position);
+            let end = Pixel(
+                (pixel.0 as f32 + 5.0 * state.direction.0.sin()).round() as isize,
+                (pixel.1 as f32 - 5.0 * state.direction.0.cos()).round() as isize,
+            );
+            draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
+            draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
+        }
+        View::FirstPerson2d => {
+            draw_line(
+                frame,
+                Pixel(159, 119),
+                Pixel(159, 114),
+                Color(0x88, 0x88, 0x88, 0xff),
+            );
+            draw_pixel(frame, Pixel(159, 119), Color(0xff, 0x00, 0x00, 0xff));
         }
     }
 }
@@ -213,17 +201,33 @@ fn draw_player_system(
 fn draw_wall_system(
     mut pixels_resource: ResMut<PixelsResource>,
     query: Query<&Wall>,
-    resource: Res<AppState>,
+    state: Res<AppState>,
 ) {
+    let position = Vec2::new(-state.position.0, -state.position.1);
+    let affine = Affine2::from_angle_translation(-state.direction.0, position);
+
     for wall in query.iter() {
-        match resource.view {
+        match state.view {
             View::Absolute2d => {
                 let start_pixel = position_to_pixel(&wall.start_position);
                 let end_pixel = position_to_pixel(&wall.end_position);
                 let frame = pixels_resource.pixels.get_frame();
                 draw_line(frame, start_pixel, end_pixel, wall.color);
             }
-            View::FirstPerson2d => {}
+            View::FirstPerson2d => {
+                let start = affine
+                    .transform_point2(Vec2::new(wall.start_position.0, wall.start_position.1));
+                let end =
+                    affine.transform_point2(Vec2::new(wall.end_position.0, wall.end_position.1));
+
+                let frame = pixels_resource.pixels.get_frame();
+                draw_line(
+                    frame,
+                    position_to_pixel(&Position(start.x, start.y)),
+                    position_to_pixel(&Position(end.x, end.y)),
+                    wall.color,
+                );
+            }
         }
     }
 }
