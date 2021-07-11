@@ -240,13 +240,13 @@ fn draw_line(frame: &mut [u8], start: Pixel, end: Pixel, color: Color) {
 
 fn position_to_pixel(position: &Position) -> Pixel {
     Pixel(
-        position.0.round() as isize + (WIDTH / 2) as isize,
-        position.1.round() as isize + (HEIGHT / 2) as isize,
+        position.0.round() as isize + (WIDTH / 2) as isize - 1,
+        position.1.round() as isize + (HEIGHT / 2) as isize - 1,
     )
 }
 
 fn pixel_to_frame_offset(pixel: Pixel) -> Option<usize> {
-    if pixel.0 >= 0 && pixel.0 < WIDTH as isize && pixel.0 >= 0 && pixel.0 < HEIGHT as isize {
+    if pixel.0 >= 0 && pixel.0 < WIDTH as isize && pixel.1 >= 0 && pixel.1 < HEIGHT as isize {
         Some((pixel.1 as u32 * WIDTH * 4 + pixel.0 as u32 * 4) as usize)
     } else {
         None
