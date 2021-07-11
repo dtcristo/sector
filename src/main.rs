@@ -143,16 +143,16 @@ fn switch_view_system(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<App
 
 fn player_movement_system(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<AppState>) {
     if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::Q) {
-        state.direction.0 -= 0.08;
+        state.direction.0 += 0.06;
     } else if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::E) {
-        state.direction.0 += 0.08;
+        state.direction.0 -= 0.06;
     }
 
     if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
-        state.velocity.0 = state.direction.0.sin();
+        state.velocity.0 = -state.direction.0.sin();
         state.velocity.1 = -state.direction.0.cos();
     } else if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
-        state.velocity.0 = -state.direction.0.sin();
+        state.velocity.0 = state.direction.0.sin();
         state.velocity.1 = state.direction.0.cos();
     } else if keyboard_input.pressed(KeyCode::A) {
         state.velocity.0 = -state.direction.0.cos();
@@ -180,7 +180,7 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
         View::Absolute2d => {
             let pixel = position_to_pixel(&state.position);
             let end = Pixel(
-                (pixel.0 as f32 + 5.0 * state.direction.0.sin()).round() as isize,
+                (pixel.0 as f32 - 5.0 * state.direction.0.sin()).round() as isize,
                 (pixel.1 as f32 - 5.0 * state.direction.0.cos()).round() as isize,
             );
             draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
@@ -204,7 +204,7 @@ fn draw_wall_system(
     state: Res<AppState>,
 ) {
     let position = Vec2::new(-state.position.0, -state.position.1);
-    let affine = Affine2::from_angle_translation(-state.direction.0, position);
+    let affine = Affine2::from_angle(state.direction.0) * Affine2::from_translation(position);
 
     for wall in query.iter() {
         match state.view {
