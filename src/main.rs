@@ -15,12 +15,22 @@ struct Wall {
 #[derive(Debug, Copy, Clone)]
 struct Pixel(isize, isize);
 
+// Position
+//   .---> +x
+//   |
+//   v
+//   +y
 #[derive(Debug, Copy, Clone)]
 struct Position(f32, f32);
 
 #[derive(Debug, Copy, Clone)]
 struct Velocity(f32, f32);
 
+// Direction
+//   ^   ^
+//    \+θ|
+//     \ |
+//       .
 #[derive(Debug, Copy, Clone)]
 struct Direction(f32);
 
