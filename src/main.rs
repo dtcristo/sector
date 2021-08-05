@@ -68,7 +68,8 @@ fn main() {
             title: "prender".to_string(),
             width: (4 * WIDTH) as f32,
             height: (4 * HEIGHT) as f32,
-            mode: WindowMode::Windowed,
+            vsync: true,
+            mode: WindowMode::BorderlessFullscreen,
             resize_constraints: WindowResizeConstraints {
                 min_width: WIDTH as f32,
                 min_height: HEIGHT as f32,
