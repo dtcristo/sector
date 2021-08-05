@@ -1,4 +1,8 @@
-use bevy::{app::AppExit, prelude::*, window::WindowResizeConstraints};
+use bevy::{
+    app::AppExit,
+    prelude::*,
+    window::{WindowMode, WindowResizeConstraints},
+};
 use bevy_pixels::prelude::*;
 use glam::{Affine2, Vec2};
 
@@ -64,6 +68,7 @@ fn main() {
             title: "prender".to_string(),
             width: (4 * WIDTH) as f32,
             height: (4 * HEIGHT) as f32,
+            mode: WindowMode::Windowed,
             resize_constraints: WindowResizeConstraints {
                 min_width: WIDTH as f32,
                 min_height: HEIGHT as f32,
