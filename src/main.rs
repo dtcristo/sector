@@ -41,6 +41,7 @@ struct Color(u8, u8, u8, u8);
 enum View {
     Absolute2d,
     FirstPerson2d,
+    FirstPerson3d,
 }
 
 #[derive(Debug)]
@@ -141,12 +142,14 @@ fn switch_view_system(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<App
     if keyboard_input.just_pressed(KeyCode::Key1) {
         if state.view != View::Absolute2d {
             state.view = View::Absolute2d;
-            println!("Absolute2d");
         }
     } else if keyboard_input.just_pressed(KeyCode::Key2) {
         if state.view != View::FirstPerson2d {
             state.view = View::FirstPerson2d;
-            println!("FirstPerson2d");
+        }
+    } else if keyboard_input.just_pressed(KeyCode::Key3) {
+        if state.view != View::FirstPerson3d {
+            state.view = View::FirstPerson3d;
         }
     }
 }
@@ -205,6 +208,7 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
             );
             draw_pixel(frame, Pixel(159, 119), Color(0xff, 0x00, 0x00, 0xff));
         }
+        _ => {}
     }
 }
 
@@ -238,6 +242,7 @@ fn draw_wall_system(
                     wall.color,
                 );
             }
+            View::FirstPerson3d => {}
         }
     }
 }
