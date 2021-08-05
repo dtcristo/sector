@@ -265,28 +265,32 @@ fn draw_wall_system(
                 let y1b = 120.0 / start.y;
                 let y2b = 120.0 / end.y;
 
+                // Top (1-2 b)
                 draw_line(
                     frame,
-                    Pixel(120 + x1 as isize, 120 + y1a as isize),
-                    Pixel(120 + x2 as isize, 120 + y2a as isize),
+                    Pixel(160 + x1 as isize, 120 + y1a as isize),
+                    Pixel(160 + x2 as isize, 120 + y2a as isize),
                     wall.color,
                 );
+                // Bottom (1-2 b)
                 draw_line(
                     frame,
-                    Pixel(120 + x1 as isize, 120 + y1b as isize),
-                    Pixel(120 + x2 as isize, 120 + y2b as isize),
+                    Pixel(160 + x1 as isize, 120 + y1b as isize),
+                    Pixel(160 + x2 as isize, 120 + y2b as isize),
                     wall.color,
                 );
+                // Left
                 draw_line(
                     frame,
-                    Pixel(120 + x1 as isize, 120 + y1a as isize),
-                    Pixel(120 + x1 as isize, 120 + y1b as isize),
+                    Pixel(160 + x1 as isize, 120 + y1a as isize),
+                    Pixel(160 + x1 as isize, 120 + y1b as isize),
                     wall.color,
                 );
+                // Right
                 draw_line(
                     frame,
-                    Pixel(120 + x2 as isize, 120 + y2a as isize),
-                    Pixel(120 + x2 as isize, 120 + y2b as isize),
+                    Pixel(160 + x2 as isize, 120 + y2a as isize),
+                    Pixel(160 + x2 as isize, 120 + y2b as isize),
                     wall.color,
                 );
             }
