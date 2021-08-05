@@ -115,23 +115,23 @@ fn setup_system(mut commands: Commands) {
         color: Color(0xff, 0xff, 0x00, 0xff),
     });
 
-    commands.spawn().insert(Wall {
-        start_position: Position(40.0, 30.0),
-        end_position: Position(40.0, 80.0),
-        color: Color(0x00, 0xff, 0x00, 0xff),
-    });
+    // commands.spawn().insert(Wall {
+    //     start_position: Position(40.0, 30.0),
+    //     end_position: Position(40.0, 80.0),
+    //     color: Color(0x00, 0xff, 0x00, 0xff),
+    // });
 
-    commands.spawn().insert(Wall {
-        start_position: Position(40.0, 80.0),
-        end_position: Position(-110.0, 80.0),
-        color: Color(0x00, 0x00, 0xff, 0xff),
-    });
+    // commands.spawn().insert(Wall {
+    //     start_position: Position(40.0, 80.0),
+    //     end_position: Position(-110.0, 80.0),
+    //     color: Color(0x00, 0x00, 0xff, 0xff),
+    // });
 
-    commands.spawn().insert(Wall {
-        start_position: Position(-110.0, 80.0),
-        end_position: Position(-40.0, -70.0),
-        color: Color(0xff, 0x00, 0xff, 0xff),
-    });
+    // commands.spawn().insert(Wall {
+    //     start_position: Position(-110.0, 80.0),
+    //     end_position: Position(-40.0, -70.0),
+    //     color: Color(0xff, 0x00, 0xff, 0xff),
+    // });
 }
 
 fn exit_on_escape_system(
@@ -222,6 +222,7 @@ fn draw_wall_system(
     query: Query<&Wall>,
     state: Res<AppState>,
 ) {
+    let frame = pixels_resource.pixels.get_frame();
     let position = Vec2::new(-state.position.0, -state.position.1);
     let affine = Affine2::from_angle(state.direction.0) * Affine2::from_translation(position);
 
@@ -230,7 +231,6 @@ fn draw_wall_system(
             View::Absolute2d => {
                 let start_pixel = position_to_pixel(&wall.start_position);
                 let end_pixel = position_to_pixel(&wall.end_position);
-                let frame = pixels_resource.pixels.get_frame();
                 draw_line(frame, start_pixel, end_pixel, wall.color);
             }
             View::FirstPerson2d => {
@@ -239,7 +239,6 @@ fn draw_wall_system(
                 let end =
                     affine.transform_point2(Vec2::new(wall.end_position.0, wall.end_position.1));
 
-                let frame = pixels_resource.pixels.get_frame();
                 draw_line(
                     frame,
                     position_to_pixel(&Position(start.x, start.y)),
@@ -247,7 +246,49 @@ fn draw_wall_system(
                     wall.color,
                 );
             }
-            View::FirstPerson3d => {}
+            View::FirstPerson3d => {
+                // tx1, tz1
+                let start = affine
+                    .transform_point2(Vec2::new(wall.start_position.0, wall.start_position.1));
+
+                // tx2, tz2
+                let end =
+                    affine.transform_point2(Vec2::new(wall.end_position.0, wall.end_position.1));
+
+                let x1 = -start.x * 64.0 / start.y;
+                let x2 = -end.x * 64.0 / end.y;
+
+                let y1a = -120.0 / start.y;
+                let y2a = -120.0 / end.y;
+
+                let y1b = 120.0 / start.y;
+                let y2b = 120.0 / end.y;
+
+                draw_line(
+                    frame,
+                    Pixel(120 + x1 as isize, 120 + y1a as isize),
+                    Pixel(120 + x2 as isize, 120 + y2a as isize),
+                    wall.color,
+                );
+                draw_line(
+                    frame,
+                    Pixel(120 + x1 as isize, 120 + y1b as isize),
+                    Pixel(120 + x2 as isize, 120 + y2b as isize),
+                    wall.color,
+                );
+                draw_line(
+                    frame,
+                    Pixel(120 + x1 as isize, 120 + y1a as isize),
+                    Pixel(120 + x1 as isize, 120 + y1b as isize),
+                    wall.color,
+                );
+                draw_line(
+                    frame,
+                    Pixel(120 + x2 as isize, 120 + y2a as isize),
+                    Pixel(120 + x2 as isize, 120 + y2b as isize),
+                    wall.color,
+                );
+            }
         }
     }
 }
