@@ -1,5 +1,6 @@
 use bevy::{
     app::AppExit,
+    input::mouse::MouseMotion,
     prelude::*,
     window::{WindowMode, WindowResizeConstraints},
 };
@@ -90,6 +91,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(PixelsPlugin)
         .add_startup_system(setup_system.system())
+        .add_system(mouse_capture_system.system())
         .add_system(exit_on_escape_system.system())
         .add_system(switch_view_system.system())
         .add_system(player_movement_system.system())
@@ -135,48 +137,72 @@ fn setup_system(mut commands: Commands) {
     // });
 }
 
-fn exit_on_escape_system(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut app_exit_events: EventWriter<AppExit>,
-) {
-    if keyboard_input.just_pressed(KeyCode::Escape) {
+fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<MouseButton>>) {
+    let window = windows.get_primary_mut().unwrap();
+
+    if mouse_button.just_pressed(MouseButton::Left) {
+        window.set_cursor_lock_mode(true);
+        window.set_cursor_visibility(false);
+    }
+
+    if mouse_button.just_pressed(MouseButton::Right) {
+        window.set_cursor_lock_mode(false);
+        window.set_cursor_visibility(true);
+    }
+}
+
+fn exit_on_escape_system(key: Res<Input<KeyCode>>, mut app_exit_events: EventWriter<AppExit>) {
+    if key.just_pressed(KeyCode::Escape) {
         app_exit_events.send(AppExit);
     }
 }
 
-fn switch_view_system(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<AppState>) {
-    if keyboard_input.just_pressed(KeyCode::Key1) {
+fn switch_view_system(key: Res<Input<KeyCode>>, mut state: ResMut<AppState>) {
+    if key.just_pressed(KeyCode::Key1) {
         if state.view != View::Absolute2d {
             state.view = View::Absolute2d;
         }
-    } else if keyboard_input.just_pressed(KeyCode::Key2) {
+    } else if key.just_pressed(KeyCode::Key2) {
         if state.view != View::FirstPerson2d {
             state.view = View::FirstPerson2d;
         }
-    } else if keyboard_input.just_pressed(KeyCode::Key3) {
+    } else if key.just_pressed(KeyCode::Key3) {
         if state.view != View::FirstPerson3d {
             state.view = View::FirstPerson3d;
         }
     }
 }
 
-fn player_movement_system(keyboard_input: Res<Input<KeyCode>>, mut state: ResMut<AppState>) {
-    if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::Q) {
-        state.direction.0 += 0.06;
-    } else if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::E) {
-        state.direction.0 -= 0.06;
+fn player_movement_system(
+    windows: Res<Windows>,
+    mut mouse_motion_events: EventReader<MouseMotion>,
+    key: Res<Input<KeyCode>>,
+    mut state: ResMut<AppState>,
+) {
+    let window = windows.get_primary().unwrap();
+
+    if window.cursor_locked() {
+        for mouse_motion in mouse_motion_events.iter() {
+            state.direction.0 += -mouse_motion.delta.x * 0.005;
+        }
     }
 
-    if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
+    if key.pressed(KeyCode::Left) || key.pressed(KeyCode::Q) {
+        state.direction.0 += 0.05;
+    } else if key.pressed(KeyCode::Right) || key.pressed(KeyCode::E) {
+        state.direction.0 -= 0.05;
+    }
+
+    if key.pressed(KeyCode::Up) || key.pressed(KeyCode::W) {
         state.velocity.0.x = -state.direction.0.sin();
         state.velocity.0.z = -state.direction.0.cos();
-    } else if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
+    } else if key.pressed(KeyCode::Down) || key.pressed(KeyCode::S) {
         state.velocity.0.x = state.direction.0.sin();
         state.velocity.0.z = state.direction.0.cos();
-    } else if keyboard_input.pressed(KeyCode::A) {
+    } else if key.pressed(KeyCode::A) {
         state.velocity.0.x = -state.direction.0.cos();
         state.velocity.0.z = state.direction.0.sin();
-    } else if keyboard_input.pressed(KeyCode::D) {
+    } else if key.pressed(KeyCode::D) {
         state.velocity.0.x = state.direction.0.cos();
         state.velocity.0.z = -state.direction.0.sin();
     } else {
@@ -234,8 +260,6 @@ fn draw_wall_system(
     let position = Vec2::new(-state.position.0.x, -state.position.0.z);
     let affine = Affine2::from_angle(state.direction.0) * Affine2::from_translation(position);
 
-    // let look = Mat4::look_at_rh(vec3(state.position.0.x, 0.0, -state.position.0.z), vec3(state.position.0.x, 0.0, -state.position.0.z));
-
     let affine_new = Affine3A::from_rotation_y(-state.direction.0)
         * Affine3A::from_translation(-state.position.0);
 
@@ -257,41 +281,29 @@ fn draw_wall_system(
         let v_end_bottom = perspective.project_point3(affine_new.transform_point3(w_end_bottom));
         let v_end_top = perspective.project_point3(affine_new.transform_point3(w_end_top));
 
-        println!("===============");
-
-        // dbg!(w_start_bottom);
-        dbg!(w_start_top);
-        // dbg!(w_end_bottom);
-        dbg!(w_end_top);
-
-        // dbg!(v_start_bottom);
-        dbg!(v_start_top);
-        // dbg!(v_end_bottom);
-        dbg!(v_end_top);
-
         draw_line(
             frame,
             v_to_pixel(v_start_top),
             v_to_pixel(v_end_top),
-            Color(0x00, 0x00, 0xff, 0xff),
+            wall.color,
         );
         draw_line(
             frame,
             v_to_pixel(v_start_bottom),
             v_to_pixel(v_end_bottom),
-            Color(0x00, 0x00, 0xff, 0xff),
+            wall.color,
         );
         draw_line(
             frame,
             v_to_pixel(v_start_top),
             v_to_pixel(v_start_bottom),
-            Color(0x00, 0x00, 0xff, 0xff),
+            wall.color,
         );
         draw_line(
             frame,
             v_to_pixel(v_end_top),
             v_to_pixel(v_end_bottom),
-            Color(0x00, 0x00, 0xff, 0xff),
+            wall.color,
         );
 
         match state.view {
