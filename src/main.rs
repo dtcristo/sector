@@ -6,7 +6,7 @@ use bevy::{
 };
 use bevy_pixels::prelude::*;
 use glam::{vec3, Affine3A, Mat4, Vec3};
-use image::{io::Reader as ImageReader, DynamicImage};
+use image::{io::Reader as ImageReader, RgbaImage};
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
@@ -59,7 +59,7 @@ pub struct AppState {
     position: Position,
     velocity: Velocity,
     direction: Direction,
-    brick: DynamicImage,
+    brick: RgbaImage,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -69,7 +69,11 @@ enum AppStage {
 }
 
 fn main() {
-    let brick = ImageReader::open("brick.png").unwrap().decode().unwrap();
+    let brick = ImageReader::open("brick.png")
+        .unwrap()
+        .decode()
+        .unwrap()
+        .into_rgba8();
 
     App::build()
         .insert_resource(WindowDescriptor {
@@ -352,12 +356,25 @@ fn draw_wall_system(
             }
             View::FirstPerson3d => {}
         }
+
+        draw_image(frame, Pixel(10, 10), &state.brick);
     }
 }
 
 fn draw_wall(frame: &mut [u8], a_t: Pixel, a_b: Pixel, b_t: Pixel, b_b: Pixel, state: AppState) {}
 
-fn draw_image(frame: &mut [u8], t_left: Pixel, image: DynamicImage) {}
+fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
+    let frame_offset = pixel_to_offset(location).unwrap();
+    for (row_index, row) in image
+        .as_raw()
+        .chunks(image.dimensions().1 as usize * 4)
+        .enumerate()
+    {
+        frame[frame_offset + row_index * WIDTH as usize * 4
+            ..frame_offset + row_index * WIDTH as usize * 4 + image.dimensions().1 as usize * 4]
+            .copy_from_slice(row);
+    }
+}
 
 fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: Color) {
     for (x, y) in line_drawing::Bresenham::new((a.0, a.1), (b.0, b.1)) {
