@@ -9,6 +9,9 @@ use glam::{vec3, Affine3A, Mat4, Vec3};
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
+const FRAC_WIDTH_2: u32 = WIDTH / 2;
+const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
+const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 
 #[derive(Bundle, Debug)]
 struct Wall {
@@ -250,16 +253,12 @@ fn draw_wall_system(
     state: Res<AppState>,
 ) {
     let frame = pixels_resource.pixels.get_frame();
-    let affine = Affine3A::from_rotation_y(-state.direction.0)
+    let view = Affine3A::from_rotation_y(-state.direction.0)
         * Affine3A::from_translation(-state.position.0);
 
-    let perspective = Mat4::perspective_infinite_rh(
-        std::f32::consts::FRAC_PI_2,
-        WIDTH as f32 / HEIGHT as f32,
-        1.0,
-    );
+    let perspective = Mat4::perspective_infinite_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, 1.0);
 
-    let view = perspective * affine;
+    let view_perspective = perspective * view;
 
     for wall in query.iter() {
         let w_start_bottom = vec3(wall.start_position.0.x, 0.0, wall.start_position.0.z);
@@ -267,10 +266,10 @@ fn draw_wall_system(
         let w_end_bottom = vec3(wall.end_position.0.x, 0.0, wall.end_position.0.z);
         let w_end_top = vec3(wall.end_position.0.x, 5.0, wall.end_position.0.z);
 
-        let v_start_bottom = view.project_point3(w_start_bottom);
-        let v_start_top = view.project_point3(w_start_top);
-        let v_end_bottom = view.project_point3(w_end_bottom);
-        let v_end_top = view.project_point3(w_end_top);
+        let v_start_bottom = view_perspective.project_point3(w_start_bottom);
+        let v_start_top = view_perspective.project_point3(w_start_top);
+        let v_end_bottom = view_perspective.project_point3(w_end_bottom);
+        let v_end_top = view_perspective.project_point3(w_end_top);
 
         draw_line(
             frame,
@@ -304,8 +303,8 @@ fn draw_wall_system(
                 draw_line(frame, start_pixel, end_pixel, wall.color);
             }
             View::FirstPerson2d => {
-                let start = affine.transform_point3(wall.start_position.0);
-                let end = affine.transform_point3(wall.end_position.0);
+                let start = view.transform_point3(wall.start_position.0);
+                let end = view.transform_point3(wall.end_position.0);
 
                 draw_line(
                     frame,
@@ -327,19 +326,19 @@ fn draw_line(frame: &mut [u8], start: Pixel, end: Pixel, color: Color) {
 
 fn absolute_to_pixel(v: Vec3) -> Pixel {
     Pixel(
-        v.x.round() as isize + (WIDTH / 2) as isize - 1,
-        v.z.round() as isize + (HEIGHT / 2) as isize - 1,
+        v.x.round() as isize + FRAC_WIDTH_2 as isize - 1,
+        v.z.round() as isize + FRAC_HEIGHT_2 as isize - 1,
     )
 }
 
 fn normalized_to_pixel(v: Vec3) -> Pixel {
     Pixel(
-        (WIDTH / 2) as isize + ((WIDTH / 2) as f32 * v.x).round() as isize,
-        (HEIGHT / 2) as isize + ((HEIGHT / 2) as f32 * v.y).round() as isize,
+        FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * v.x).round() as isize,
+        FRAC_HEIGHT_2 as isize + (FRAC_HEIGHT_2 as f32 * v.y).round() as isize,
     )
 }
 
-fn pixel_to_frame_offset(pixel: Pixel) -> Option<usize> {
+fn pixel_to_offset(pixel: Pixel) -> Option<usize> {
     if pixel.0 >= 0 && pixel.0 < WIDTH as isize && pixel.1 >= 0 && pixel.1 < HEIGHT as isize {
         Some((pixel.1 as u32 * WIDTH * 4 + pixel.0 as u32 * 4) as usize)
     } else {
@@ -348,7 +347,7 @@ fn pixel_to_frame_offset(pixel: Pixel) -> Option<usize> {
 }
 
 fn draw_pixel(frame: &mut [u8], pixel: Pixel, color: Color) {
-    if let Some(offset) = pixel_to_frame_offset(pixel) {
+    if let Some(offset) = pixel_to_offset(pixel) {
         frame[offset..offset + 4].copy_from_slice(&[color.0, color.1, color.2, color.3]);
     }
 }
