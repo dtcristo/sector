@@ -5,7 +5,7 @@ use bevy::{
     window::{WindowMode, WindowResizeConstraints},
 };
 use bevy_pixels::prelude::*;
-use glam::{vec3, Affine2, Affine3A, Mat4, Vec2, Vec3};
+use glam::{vec3, Affine3A, Mat4, Vec3};
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
@@ -83,9 +83,9 @@ fn main() {
             height: HEIGHT,
         })
         .insert_resource(AppState {
-            view: View::Absolute2d,
+            view: View::FirstPerson2d,
             position: Position(vec3(0.0, 1.8, 0.0)),
-            velocity: Velocity(vec3(0.0, 1.8, 0.0)),
+            velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
         })
         .add_plugins(DefaultPlugins)
@@ -119,20 +119,20 @@ fn setup_system(mut commands: Commands) {
     });
 
     // commands.spawn().insert(Wall {
-    //     start_position: Position(40.0, 30.0),
-    //     end_position: Position(40.0, 80.0),
+    //     start_position: Position(vec3(40.0, 0.0, 30.0)),
+    //     end_position: Position(vec3(40.0, 0.0, 80.0)),
     //     color: Color(0x00, 0xff, 0x00, 0xff),
     // });
 
     // commands.spawn().insert(Wall {
-    //     start_position: Position(40.0, 80.0),
-    //     end_position: Position(-110.0, 80.0),
+    //     start_position: Position(vec3(40.0, 0.0, 80.0)),
+    //     end_position: Position(vec3(-110.0, 0.0, 80.0)),
     //     color: Color(0x00, 0x00, 0xff, 0xff),
     // });
 
     // commands.spawn().insert(Wall {
-    //     start_position: Position(-110.0, 80.0),
-    //     end_position: Position(-40.0, -70.0),
+    //     start_position: Position(vec3(-110.0, 0.0, 80.0)),
+    //     end_position: Position(vec3(-40.0, 0.0, -70.0)),
     //     color: Color(0xff, 0x00, 0xff, 0xff),
     // });
 }
@@ -223,7 +223,7 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
     let frame = pixels_resource.pixels.get_frame();
     match state.view {
         View::Absolute2d => {
-            let pixel = position_to_pixel(&state.position);
+            let pixel = absolute_to_pixel(state.position.0);
             let end = Pixel(
                 (pixel.0 as f32 - 5.0 * state.direction.0.sin()).round() as isize,
                 (pixel.1 as f32 - 5.0 * state.direction.0.cos()).round() as isize,
@@ -244,23 +244,13 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
     }
 }
 
-fn v_to_pixel(v: Vec3) -> Pixel {
-    Pixel(
-        (WIDTH / 2) as isize + ((WIDTH / 2) as f32 * v.x).round() as isize,
-        (HEIGHT / 2) as isize + ((HEIGHT / 2) as f32 * v.y).round() as isize,
-    )
-}
-
 fn draw_wall_system(
     mut pixels_resource: ResMut<PixelsResource>,
     query: Query<&Wall>,
     state: Res<AppState>,
 ) {
     let frame = pixels_resource.pixels.get_frame();
-    let position = Vec2::new(-state.position.0.x, -state.position.0.z);
-    let affine = Affine2::from_angle(state.direction.0) * Affine2::from_translation(position);
-
-    let affine_new = Affine3A::from_rotation_y(-state.direction.0)
+    let affine = Affine3A::from_rotation_y(-state.direction.0)
         * Affine3A::from_translation(-state.position.0);
 
     let perspective = Mat4::perspective_infinite_rh(
@@ -269,109 +259,62 @@ fn draw_wall_system(
         1.0,
     );
 
+    let view = perspective * affine;
+
     for wall in query.iter() {
         let w_start_bottom = vec3(wall.start_position.0.x, 0.0, wall.start_position.0.z);
         let w_start_top = vec3(wall.start_position.0.x, 5.0, wall.start_position.0.z);
         let w_end_bottom = vec3(wall.end_position.0.x, 0.0, wall.end_position.0.z);
         let w_end_top = vec3(wall.end_position.0.x, 5.0, wall.end_position.0.z);
 
-        let v_start_bottom =
-            perspective.project_point3(affine_new.transform_point3(w_start_bottom));
-        let v_start_top = perspective.project_point3(affine_new.transform_point3(w_start_top));
-        let v_end_bottom = perspective.project_point3(affine_new.transform_point3(w_end_bottom));
-        let v_end_top = perspective.project_point3(affine_new.transform_point3(w_end_top));
+        let v_start_bottom = view.project_point3(w_start_bottom);
+        let v_start_top = view.project_point3(w_start_top);
+        let v_end_bottom = view.project_point3(w_end_bottom);
+        let v_end_top = view.project_point3(w_end_top);
 
         draw_line(
             frame,
-            v_to_pixel(v_start_top),
-            v_to_pixel(v_end_top),
+            normalized_to_pixel(v_start_top),
+            normalized_to_pixel(v_end_top),
             wall.color,
         );
         draw_line(
             frame,
-            v_to_pixel(v_start_bottom),
-            v_to_pixel(v_end_bottom),
+            normalized_to_pixel(v_start_bottom),
+            normalized_to_pixel(v_end_bottom),
             wall.color,
         );
         draw_line(
             frame,
-            v_to_pixel(v_start_top),
-            v_to_pixel(v_start_bottom),
+            normalized_to_pixel(v_start_top),
+            normalized_to_pixel(v_start_bottom),
             wall.color,
         );
         draw_line(
             frame,
-            v_to_pixel(v_end_top),
-            v_to_pixel(v_end_bottom),
+            normalized_to_pixel(v_end_top),
+            normalized_to_pixel(v_end_bottom),
             wall.color,
         );
 
         match state.view {
             View::Absolute2d => {
-                let start_pixel = position_to_pixel(&wall.start_position);
-                let end_pixel = position_to_pixel(&wall.end_position);
+                let start_pixel = absolute_to_pixel(wall.start_position.0);
+                let end_pixel = absolute_to_pixel(wall.end_position.0);
                 draw_line(frame, start_pixel, end_pixel, wall.color);
             }
             View::FirstPerson2d => {
-                let start = affine
-                    .transform_point2(Vec2::new(wall.start_position.0.x, wall.start_position.0.z));
-                let end = affine
-                    .transform_point2(Vec2::new(wall.end_position.0.x, wall.end_position.0.z));
+                let start = affine.transform_point3(wall.start_position.0);
+                let end = affine.transform_point3(wall.end_position.0);
 
                 draw_line(
                     frame,
-                    position_to_pixel(&Position(vec3(start.x, 0.0, start.y))),
-                    position_to_pixel(&Position(vec3(end.x, 0.0, end.y))),
+                    absolute_to_pixel(start),
+                    absolute_to_pixel(end),
                     wall.color,
                 );
             }
-            View::FirstPerson3d => {
-                // tx1, tz1
-                let start = affine
-                    .transform_point2(Vec2::new(wall.start_position.0.x, wall.start_position.0.z));
-
-                // tx2, tz2
-                let end = affine
-                    .transform_point2(Vec2::new(wall.end_position.0.x, wall.end_position.0.z));
-
-                let x1 = -start.x * 64.0 / start.y;
-                let x2 = -end.x * 64.0 / end.y;
-
-                let y1a = -120.0 / start.y;
-                let y2a = -120.0 / end.y;
-
-                let y1b = 120.0 / start.y;
-                let y2b = 120.0 / end.y;
-
-                // Top (1-2 b)
-                draw_line(
-                    frame,
-                    Pixel(160 + x1 as isize, 120 + y1a as isize),
-                    Pixel(160 + x2 as isize, 120 + y2a as isize),
-                    wall.color,
-                );
-                // Bottom (1-2 b)
-                draw_line(
-                    frame,
-                    Pixel(160 + x1 as isize, 120 + y1b as isize),
-                    Pixel(160 + x2 as isize, 120 + y2b as isize),
-                    wall.color,
-                );
-                // Left
-                draw_line(
-                    frame,
-                    Pixel(160 + x1 as isize, 120 + y1a as isize),
-                    Pixel(160 + x1 as isize, 120 + y1b as isize),
-                    wall.color,
-                );
-                // Right
-                draw_line(
-                    frame,
-                    Pixel(160 + x2 as isize, 120 + y2a as isize),
-                    Pixel(160 + x2 as isize, 120 + y2b as isize),
-                    wall.color,
-                );
-            }
+            View::FirstPerson3d => {}
         }
     }
 }
@@ -382,10 +325,17 @@ fn draw_line(frame: &mut [u8], start: Pixel, end: Pixel, color: Color) {
     }
 }
 
-fn position_to_pixel(position: &Position) -> Pixel {
+fn absolute_to_pixel(v: Vec3) -> Pixel {
     Pixel(
-        position.0.x.round() as isize + (WIDTH / 2) as isize - 1,
-        position.0.z.round() as isize + (HEIGHT / 2) as isize - 1,
+        v.x.round() as isize + (WIDTH / 2) as isize - 1,
+        v.z.round() as isize + (HEIGHT / 2) as isize - 1,
+    )
+}
+
+fn normalized_to_pixel(v: Vec3) -> Pixel {
+    Pixel(
+        (WIDTH / 2) as isize + ((WIDTH / 2) as f32 * v.x).round() as isize,
+        (HEIGHT / 2) as isize + ((HEIGHT / 2) as f32 * v.y).round() as isize,
     )
 }
 
