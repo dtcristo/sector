@@ -5,7 +5,7 @@ use bevy::{
     window::{WindowMode, WindowResizeConstraints},
 };
 use bevy_pixels::prelude::*;
-use glam::{vec3, Affine3A, Mat4, Vec3};
+use glam::{vec2, vec3, Affine3A, Mat4, Vec2, Vec3};
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
@@ -15,8 +15,8 @@ const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 
 #[derive(Bundle, Debug)]
 struct Wall {
-    start_position: Position,
-    end_position: Position,
+    a_position: Position,
+    b_position: Position,
     color: Color,
 }
 
@@ -69,7 +69,7 @@ enum AppStage {
 fn main() {
     App::build()
         .insert_resource(WindowDescriptor {
-            title: "prender".to_string(),
+            title: "prber".to_string(),
             width: (4 * WIDTH) as f32,
             height: (4 * HEIGHT) as f32,
             vsync: true,
@@ -116,26 +116,26 @@ fn main() {
 
 fn setup_system(mut commands: Commands) {
     commands.spawn().insert(Wall {
-        start_position: Position(vec3(-40.0, 0.0, -100.0)),
-        end_position: Position(vec3(40.0, 0.0, -50.0)),
+        a_position: Position(vec3(-40.0, 0.0, -100.0)),
+        b_position: Position(vec3(40.0, 0.0, -50.0)),
         color: Color(0xff, 0xff, 0x00, 0xff),
     });
 
     // commands.spawn().insert(Wall {
-    //     start_position: Position(vec3(40.0, 0.0, 30.0)),
-    //     end_position: Position(vec3(40.0, 0.0, 80.0)),
+    //     a_position: Position(vec3(40.0, 0.0, 30.0)),
+    //     b_position: Position(vec3(40.0, 0.0, 80.0)),
     //     color: Color(0x00, 0xff, 0x00, 0xff),
     // });
 
     // commands.spawn().insert(Wall {
-    //     start_position: Position(vec3(40.0, 0.0, 80.0)),
-    //     end_position: Position(vec3(-110.0, 0.0, 80.0)),
+    //     a_position: Position(vec3(40.0, 0.0, 80.0)),
+    //     b_position: Position(vec3(-110.0, 0.0, 80.0)),
     //     color: Color(0x00, 0x00, 0xff, 0xff),
     // });
 
     // commands.spawn().insert(Wall {
-    //     start_position: Position(vec3(-110.0, 0.0, 80.0)),
-    //     end_position: Position(vec3(-40.0, 0.0, -70.0)),
+    //     a_position: Position(vec3(-110.0, 0.0, 80.0)),
+    //     b_position: Position(vec3(-40.0, 0.0, -70.0)),
     //     color: Color(0xff, 0x00, 0xff, 0xff),
     // });
 }
@@ -258,58 +258,64 @@ fn draw_wall_system(
 
     let perspective = Mat4::perspective_infinite_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, 1.0);
 
-    let view_perspective = perspective * view;
-
     for wall in query.iter() {
-        let w_start_bottom = vec3(wall.start_position.0.x, 0.0, wall.start_position.0.z);
-        let w_start_top = vec3(wall.start_position.0.x, 5.0, wall.start_position.0.z);
-        let w_end_bottom = vec3(wall.end_position.0.x, 0.0, wall.end_position.0.z);
-        let w_end_top = vec3(wall.end_position.0.x, 5.0, wall.end_position.0.z);
+        let w_a_bottom = vec3(wall.a_position.0.x, 0.0, wall.a_position.0.z);
+        let w_a_top = vec3(wall.a_position.0.x, 5.0, wall.a_position.0.z);
+        let w_b_bottom = vec3(wall.b_position.0.x, 0.0, wall.b_position.0.z);
+        let w_b_top = vec3(wall.b_position.0.x, 5.0, wall.b_position.0.z);
 
-        let v_start_bottom = view_perspective.project_point3(w_start_bottom);
-        let v_start_top = view_perspective.project_point3(w_start_top);
-        let v_end_bottom = view_perspective.project_point3(w_end_bottom);
-        let v_end_top = view_perspective.project_point3(w_end_top);
+        let v_a_bottom = view.transform_point3(w_a_bottom);
+        let v_a_top = view.transform_point3(w_a_top);
+        let v_b_bottom = view.transform_point3(w_b_bottom);
+        let v_b_top = view.transform_point3(w_b_top);
+
+        let p_a_bottom = perspective.project_point3(v_a_bottom);
+        let p_a_top = perspective.project_point3(v_a_top);
+        let p_b_bottom = perspective.project_point3(v_b_bottom);
+        let p_b_top = perspective.project_point3(v_b_top);
+
+        dbg!(v_a_bottom);
+        dbg!(v_b_bottom);
 
         draw_line(
             frame,
-            normalized_to_pixel(v_start_top),
-            normalized_to_pixel(v_end_top),
+            normalized_to_pixel(p_a_top),
+            normalized_to_pixel(p_b_top),
             wall.color,
         );
         draw_line(
             frame,
-            normalized_to_pixel(v_start_bottom),
-            normalized_to_pixel(v_end_bottom),
+            normalized_to_pixel(p_a_bottom),
+            normalized_to_pixel(p_b_bottom),
             wall.color,
         );
         draw_line(
             frame,
-            normalized_to_pixel(v_start_top),
-            normalized_to_pixel(v_start_bottom),
+            normalized_to_pixel(p_a_top),
+            normalized_to_pixel(p_a_bottom),
             wall.color,
         );
         draw_line(
             frame,
-            normalized_to_pixel(v_end_top),
-            normalized_to_pixel(v_end_bottom),
+            normalized_to_pixel(p_b_top),
+            normalized_to_pixel(p_b_bottom),
             wall.color,
         );
 
         match state.view {
             View::Absolute2d => {
-                let start_pixel = absolute_to_pixel(wall.start_position.0);
-                let end_pixel = absolute_to_pixel(wall.end_position.0);
-                draw_line(frame, start_pixel, end_pixel, wall.color);
+                let a_pixel = absolute_to_pixel(wall.a_position.0);
+                let b_pixel = absolute_to_pixel(wall.b_position.0);
+                draw_line(frame, a_pixel, b_pixel, wall.color);
             }
             View::FirstPerson2d => {
-                let start = view.transform_point3(wall.start_position.0);
-                let end = view.transform_point3(wall.end_position.0);
+                let a = view.transform_point3(wall.a_position.0);
+                let b = view.transform_point3(wall.b_position.0);
 
                 draw_line(
                     frame,
-                    absolute_to_pixel(start),
-                    absolute_to_pixel(end),
+                    absolute_to_pixel(a),
+                    absolute_to_pixel(b),
                     wall.color,
                 );
             }
@@ -318,8 +324,8 @@ fn draw_wall_system(
     }
 }
 
-fn draw_line(frame: &mut [u8], start: Pixel, end: Pixel, color: Color) {
-    for (x, y) in line_drawing::Bresenham::new((start.0, start.1), (end.0, end.1)) {
+fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: Color) {
+    for (x, y) in line_drawing::Bresenham::new((a.0, a.1), (b.0, b.1)) {
         draw_pixel(frame, Pixel(x, y), color);
     }
 }
