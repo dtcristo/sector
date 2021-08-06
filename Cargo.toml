@@ -9,3 +9,4 @@ bevy = { version = "0.5", default_features = false }
 bevy_pixels = "0.1"
 glam = "0.15"
 line_drawing = "0.8"
+image = "0.23"
