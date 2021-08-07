@@ -24,6 +24,12 @@ struct Wall {
 #[derive(Debug, Copy, Clone)]
 struct Pixel(isize, isize);
 
+impl Pixel {
+    fn to_tuple(self) -> (isize, isize) {
+        (self.0, self.1)
+    }
+}
+
 // Position
 // +y.---> +x
 //   |
@@ -77,7 +83,7 @@ fn main() {
 
     App::build()
         .insert_resource(WindowDescriptor {
-            title: "prender".to_string(),
+            title: "sector-n".to_string(),
             width: (4 * WIDTH) as f32,
             height: (4 * HEIGHT) as f32,
             vsync: true,
@@ -278,8 +284,6 @@ fn draw_wall_system(
 
         println!("---------------------------------------------");
         dbg!(state.position.0);
-        // dbg!(v_a_b);
-        // dbg!(v_b_b);
 
         // if v_a_b.z >= -1.0 && v_b_b.z >= -1.0 {
         //     // Wall entirely behind view plane, skip drawing
@@ -309,34 +313,6 @@ fn draw_wall_system(
         let p_b_b = perspective.project_point3(v_b_b);
         let p_b_t = perspective.project_point3(v_b_t);
 
-        // dbg!(p_a_b);
-        // dbg!(p_b_b);
-
-        draw_line(
-            frame,
-            normalized_to_pixel(p_a_t),
-            normalized_to_pixel(p_b_t),
-            wall.color,
-        );
-        draw_line(
-            frame,
-            normalized_to_pixel(p_a_b),
-            normalized_to_pixel(p_b_b),
-            wall.color,
-        );
-        draw_line(
-            frame,
-            normalized_to_pixel(p_a_t),
-            normalized_to_pixel(p_a_b),
-            wall.color,
-        );
-        draw_line(
-            frame,
-            normalized_to_pixel(p_b_t),
-            normalized_to_pixel(p_b_b),
-            wall.color,
-        );
-
         match state.view {
             View::Absolute2d => {
                 let a_pixel = absolute_to_pixel(wall.a_position.0);
@@ -358,10 +334,67 @@ fn draw_wall_system(
         }
 
         draw_image(frame, Pixel(10, 10), &state.brick);
+
+        draw_wall(
+            frame,
+            normalized_to_pixel(p_a_t),
+            normalized_to_pixel(p_a_b),
+            normalized_to_pixel(p_b_t),
+            normalized_to_pixel(p_b_b),
+            &state.brick,
+        );
     }
 }
 
-fn draw_wall(frame: &mut [u8], a_t: Pixel, a_b: Pixel, b_t: Pixel, b_b: Pixel, state: AppState) {}
+fn draw_wall(
+    frame: &mut [u8],
+    a_t: Pixel,
+    a_b: Pixel,
+    b_t: Pixel,
+    b_b: Pixel,
+    texture: &RgbaImage,
+) {
+    if a_t.0 != a_b.0 || b_t.0 != b_b.0 {
+        panic!("top of wall is not directly above bottom of wall");
+    }
+
+    let grad_t = (a_t.1 - b_t.1) as f32 / (a_t.0 - b_t.0) as f32;
+    let x_t_to_tuple = |x: isize| -> (isize, isize) {
+        let y = (grad_t * (x - a_t.0) as f32).round() as isize + a_t.1;
+        (x, y)
+    };
+    let top = (a_t.0..=b_t.0).map(x_t_to_tuple);
+
+    dbg!(grad_t);
+
+    let grad_b = (a_b.1 - b_b.1) as f32 / (a_b.0 - b_b.0) as f32;
+    let x_b_to_tuple = |x: isize| -> (isize, isize) {
+        let y = (grad_b * (x - a_b.0) as f32).round() as isize + a_b.1;
+        (x, y)
+    };
+    let bottom = (a_b.0..=b_b.0).map(x_b_to_tuple);
+
+    dbg!(grad_b);
+
+    for ((x_t, y_t), (x_b, y_b)) in top.zip(bottom) {
+        let height = y_b - y_t;
+        if x_t < 0 || x_t >= WIDTH as isize {
+            continue;
+        }
+
+        draw_line(
+            frame,
+            Pixel(x_t, y_t),
+            Pixel(x_b, y_b),
+            Color(0xff, 0x00, 0xff, 0xff),
+        );
+    }
+
+    draw_pixel(frame, a_t, Color(0x00, 0x00, 0xff, 0xff));
+    draw_pixel(frame, a_b, Color(0x00, 0x00, 0xff, 0xff));
+    draw_pixel(frame, b_t, Color(0x00, 0x00, 0xff, 0xff));
+    draw_pixel(frame, b_b, Color(0x00, 0x00, 0xff, 0xff));
+}
 
 fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
     let frame_offset = pixel_to_offset(location).unwrap();
