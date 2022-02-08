@@ -14,7 +14,7 @@ const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 
-#[derive(Bundle, Debug)]
+#[derive(Component, Bundle, Debug)]
 struct Wall {
     a_position: Position,
     b_position: Position,
@@ -35,7 +35,7 @@ impl Pixel {
 //   |
 //   v
 //   +z
-#[derive(Debug, Copy, Clone)]
+#[derive(Component, Debug, Copy, Clone)]
 struct Position(Vec3);
 
 #[derive(Debug, Copy, Clone)]
@@ -49,7 +49,7 @@ struct Velocity(Vec3);
 #[derive(Debug, Copy, Clone)]
 struct Direction(f32);
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Component, Debug, Copy, Clone)]
 struct Color(u8, u8, u8, u8);
 
 #[derive(Debug, PartialEq)]
@@ -81,7 +81,7 @@ fn main() {
         .unwrap()
         .into_rgba8();
 
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             title: "sector-n".to_string(),
             width: (4 * WIDTH) as f32,
@@ -108,11 +108,11 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(PixelsPlugin)
-        .add_startup_system(setup_system.system())
-        .add_system(mouse_capture_system.system())
-        .add_system(exit_on_escape_system.system())
-        .add_system(switch_view_system.system())
-        .add_system(player_movement_system.system())
+        .add_startup_system(setup_system)
+        .add_system(mouse_capture_system)
+        .add_system(exit_on_escape_system)
+        .add_system(switch_view_system)
+        .add_system(player_movement_system)
         .add_stage_after(
             PixelsStage::Draw,
             AppStage::DrawBackground,
@@ -123,9 +123,9 @@ fn main() {
             AppStage::DrawObjects,
             SystemStage::parallel(),
         )
-        .add_system_to_stage(PixelsStage::Draw, draw_background_system.system())
-        .add_system_to_stage(AppStage::DrawObjects, draw_player_system.system())
-        .add_system_to_stage(AppStage::DrawObjects, draw_wall_system.system())
+        .add_system_to_stage(PixelsStage::Draw, draw_background_system)
+        .add_system_to_stage(AppStage::DrawObjects, draw_player_system)
+        .add_system_to_stage(AppStage::DrawObjects, draw_wall_system)
         .run();
 }
 

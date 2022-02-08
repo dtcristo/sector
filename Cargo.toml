@@ -2,11 +2,11 @@
 name = "sector-n"
 version = "0.1.0"
 authors = ["David Cristofaro <david@dtcristo.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-bevy = { version = "0.5", default_features = false }
-bevy_pixels = "0.1"
+bevy = { version = "0.6", default_features = false }
+bevy_pixels = "0.4"
 glam = "0.15"
 line_drawing = "0.8"
 image = "0.23"
