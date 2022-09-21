@@ -68,12 +68,6 @@ pub struct AppState {
     brick: RgbaImage,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-enum AppStage {
-    DrawBackground,
-    DrawObjects,
-}
-
 fn main() {
     let brick = ImageReader::open("brick.png")
         .unwrap()
@@ -86,7 +80,7 @@ fn main() {
             title: "sector-n".to_string(),
             width: (4 * WIDTH) as f32,
             height: (4 * HEIGHT) as f32,
-            vsync: true,
+            // vsync: true,
             mode: WindowMode::Windowed,
             resize_constraints: WindowResizeConstraints {
                 min_width: WIDTH as f32,
@@ -113,19 +107,15 @@ fn main() {
         .add_system(exit_on_escape_system)
         .add_system(switch_view_system)
         .add_system(player_movement_system)
-        .add_stage_after(
-            PixelsStage::Draw,
-            AppStage::DrawBackground,
-            SystemStage::parallel(),
-        )
-        .add_stage_after(
-            AppStage::DrawBackground,
-            AppStage::DrawObjects,
-            SystemStage::parallel(),
-        )
         .add_system_to_stage(PixelsStage::Draw, draw_background_system)
-        .add_system_to_stage(AppStage::DrawObjects, draw_player_system)
-        .add_system_to_stage(AppStage::DrawObjects, draw_wall_system)
+        .add_system_to_stage(
+            PixelsStage::Draw,
+            draw_player_system.after(draw_background_system),
+        )
+        .add_system_to_stage(
+            PixelsStage::Draw,
+            draw_wall_system.after(draw_player_system),
+        )
         .run();
 }
 
@@ -233,12 +223,12 @@ fn player_movement_system(
 }
 
 fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
-    let frame = pixels_resource.pixels.get_frame();
+    let frame = pixels_resource.pixels.get_frame_mut();
     frame.copy_from_slice(&[0x00, 0x00, 0x00, 0xff].repeat(frame.len() / 4));
 }
 
 fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<AppState>) {
-    let frame = pixels_resource.pixels.get_frame();
+    let frame = pixels_resource.pixels.get_frame_mut();
     match state.view {
         View::Absolute2d => {
             let pixel = absolute_to_pixel(state.position.0);
@@ -267,7 +257,7 @@ fn draw_wall_system(
     query: Query<&Wall>,
     state: Res<AppState>,
 ) {
-    let frame = pixels_resource.pixels.get_frame();
+    let frame = pixels_resource.pixels.get_frame_mut();
     let view = Affine3A::from_rotation_y(-state.direction.0)
         * Affine3A::from_translation(-state.position.0);
 
