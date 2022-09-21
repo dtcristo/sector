@@ -77,17 +77,16 @@ fn main() {
 
     App::new()
         .insert_resource(WindowDescriptor {
-            title: "sector-n".to_string(),
+            title: "sector".to_string(),
             width: (4 * WIDTH) as f32,
             height: (4 * HEIGHT) as f32,
-            // vsync: true,
-            mode: WindowMode::Windowed,
             resize_constraints: WindowResizeConstraints {
                 min_width: WIDTH as f32,
                 min_height: HEIGHT as f32,
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            fit_canvas_to_parent: true,
+            ..default()
         })
         .insert_resource(PixelsOptions {
             width: WIDTH,
