@@ -69,11 +69,17 @@ pub struct AppState {
 }
 
 fn main() {
+    #[cfg(target_arch = "wasm32")]
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+    #[cfg(not(target_arch = "wasm32"))]
     let brick = ImageReader::open("brick.png")
         .unwrap()
         .decode()
         .unwrap()
         .into_rgba8();
+    #[cfg(target_arch = "wasm32")]
+    let brick = RgbaImage::new(64, 64);
 
     App::new()
         .insert_resource(WindowDescriptor {
