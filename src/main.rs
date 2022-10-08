@@ -3,9 +3,9 @@ use bevy::{
     input::mouse::MouseMotion,
     prelude::*,
     window::{WindowResizeConstraints},
+    math::{vec3},
 };
 use bevy_pixels::prelude::*;
-use glam::{vec3, Affine3A, Mat4, Vec3};
 use image::{io::Reader as ImageReader, RgbaImage};
 
 const WIDTH: u32 = 320;
@@ -271,9 +271,7 @@ fn draw_wall_system(
     state: Res<AppState>,
 ) {
     let frame = pixels_resource.pixels.get_frame_mut();
-    let view = Affine3A::from_rotation_y(-state.direction.0)
-        * Affine3A::from_translation(-state.position.0);
-
+    let view = Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
     let perspective = Mat4::perspective_infinite_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, 1.0);
 
     for wall in query.iter() {
@@ -368,7 +366,7 @@ fn draw_wall(
     };
     let top = (a_top.0..=b_top.0).map(x_top_to_tuple);
 
-    dbg!(grad_top);
+    // dbg!(grad_top);
 
     let grad_bottom = (a_bottom.1 - b_bottom.1) as f32 / (a_bottom.0 - b_bottom.0) as f32;
     let x_bottom_to_tuple = |x: isize| -> (isize, isize) {
@@ -377,7 +375,7 @@ fn draw_wall(
     };
     let bottom = (a_bottom.0..=b_bottom.0).map(x_bottom_to_tuple);
 
-    dbg!(grad_bottom);
+    // dbg!(grad_bottom);
 
     for ((x_top, y_top), (x_bottom, y_bottom)) in top.zip(bottom) {
         if x_top < 0 || x_top >= WIDTH as isize {

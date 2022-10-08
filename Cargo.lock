@@ -1955,7 +1955,6 @@ dependencies = [
  "bevy",
  "bevy_pixels",
  "console_error_panic_hook",
- "glam",
  "image",
  "line_drawing",
 ]
