@@ -2,7 +2,7 @@ use bevy::{
     app::AppExit,
     input::mouse::MouseMotion,
     prelude::*,
-    window::{WindowMode, WindowResizeConstraints},
+    window::{WindowResizeConstraints},
 };
 use bevy_pixels::prelude::*;
 use glam::{vec3, Affine3A, Mat4, Vec3};
@@ -16,8 +16,9 @@ const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 
 #[derive(Component, Bundle, Debug)]
 struct Wall {
-    a_position: Position,
-    b_position: Position,
+    a: Position,
+    b: Position,
+    height: Length,
     color: Color,
 }
 
@@ -30,7 +31,10 @@ impl Pixel {
     }
 }
 
-// Position
+#[derive(Component, Debug, Copy, Clone)]
+struct Length(f32);
+
+// Position (https://bevy-cheatbook.github.io/features/coords.html)
 // +y.---> +x
 //   |
 //   v
@@ -126,26 +130,30 @@ fn main() {
 
 fn setup_system(mut commands: Commands) {
     commands.spawn().insert(Wall {
-        a_position: Position(vec3(-40.0, 0.0, -100.0)),
-        b_position: Position(vec3(40.0, 0.0, -50.0)),
+        a: Position(vec3(-40.0, 0.0, -100.0)),
+        b: Position(vec3(40.0, 0.0, -50.0)),
+        height: Length(4.0),
         color: Color(0xff, 0xff, 0x00, 0xff),
     });
 
     // commands.spawn().insert(Wall {
-    //     a_position: Position(vec3(40.0, 0.0, 30.0)),
-    //     b_position: Position(vec3(40.0, 0.0, 80.0)),
+    //     a: Position(vec3(40.0, 0.0, 30.0)),
+    //     b: Position(vec3(40.0, 0.0, 80.0)),
+    //     height: Length(4.0),
     //     color: Color(0x00, 0xff, 0x00, 0xff),
     // });
 
     // commands.spawn().insert(Wall {
-    //     a_position: Position(vec3(40.0, 0.0, 80.0)),
-    //     b_position: Position(vec3(-110.0, 0.0, 80.0)),
+    //     a: Position(vec3(40.0, 0.0, 80.0)),
+    //     b: Position(vec3(-110.0, 0.0, 80.0)),
+    //     height: Length(4.0),
     //     color: Color(0x00, 0x00, 0xff, 0xff),
     // });
 
     // commands.spawn().insert(Wall {
-    //     a_position: Position(vec3(-110.0, 0.0, 80.0)),
-    //     b_position: Position(vec3(-40.0, 0.0, -70.0)),
+    //     a: Position(vec3(-110.0, 0.0, 80.0)),
+    //     b: Position(vec3(-40.0, 0.0, -70.0)),
+    //     height: Length(4.0),
     //     color: Color(0xff, 0x00, 0xff, 0xff),
     // });
 }
@@ -269,54 +277,54 @@ fn draw_wall_system(
     let perspective = Mat4::perspective_infinite_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, 1.0);
 
     for wall in query.iter() {
-        let w_a_b = vec3(wall.a_position.0.x, 0.0, wall.a_position.0.z);
-        let w_a_t = vec3(wall.a_position.0.x, 4.0, wall.a_position.0.z);
-        let w_b_b = vec3(wall.b_position.0.x, 0.0, wall.b_position.0.z);
-        let w_b_t = vec3(wall.b_position.0.x, 4.0, wall.b_position.0.z);
+        let wall_a_bottom = wall.a.0;
+        let wall_a_top = vec3(wall.a.0.x, wall.height.0, wall.a.0.z);
+        let wall_b_bottom = wall.b.0;
+        let wall_b_top = vec3(wall.b.0.x, wall.height.0, wall.b.0.z);
 
-        let mut v_a_b = view.transform_point3(w_a_b);
-        let mut v_b_b = view.transform_point3(w_b_b);
+        let mut view_a_bottom = view.transform_point3(wall_a_bottom);
+        let mut view_b_bottom = view.transform_point3(wall_b_bottom);
 
         println!("---------------------------------------------");
         dbg!(state.position.0);
 
-        // if v_a_b.z >= -1.0 && v_b_b.z >= -1.0 {
+        // if view_a_bottom.z >= -1.0 && view_b_bottom.z >= -1.0 {
         //     // Wall entirely behind view plane, skip drawing
         //     continue;
-        // } else if !(v_a_b.z < -1.0 && v_b_b.z < -1.0) {
+        // } else if !(view_a_bottom.z < -1.0 && view_b_bottom.z < -1.0) {
         //     // Wall intersects view plane
-        //     if v_a_b.z < -1.0 {
-        //         let z_ratio = (v_b_b.z / (v_a_b.z.abs() + v_b_b.z.abs())).abs();
+        //     if view_a_bottom.z < -1.0 {
+        //         let z_ratio = (view_b_bottom.z / (view_a_bottom.z.abs() + view_b_bottom.z.abs())).abs();
         //         dbg!(z_ratio);
-        //         v_b_b.x = v_b_b.x - z_ratio * (v_a_b.x - v_b_b.x);
-        //         v_b_b.z = -1.0;
+        //         view_b_bottom.x = view_b_bottom.x - z_ratio * (view_a_bottom.x - view_b_bottom.x);
+        //         view_b_bottom.z = -1.0;
         //     } else {
-        //         let z_ratio = (v_a_b.z / (v_a_b.z.abs() + v_b_b.z.abs())).abs();
+        //         let z_ratio = (view_a_bottom.z / (view_a_bottom.z.abs() + view_b_bottom.z.abs())).abs();
         //         dbg!(z_ratio);
-        //         v_a_b.x = v_a_b.x - z_ratio * (v_b_b.x - v_a_b.x);
-        //         v_a_b.z = -1.0;
+        //         view_a_bottom.x = view_a_bottom.x - z_ratio * (view_b_bottom.x - view_a_bottom.x);
+        //         view_a_bottom.z = -1.0;
         //     }
-        //     dbg!(v_a_b);
-        //     dbg!(v_b_b);
+        //     dbg!(view_a_bottom);
+        //     dbg!(view_b_bottom);
         // }
 
-        let v_a_t = view.transform_point3(w_a_t);
-        let v_b_t = view.transform_point3(w_b_t);
+        let view_a_top = view.transform_point3(wall_a_top);
+        let view_b_top = view.transform_point3(wall_b_top);
 
-        let p_a_b = perspective.project_point3(v_a_b);
-        let p_a_t = perspective.project_point3(v_a_t);
-        let p_b_b = perspective.project_point3(v_b_b);
-        let p_b_t = perspective.project_point3(v_b_t);
+        let perspective_a_bottom = perspective.project_point3(view_a_bottom);
+        let perspective_a_top = perspective.project_point3(view_a_top);
+        let perspective_b_bottom = perspective.project_point3(view_b_bottom);
+        let perspective_b_top = perspective.project_point3(view_b_top);
 
         match state.view {
             View::Absolute2d => {
-                let a_pixel = absolute_to_pixel(wall.a_position.0);
-                let b_pixel = absolute_to_pixel(wall.b_position.0);
+                let a_pixel = absolute_to_pixel(wall.a.0);
+                let b_pixel = absolute_to_pixel(wall.b.0);
                 draw_line(frame, a_pixel, b_pixel, wall.color);
             }
             View::FirstPerson2d => {
-                let a = view.transform_point3(wall.a_position.0);
-                let b = view.transform_point3(wall.b_position.0);
+                let a = view.transform_point3(wall.a.0);
+                let b = view.transform_point3(wall.b.0);
 
                 draw_line(
                     frame,
@@ -328,14 +336,14 @@ fn draw_wall_system(
             View::FirstPerson3d => {}
         }
 
-        draw_image(frame, Pixel(10, 10), &state.brick);
+        // draw_image(frame, Pixel(10, 10), &state.brick);
 
         draw_wall(
             frame,
-            normalized_to_pixel(p_a_t),
-            normalized_to_pixel(p_a_b),
-            normalized_to_pixel(p_b_t),
-            normalized_to_pixel(p_b_b),
+            normalized_to_pixel(perspective_a_top),
+            normalized_to_pixel(perspective_a_bottom),
+            normalized_to_pixel(perspective_b_top),
+            normalized_to_pixel(perspective_b_bottom),
             &state.brick,
         );
     }
@@ -343,52 +351,51 @@ fn draw_wall_system(
 
 fn draw_wall(
     frame: &mut [u8],
-    a_t: Pixel,
-    a_b: Pixel,
-    b_t: Pixel,
-    b_b: Pixel,
-    texture: &RgbaImage,
+    a_top: Pixel,
+    a_bottom: Pixel,
+    b_top: Pixel,
+    b_bottom: Pixel,
+    _texture: &RgbaImage,
 ) {
-    if a_t.0 != a_b.0 || b_t.0 != b_b.0 {
+    if a_top.0 != a_bottom.0 || b_top.0 != b_bottom.0 {
         panic!("top of wall is not directly above bottom of wall");
     }
 
-    let grad_t = (a_t.1 - b_t.1) as f32 / (a_t.0 - b_t.0) as f32;
-    let x_t_to_tuple = |x: isize| -> (isize, isize) {
-        let y = (grad_t * (x - a_t.0) as f32).round() as isize + a_t.1;
+    let grad_top = (a_top.1 - b_top.1) as f32 / (a_top.0 - b_top.0) as f32;
+    let x_top_to_tuple = |x: isize| -> (isize, isize) {
+        let y = (grad_top * (x - a_top.0) as f32).round() as isize + a_top.1;
         (x, y)
     };
-    let top = (a_t.0..=b_t.0).map(x_t_to_tuple);
+    let top = (a_top.0..=b_top.0).map(x_top_to_tuple);
 
-    dbg!(grad_t);
+    dbg!(grad_top);
 
-    let grad_b = (a_b.1 - b_b.1) as f32 / (a_b.0 - b_b.0) as f32;
-    let x_b_to_tuple = |x: isize| -> (isize, isize) {
-        let y = (grad_b * (x - a_b.0) as f32).round() as isize + a_b.1;
+    let grad_bottom = (a_bottom.1 - b_bottom.1) as f32 / (a_bottom.0 - b_bottom.0) as f32;
+    let x_bottom_to_tuple = |x: isize| -> (isize, isize) {
+        let y = (grad_bottom * (x - a_bottom.0) as f32).round() as isize + a_bottom.1;
         (x, y)
     };
-    let bottom = (a_b.0..=b_b.0).map(x_b_to_tuple);
+    let bottom = (a_bottom.0..=b_bottom.0).map(x_bottom_to_tuple);
 
-    dbg!(grad_b);
+    dbg!(grad_bottom);
 
-    for ((x_t, y_t), (x_b, y_b)) in top.zip(bottom) {
-        let height = y_b - y_t;
-        if x_t < 0 || x_t >= WIDTH as isize {
+    for ((x_top, y_top), (x_bottom, y_bottom)) in top.zip(bottom) {
+        if x_top < 0 || x_top >= WIDTH as isize {
             continue;
         }
 
         draw_line(
             frame,
-            Pixel(x_t, y_t),
-            Pixel(x_b, y_b),
+            Pixel(x_top, y_top),
+            Pixel(x_bottom, y_bottom),
             Color(0xff, 0x00, 0xff, 0xff),
         );
     }
 
-    draw_pixel(frame, a_t, Color(0x00, 0x00, 0xff, 0xff));
-    draw_pixel(frame, a_b, Color(0x00, 0x00, 0xff, 0xff));
-    draw_pixel(frame, b_t, Color(0x00, 0x00, 0xff, 0xff));
-    draw_pixel(frame, b_b, Color(0x00, 0x00, 0xff, 0xff));
+    draw_pixel(frame, a_top, Color(0x00, 0x00, 0xff, 0xff));
+    draw_pixel(frame, a_bottom, Color(0x00, 0x00, 0xff, 0xff));
+    draw_pixel(frame, b_top, Color(0x00, 0x00, 0xff, 0xff));
+    draw_pixel(frame, b_bottom, Color(0x00, 0x00, 0xff, 0xff));
 }
 
 fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
