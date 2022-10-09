@@ -158,7 +158,7 @@ fn setup_system(mut commands: Commands) {
     // });
 }
 
-fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<MouseButton>>) {
+fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<MouseButton>>, key: Res<Input<KeyCode>>) {
     let window = windows.get_primary_mut().unwrap();
 
     if mouse_button.just_pressed(MouseButton::Left) {
@@ -172,9 +172,16 @@ fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<Mo
     }
 }
 
-fn exit_on_escape_system(key: Res<Input<KeyCode>>, mut app_exit_events: EventWriter<AppExit>) {
+fn exit_on_escape_system(mut app_exit_events: EventWriter<AppExit>, mut windows: ResMut<Windows>, key: Res<Input<KeyCode>>) {
     if key.just_pressed(KeyCode::Escape) {
-        app_exit_events.send(AppExit);
+        let window = windows.get_primary_mut().unwrap();
+
+        if window.cursor_locked() {
+            window.set_cursor_lock_mode(false);
+            window.set_cursor_visibility(true);
+        } else {
+            app_exit_events.send(AppExit);
+        }
     }
 }
 
