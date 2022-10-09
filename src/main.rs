@@ -292,8 +292,8 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
         View::Absolute2d => {
             let pixel = absolute_to_pixel(state.position.0);
             let end = Pixel(
-                (pixel.0 as f32 - 5.0 * state.direction.0.sin()).round() as isize,
-                (pixel.1 as f32 - 5.0 * state.direction.0.cos()).round() as isize,
+                (pixel.0 as f32 - 5.0 * state.direction.0.sin()).floor() as isize,
+                (pixel.1 as f32 - 5.0 * state.direction.0.cos()).floor() as isize,
             );
             draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
             draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
@@ -463,15 +463,15 @@ fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: Color) {
 
 fn absolute_to_pixel(v: Vec3) -> Pixel {
     Pixel(
-        v.x.round() as isize + FRAC_WIDTH_2 as isize - 1,
-        v.z.round() as isize + FRAC_HEIGHT_2 as isize - 1,
+        v.x.floor() as isize + FRAC_WIDTH_2 as isize - 1,
+        v.z.floor() as isize + FRAC_HEIGHT_2 as isize - 1,
     )
 }
 
 fn normalized_to_pixel(v: Vec3) -> Pixel {
     Pixel(
-        FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * v.x).round() as isize,
-        FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * v.y).round() as isize,
+        FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * v.x).floor() as isize - 1,
+        FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * v.y).floor() as isize - 1,
     )
 }
 
