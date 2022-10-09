@@ -315,7 +315,13 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
             draw_line(
                 frame,
                 Pixel(159, 119),
-                Pixel(159, 114),
+                Pixel(149, 109),
+                Color(0x88, 0x88, 0x88, 0xff),
+            );
+            draw_line(
+                frame,
+                Pixel(159, 119),
+                Pixel(169, 109),
                 Color(0x88, 0x88, 0x88, 0xff),
             );
             draw_pixel(frame, Pixel(159, 119), Color(0xff, 0x00, 0x00, 0xff));
@@ -332,19 +338,41 @@ fn draw_wall_system(
 ) {
     let frame = pixels_resource.pixels.get_frame_mut();
     let time_since_startup = time.time_since_startup();
-    let view =
+    let view_matrix =
         Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
-    let perspective =
+    let perspective_matrix =
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, Z_NEAR);
 
     for wall in query.iter() {
-        let wall_a_bottom = wall.a.0;
-        let wall_a_top = vec3(wall.a.0.x, wall.height.0, wall.a.0.z);
-        let wall_b_bottom = wall.b.0;
-        let wall_b_top = vec3(wall.b.0.x, wall.height.0, wall.b.0.z);
+        println!("\n\n\n\n......");
 
-        let mut view_a_bottom = view.transform_point3(wall_a_bottom);
-        let mut view_b_bottom = view.transform_point3(wall_b_bottom);
+        let wall_a_top = vec3(wall.a.0.x, wall.height.0, wall.a.0.z);
+        let wall_a_bottom = wall.a.0;
+        let wall_b_top = vec3(wall.b.0.x, wall.height.0, wall.b.0.z);
+        let wall_b_bottom = wall.b.0;
+
+        let view_a_top = view_matrix.transform_point3(wall_a_top);
+        let view_b_top = view_matrix.transform_point3(wall_b_top);
+
+        if view_a_top.z > -Z_NEAR && view_b_top.z > -Z_NEAR {
+            // Wall entirely behind view plane, skip drawing
+            println!("skip draw wall");
+            draw_minimap_wall(frame, &state.view, wall, &view_matrix);
+            continue;
+        }
+
+        let view_a_bottom = view_matrix.transform_point3(wall_a_bottom);
+        let view_b_bottom = view_matrix.transform_point3(wall_b_bottom);
+
+        dbg!(view_a_top);
+        dbg!(view_a_bottom);
+        dbg!(view_b_top);
+        dbg!(view_b_bottom);
+
+        // if view_a_bottom.z >= -1.0 && view_b_bottom.z >= -1.0 {
+        //     // Wall entirely behind view plane, skip drawing
+        //     continue;
+        // }
 
         // if view_a_bottom.z >= -1.0 && view_b_bottom.z >= -1.0 {
         //     // Wall entirely behind view plane, skip drawing
@@ -366,47 +394,18 @@ fn draw_wall_system(
         //     dbg!(view_b_bottom);
         // }
 
-        let mut view_a_top = view.transform_point3(wall_a_top);
-        let mut view_b_top = view.transform_point3(wall_b_top);
+        // draw_image(frame, Pixel(10, 10), &state.brick);
 
-        // if view_a_top.z >= -1.0 && view_b_top.z >= -1.0 {
-        //     // Wall entirely behind view plane, skip drawing
-        //     continue;
-        // } else if !(view_a_top.z < -1.0 && view_b_top.z < -1.0) {
-        //     // Wall intersects view plane
-        //     if view_a_top.z < -1.0 {
-        //         let z_ratio = (view_b_top.z / (view_a_top.z.abs() + view_b_top.z.abs())).abs();
-        //         // dbg!(z_ratio);
-        //         view_b_top.x = view_b_top.x - z_ratio * (view_a_top.x - view_b_top.x);
-        //         view_b_top.z = -1.0;
-        //     } else {
-        //         let z_ratio = (view_a_top.z / (view_a_top.z.abs() + view_b_top.z.abs())).abs();
-        //         // dbg!(z_ratio);
-        //         view_a_top.x = view_a_top.x - z_ratio * (view_b_top.x - view_a_top.x);
-        //         view_a_top.z = -1.0;
-        //     }
-        //     // dbg!(view_a_top);
-        //     // dbg!(view_b_top);
-        // }
-
-        println!("\n\n\n\n......");
-        dbg!(view_a_top);
-        dbg!(view_a_bottom);
-        dbg!(view_b_top);
-        dbg!(view_b_bottom);
-
-        let normalized_a_top = perspective.project_point3(view_a_top);
-        let normalized_a_bottom = perspective.project_point3(view_a_bottom);
-        let normalized_b_top = perspective.project_point3(view_b_top);
-        let normalized_b_bottom = perspective.project_point3(view_b_bottom);
+        let normalized_a_top = perspective_matrix.project_point3(view_a_top);
+        let normalized_a_bottom = perspective_matrix.project_point3(view_a_bottom);
+        let normalized_b_top = perspective_matrix.project_point3(view_b_top);
+        let normalized_b_bottom = perspective_matrix.project_point3(view_b_bottom);
 
         println!("\n......");
         dbg!(normalized_a_top);
         dbg!(normalized_a_bottom);
         dbg!(normalized_b_top);
         dbg!(normalized_b_bottom);
-
-        // draw_image(frame, Pixel(10, 10), &state.brick);
 
         draw_wall(
             frame,
@@ -418,27 +417,33 @@ fn draw_wall_system(
             &state.brick,
         );
 
-        match state.view {
-            View::Absolute2d => {
-                let a_pixel = absolute_to_pixel(wall.a.0);
-                let b_pixel = absolute_to_pixel(wall.b.0);
-                draw_line(frame, a_pixel, b_pixel, wall.color);
-            }
-            View::FirstPerson2d => {
-                let a = view.transform_point3(wall.a.0);
-                let b = view.transform_point3(wall.b.0);
-
-                draw_line(
-                    frame,
-                    absolute_to_pixel(a),
-                    absolute_to_pixel(b),
-                    wall.color,
-                );
-            }
-            View::FirstPerson3d => {}
-        }
+        draw_minimap_wall(frame, &state.view, wall, &view_matrix);
     }
 }
+
+fn draw_minimap_wall(frame: &mut [u8], view: &View, wall: &Wall, view_matrix: &Mat4) {
+    match view {
+        View::Absolute2d => {
+            let a_pixel = absolute_to_pixel(wall.a.0);
+            let b_pixel = absolute_to_pixel(wall.b.0);
+            draw_line(frame, a_pixel, b_pixel, wall.color);
+        }
+        View::FirstPerson2d => {
+            let a = view_matrix.transform_point3(wall.a.0);
+            let b = view_matrix.transform_point3(wall.b.0);
+
+            draw_line(
+                frame,
+                absolute_to_pixel(a),
+                absolute_to_pixel(b),
+                wall.color,
+            );
+        }
+        View::FirstPerson3d => {}
+    }
+}
+
+fn clip_behind() {}
 
 fn draw_wall(
     frame: &mut [u8],
