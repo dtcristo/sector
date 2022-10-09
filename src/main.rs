@@ -114,7 +114,7 @@ fn main() {
         .add_plugin(PixelsPlugin)
         .add_startup_system(setup_system)
         .add_system(mouse_capture_system)
-        .add_system(exit_on_escape_system)
+        .add_system(escape_system)
         .add_system(switch_view_system)
         .add_system(player_movement_system)
         .add_system_to_stage(PixelsStage::Draw, draw_background_system)
@@ -159,21 +159,27 @@ fn setup_system(mut commands: Commands) {
     // });
 }
 
-fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<MouseButton>>, key: Res<Input<KeyCode>>) {
+fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<MouseButton>>) {
     let window = windows.get_primary_mut().unwrap();
 
-    if mouse_button.just_pressed(MouseButton::Left) {
-        window.set_cursor_lock_mode(true);
-        window.set_cursor_visibility(false);
-    }
-
-    if mouse_button.just_pressed(MouseButton::Right) {
-        window.set_cursor_lock_mode(false);
-        window.set_cursor_visibility(true);
+    if window.cursor_locked() {
+        if mouse_button.just_pressed(MouseButton::Right) {
+            window.set_cursor_lock_mode(false);
+            window.set_cursor_visibility(true);
+        }
+    } else {
+        if mouse_button.just_pressed(MouseButton::Left) {
+            window.set_cursor_lock_mode(true);
+            window.set_cursor_visibility(false);
+        }
     }
 }
 
-fn exit_on_escape_system(mut app_exit_events: EventWriter<AppExit>, mut windows: ResMut<Windows>, key: Res<Input<KeyCode>>) {
+fn escape_system(
+    mut app_exit_events: EventWriter<AppExit>,
+    mut windows: ResMut<Windows>,
+    key: Res<Input<KeyCode>>,
+) {
     if key.just_pressed(KeyCode::Escape) {
         let window = windows.get_primary_mut().unwrap();
 
