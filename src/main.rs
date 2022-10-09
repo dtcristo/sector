@@ -131,11 +131,18 @@ fn main() {
 
 fn setup_system(mut commands: Commands) {
     commands.spawn().insert(Wall {
-        a: Position(vec3(-40.0, 0.0, -100.0)),
-        b: Position(vec3(40.0, 0.0, -50.0)),
+        a: Position(vec3(-5.0, 0.0, -5.0)),
+        b: Position(vec3(5.0, 0.0, -5.0)),
         height: Length(4.0),
         color: Color(0xff, 0xff, 0x00, 0xff),
     });
+
+    // commands.spawn().insert(Wall {
+    //     a: Position(vec3(-40.0, 0.0, -100.0)),
+    //     b: Position(vec3(40.0, 0.0, -50.0)),
+    //     height: Length(4.0),
+    //     color: Color(0xff, 0xff, 0x00, 0xff),
+    // });
 
     // commands.spawn().insert(Wall {
     //     a: Position(vec3(40.0, 0.0, 30.0)),
