@@ -7,6 +7,7 @@ use bevy::{
 };
 use bevy_pixels::prelude::*;
 use image::{io::Reader as ImageReader, RgbaImage};
+use rust_bresenham::Bresenham;
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
@@ -423,7 +424,7 @@ fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
 }
 
 fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: Color) {
-    for (x, y) in line_drawing::Bresenham::new((a.0, a.1), (b.0, b.1)) {
+    for (x, y) in Bresenham::new((a.0, a.1), (b.0, b.1)) {
         draw_pixel(frame, Pixel(x, y), color);
     }
 }

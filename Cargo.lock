@@ -1392,15 +1392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "line_drawing"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d1478a313008a3e6c8149995e90a99ee9094034b5c5c3da1eeb81183cb61d1d"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "lock_api"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1922,6 +1913,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1382d1f0a252c4bf97dc20d979a2fdd05b024acd7c2ed0f7595d7817666a157"
 
 [[package]]
+name = "rust_bresenham"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cf8f9ac9cdd7a5017e68b7a004882a94480bf3b730caa0ce73227d3542e4545"
+
+[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1956,7 +1953,7 @@ dependencies = [
  "bevy_pixels",
  "console_error_panic_hook",
  "image",
- "line_drawing",
+ "rust_bresenham",
 ]
 
 [[package]]

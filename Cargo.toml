@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.8", default_features = false }
 bevy_pixels = { path = "../../bevy/bevy_pixels" }
-line_drawing = "1.0"
+rust_bresenham = "0.1"
 image = "0.24"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
