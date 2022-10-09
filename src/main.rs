@@ -233,13 +233,19 @@ fn player_movement_system(
     } else if key.pressed(KeyCode::D) {
         state.velocity.0.x = state.direction.0.cos();
         state.velocity.0.z = -state.direction.0.sin();
+    } else if key.pressed(KeyCode::Space) {
+        state.velocity.0.y = 1.0;
+    } else if key.pressed(KeyCode::LControl) {
+        state.velocity.0.y = -1.0;
     } else {
         state.velocity.0.x = 0.0;
+        state.velocity.0.y = 0.0;
         state.velocity.0.z = 0.0;
     }
 
-    state.position.0.x += state.velocity.0.x;
-    state.position.0.z += state.velocity.0.z;
+    state.position.0.x += 0.1 * state.velocity.0.x;
+    state.position.0.y += 0.1 * state.velocity.0.y;
+    state.position.0.z += 0.1 * state.velocity.0.z;
 }
 
 fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
