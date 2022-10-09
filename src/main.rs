@@ -120,11 +120,11 @@ fn main() {
         .add_system_to_stage(PixelsStage::Draw, draw_background_system)
         .add_system_to_stage(
             PixelsStage::Draw,
-            draw_player_system.after(draw_background_system),
+            draw_wall_system.after(draw_background_system),
         )
         .add_system_to_stage(
             PixelsStage::Draw,
-            draw_wall_system.after(draw_player_system),
+            draw_player_system.after(draw_wall_system),
         )
         .run();
 }
