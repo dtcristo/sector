@@ -88,8 +88,8 @@ fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "sector".to_string(),
-            width: (4 * WIDTH) as f32,
-            height: (4 * HEIGHT) as f32,
+            width: (3 * WIDTH) as f32,
+            height: (3 * HEIGHT) as f32,
             resize_constraints: WindowResizeConstraints {
                 min_width: WIDTH as f32,
                 min_height: HEIGHT as f32,
