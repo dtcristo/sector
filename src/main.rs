@@ -256,6 +256,38 @@ fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
 
 fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<AppState>) {
     let frame = pixels_resource.pixels.get_frame_mut();
+
+    // Debug lines and dots
+    // draw_line(
+    //     frame,
+    //     Pixel(0, 0),
+    //     Pixel(WIDTH as isize - 1, HEIGHT as isize - 1),
+    //     Color(0xff, 0x00, 0x00, 0xff),
+    // );
+    // draw_line(
+    //     frame,
+    //     Pixel(0, HEIGHT as isize - 1),
+    //     Pixel(WIDTH as isize - 1, 0),
+    //     Color(0xff, 0x00, 0x00, 0xff),
+    // );
+
+    // draw_pixel(frame, Pixel(0, 0), Color(0x00, 0xff, 0x00, 0xff));
+    // draw_pixel(
+    //     frame,
+    //     Pixel(WIDTH as isize - 1, 0),
+    //     Color(0x00, 0xff, 0x00, 0xff),
+    // );
+    // draw_pixel(
+    //     frame,
+    //     Pixel(0, HEIGHT as isize - 1),
+    //     Color(0x00, 0xff, 0x00, 0xff),
+    // );
+    // draw_pixel(
+    //     frame,
+    //     Pixel(WIDTH as isize - 1, HEIGHT as isize - 1),
+    //     Color(0x00, 0xff, 0x00, 0xff),
+    // );
+
     match state.view {
         View::Absolute2d => {
             let pixel = absolute_to_pixel(state.position.0);
