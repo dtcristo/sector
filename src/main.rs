@@ -7,13 +7,13 @@ use image::{io::Reader as ImageReader, RgbaImage};
 use rust_bresenham::Bresenham;
 
 const WIDTH: u32 = 320;
-const WIDTH_MINUS_2: isize = WIDTH as isize - 2;
+const WIDTH_MINUS_1: isize = WIDTH as isize - 1;
 const HEIGHT: u32 = 240;
-const HEIGHT_MINUS_2: isize = HEIGHT as isize - 2;
+const HEIGHT_MINUS_1: isize = HEIGHT as isize - 1;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
-const Z_NEAR: f32 = 1.0;
+const Z_NEAR: f32 = 0.1;
 
 #[derive(Component, Bundle, Debug)]
 struct Wall {
@@ -124,7 +124,11 @@ fn main() {
         )
         .add_system_to_stage(
             PixelsStage::Draw,
-            draw_player_system.after(draw_wall_system),
+            draw_minimap_system.after(draw_wall_system),
+        )
+        .add_system_to_stage(
+            PixelsStage::Draw,
+            draw_player_system.after(draw_minimap_system),
         )
         .run();
 }
@@ -257,9 +261,9 @@ fn player_movement_system(
         state.velocity.0.z = 0.0;
     }
 
-    state.position.0.x += 0.1 * state.velocity.0.x;
-    state.position.0.y += 0.1 * state.velocity.0.y;
-    state.position.0.z += 0.1 * state.velocity.0.z;
+    state.position.0.x += 0.05 * state.velocity.0.x;
+    state.position.0.y += 0.05 * state.velocity.0.y;
+    state.position.0.z += 0.05 * state.velocity.0.z;
 }
 
 fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
@@ -351,48 +355,37 @@ fn draw_wall_system(
         let wall_b_top = vec3(wall.b.0.x, wall.height.0, wall.b.0.z);
         let wall_b_bottom = wall.b.0;
 
-        let view_a_top = view_matrix.transform_point3(wall_a_top);
-        let view_b_top = view_matrix.transform_point3(wall_b_top);
+        let mut view_a_top = view_matrix.transform_point3(wall_a_top);
+        let mut view_b_top = view_matrix.transform_point3(wall_b_top);
+        let mut view_a_bottom = view_matrix.transform_point3(wall_a_bottom);
+        let mut view_b_bottom = view_matrix.transform_point3(wall_b_bottom);
+
+        println!("before clip");
+        dbg!(view_a_top);
+        dbg!(view_a_bottom);
+        // dbg!(view_b_top);
+        // dbg!(view_b_bottom);
 
         if view_a_top.z > -Z_NEAR && view_b_top.z > -Z_NEAR {
             // Wall entirely behind view plane, skip drawing
-            println!("skip draw wall");
-            draw_minimap_wall(frame, &state.view, wall, &view_matrix);
             continue;
+        } else if view_a_top.z > -Z_NEAR {
+            // Left side behind player
+            println!("clipping left");
+            clip_line_behind(&mut view_a_top, view_b_top);
+            clip_line_behind(&mut view_a_bottom, view_b_bottom);
+        } else if view_b_top.z > -Z_NEAR {
+            // Right side behind player
+            println!("clipping right");
+            clip_line_behind(&mut view_b_top, view_a_top);
+            clip_line_behind(&mut view_b_bottom, view_a_bottom);
         }
 
-        let view_a_bottom = view_matrix.transform_point3(wall_a_bottom);
-        let view_b_bottom = view_matrix.transform_point3(wall_b_bottom);
-
+        println!("after clip");
         dbg!(view_a_top);
         dbg!(view_a_bottom);
-        dbg!(view_b_top);
-        dbg!(view_b_bottom);
-
-        // if view_a_bottom.z >= -1.0 && view_b_bottom.z >= -1.0 {
-        //     // Wall entirely behind view plane, skip drawing
-        //     continue;
-        // }
-
-        // if view_a_bottom.z >= -1.0 && view_b_bottom.z >= -1.0 {
-        //     // Wall entirely behind view plane, skip drawing
-        //     continue;
-        // } else if !(view_a_bottom.z < -1.0 && view_b_bottom.z < -1.0) {
-        //     // Wall intersects view plane
-        //     if view_a_bottom.z < -1.0 {
-        //         let z_ratio = (view_b_bottom.z / (view_a_bottom.z.abs() + view_b_bottom.z.abs())).abs();
-        //         dbg!(z_ratio);
-        //         view_b_bottom.x = view_b_bottom.x - z_ratio * (view_a_bottom.x - view_b_bottom.x);
-        //         view_b_bottom.z = -1.0;
-        //     } else {
-        //         let z_ratio = (view_a_bottom.z / (view_a_bottom.z.abs() + view_b_bottom.z.abs())).abs();
-        //         dbg!(z_ratio);
-        //         view_a_bottom.x = view_a_bottom.x - z_ratio * (view_b_bottom.x - view_a_bottom.x);
-        //         view_a_bottom.z = -1.0;
-        //     }
-        //     dbg!(view_a_bottom);
-        //     dbg!(view_b_bottom);
-        // }
+        // dbg!(view_b_top);
+        // dbg!(view_b_bottom);
 
         // draw_image(frame, Pixel(10, 10), &state.brick);
 
@@ -404,46 +397,44 @@ fn draw_wall_system(
         println!("\n......");
         dbg!(normalized_a_top);
         dbg!(normalized_a_bottom);
-        dbg!(normalized_b_top);
-        dbg!(normalized_b_bottom);
+        // dbg!(normalized_b_top);
+        // dbg!(normalized_b_bottom);
+
+        let a_top = normalized_to_pixel(normalized_a_top);
+        let a_bottom = normalized_to_pixel(normalized_a_bottom);
+        let b_top = normalized_to_pixel(normalized_b_top);
+        let b_bottom = normalized_to_pixel(normalized_b_bottom);
+
+        println!("\n......");
+        dbg!(a_top);
+        dbg!(a_bottom);
+        // dbg!(b_top);
+        // dbg!(b_bottom);
 
         draw_wall(
             frame,
-            normalized_to_pixel(normalized_a_top),
-            normalized_to_pixel(normalized_a_bottom),
-            normalized_to_pixel(normalized_b_top),
-            normalized_to_pixel(normalized_b_bottom),
+            a_top,
+            a_bottom,
+            b_top,
+            b_bottom,
             time_since_startup,
             &state.brick,
         );
-
-        draw_minimap_wall(frame, &state.view, wall, &view_matrix);
     }
 }
 
-fn draw_minimap_wall(frame: &mut [u8], view: &View, wall: &Wall, view_matrix: &Mat4) {
-    match view {
-        View::Absolute2d => {
-            let a_pixel = absolute_to_pixel(wall.a.0);
-            let b_pixel = absolute_to_pixel(wall.b.0);
-            draw_line(frame, a_pixel, b_pixel, wall.color);
-        }
-        View::FirstPerson2d => {
-            let a = view_matrix.transform_point3(wall.a.0);
-            let b = view_matrix.transform_point3(wall.b.0);
+fn clip_line_behind(back: &mut Vec3, front: Vec3) {
+    let dx1 = front.x - back.x;
+    let mut dz1 = front.z - back.z;
+    if dz1 == 0.0 {
+        dz1 = 1.0
+    };
+    let dz2 = -Z_NEAR - back.z;
+    let dx2 = dz2 * dx1 / dz1;
 
-            draw_line(
-                frame,
-                absolute_to_pixel(a),
-                absolute_to_pixel(b),
-                wall.color,
-            );
-        }
-        View::FirstPerson3d => {}
-    }
+    back.x = back.x + dx2;
+    back.z = -Z_NEAR;
 }
-
-fn clip_behind() {}
 
 fn draw_wall(
     frame: &mut [u8],
@@ -454,12 +445,6 @@ fn draw_wall(
     time_since_startup: Duration,
     _texture: &RgbaImage,
 ) {
-    println!("\n......");
-    dbg!(a_top);
-    dbg!(a_bottom);
-    dbg!(b_top);
-    dbg!(b_bottom);
-
     if a_top.0 != a_bottom.0 || b_top.0 != b_bottom.0 {
         panic!("top of wall is not directly above bottom of wall");
     }
@@ -473,11 +458,11 @@ fn draw_wall(
     let xs = a_top.0;
 
     // Clip x
-    let x1 = if a_top.0 < 1 { 1 } else { a_top.0 };
-    let x2 = if b_top.0 >= WIDTH_MINUS_2 {
-        WIDTH_MINUS_2
-    } else {
+    let x1 = if a_top.0 > 1 { a_top.0 } else { 1 };
+    let x2 = if b_top.0 < WIDTH_MINUS_1 - 1 {
         b_top.0
+    } else {
+        WIDTH_MINUS_1 - 1
     };
 
     for x in x1..=x2 {
@@ -485,11 +470,11 @@ fn draw_wall(
         let y_bottom = dy_bottom * (x - xs) / dx + a_bottom.1;
 
         // Clip y
-        let y1 = if y_top < 1 { 1 } else { y_top };
-        let y2 = if y_bottom >= HEIGHT_MINUS_2 {
-            HEIGHT_MINUS_2
-        } else {
+        let y1 = if y_top > 1 { y_top } else { 1 };
+        let y2 = if y_bottom < HEIGHT_MINUS_1 - 1 {
             y_bottom
+        } else {
+            HEIGHT_MINUS_1 - 1
         };
 
         for y in y1..=y2 {
@@ -497,37 +482,7 @@ fn draw_wall(
         }
     }
 
-    // let grad_top = (a_top.1 - b_top.1) as f32 / (a_top.0 - b_top.0) as f32;
-    // let x_top_to_tuple = |x: isize| -> (isize, isize) {
-    //     let y = (grad_top * (x - a_top.0) as f32).floor() as isize + a_top.1;
-    //     (x, y)
-    // };
-    // let top = (a_top.0..=b_top.0).map(x_top_to_tuple);
-
-    // // dbg!(grad_top);
-
-    // let grad_bottom = (a_bottom.1 - b_bottom.1) as f32 / (a_bottom.0 - b_bottom.0) as f32;
-    // let x_bottom_to_tuple = |x: isize| -> (isize, isize) {
-    //     let y = (grad_bottom * (x - a_bottom.0) as f32).floor() as isize + a_bottom.1;
-    //     (x, y)
-    // };
-    // let bottom = (a_bottom.0..=b_bottom.0).map(x_bottom_to_tuple);
-
-    // // dbg!(grad_bottom);
-
-    // for ((x_top, y_top), (x_bottom, y_bottom)) in top.zip(bottom) {
-    //     if x_top < 0 || x_top >= WIDTH as isize {
-    //         continue;
-    //     }
-
-    //     draw_line(
-    //         frame,
-    //         Pixel(x_top, y_top),
-    //         Pixel(x_bottom, y_bottom),
-    //         Color(0xff, 0x00, 0xff, 0xff),
-    //     );
-    // }
-
+    // Draw wall outline (blinking)
     if time_since_startup.as_secs() & 1 == 1 {
         draw_line(
             frame,
@@ -562,6 +517,38 @@ fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
     }
 }
 
+fn draw_minimap_system(
+    mut pixels_resource: ResMut<PixelsResource>,
+    query: Query<&Wall>,
+    state: Res<AppState>,
+) {
+    let frame = pixels_resource.pixels.get_frame_mut();
+    let view_matrix =
+        Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
+
+    for wall in query.iter() {
+        match state.view {
+            View::Absolute2d => {
+                let a_pixel = absolute_to_pixel(wall.a.0);
+                let b_pixel = absolute_to_pixel(wall.b.0);
+                draw_line(frame, a_pixel, b_pixel, wall.color);
+            }
+            View::FirstPerson2d => {
+                let a = view_matrix.transform_point3(wall.a.0);
+                let b = view_matrix.transform_point3(wall.b.0);
+
+                draw_line(
+                    frame,
+                    absolute_to_pixel(a),
+                    absolute_to_pixel(b),
+                    wall.color,
+                );
+            }
+            View::FirstPerson3d => {}
+        }
+    }
+}
+
 fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: Color) {
     for (x, y) in Bresenham::new((a.0, a.1), (b.0, b.1)) {
         draw_pixel(frame, Pixel(x, y), color);
@@ -570,15 +557,15 @@ fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: Color) {
 
 fn absolute_to_pixel(v: Vec3) -> Pixel {
     Pixel(
-        v.x.floor() as isize + FRAC_WIDTH_2 as isize - 1,
-        v.z.floor() as isize + FRAC_HEIGHT_2 as isize - 1,
+        v.x.floor() as isize + FRAC_WIDTH_2 as isize,
+        v.z.floor() as isize + FRAC_HEIGHT_2 as isize,
     )
 }
 
 fn normalized_to_pixel(v: Vec3) -> Pixel {
     Pixel(
-        FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * v.x).floor() as isize - 1,
-        FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * v.y).floor() as isize - 1,
+        FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * v.x).floor() as isize,
+        FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * v.y).floor() as isize,
     )
 }
 
