@@ -1,9 +1,12 @@
+mod pixel;
+
 use bevy::{
-    app::AppExit, input::mouse::MouseMotion, math::vec3, prelude::*, utils::Duration,
+    app::AppExit, input::mouse::MouseMotion, math::vec3, math::Vec3, prelude::*, utils::Duration,
     window::WindowResizeConstraints,
 };
 use bevy_pixels::prelude::*;
 use image::{io::Reader as ImageReader, RgbaImage};
+use pixel::Pixel;
 use rust_bresenham::Bresenham;
 
 const WIDTH: u32 = 320;
@@ -21,15 +24,6 @@ struct Wall {
     b: Position,
     height: Length,
     color: Color,
-}
-
-#[derive(Debug, Copy, Clone)]
-struct Pixel(isize, isize);
-
-impl Pixel {
-    fn to_tuple(self) -> (isize, isize) {
-        (self.0, self.1)
-    }
 }
 
 #[derive(Component, Debug, Copy, Clone)]
@@ -277,40 +271,40 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
     // Debug lines and dots
     // draw_line(
     //     frame,
-    //     Pixel(0, 0),
-    //     Pixel(WIDTH as isize - 1, HEIGHT as isize - 1),
+    //     Pixel::new(0, 0),
+    //     Pixel::new(WIDTH as isize - 1, HEIGHT as isize - 1),
     //     Color(0xff, 0x00, 0x00, 0xff),
     // );
     // draw_line(
     //     frame,
-    //     Pixel(0, HEIGHT as isize - 1),
-    //     Pixel(WIDTH as isize - 1, 0),
+    //     Pixel::new(0, HEIGHT as isize - 1),
+    //     Pixel::new(WIDTH as isize - 1, 0),
     //     Color(0xff, 0x00, 0x00, 0xff),
     // );
 
-    // draw_pixel(frame, Pixel(0, 0), Color(0x00, 0xff, 0x00, 0xff));
+    // draw_pixel(frame, Pixel::new(0, 0), Color(0x00, 0xff, 0x00, 0xff));
     // draw_pixel(
     //     frame,
-    //     Pixel(WIDTH as isize - 1, 0),
+    //     Pixel::new(WIDTH as isize - 1, 0),
     //     Color(0x00, 0xff, 0x00, 0xff),
     // );
     // draw_pixel(
     //     frame,
-    //     Pixel(0, HEIGHT as isize - 1),
+    //     Pixel::new(0, HEIGHT as isize - 1),
     //     Color(0x00, 0xff, 0x00, 0xff),
     // );
     // draw_pixel(
     //     frame,
-    //     Pixel(WIDTH as isize - 1, HEIGHT as isize - 1),
+    //     Pixel::new(WIDTH as isize - 1, HEIGHT as isize - 1),
     //     Color(0x00, 0xff, 0x00, 0xff),
     // );
 
     match state.view {
         View::Absolute2d => {
-            let pixel = absolute_to_pixel(state.position.0);
-            let end = Pixel(
-                (pixel.0 as f32 - 5.0 * state.direction.0.sin()).floor() as isize,
-                (pixel.1 as f32 - 5.0 * state.direction.0.cos()).floor() as isize,
+            let pixel = Pixel::from_absolute(state.position.0);
+            let end = Pixel::new(
+                (pixel.x as f32 - 5.0 * state.direction.0.sin()).floor() as isize,
+                (pixel.y as f32 - 5.0 * state.direction.0.cos()).floor() as isize,
             );
             draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
             draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
@@ -318,17 +312,17 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
         View::FirstPerson2d => {
             draw_line(
                 frame,
-                Pixel(159, 119),
-                Pixel(149, 109),
+                Pixel::new(159, 119),
+                Pixel::new(149, 109),
                 Color(0x88, 0x88, 0x88, 0xff),
             );
             draw_line(
                 frame,
-                Pixel(159, 119),
-                Pixel(169, 109),
+                Pixel::new(159, 119),
+                Pixel::new(169, 109),
                 Color(0x88, 0x88, 0x88, 0xff),
             );
-            draw_pixel(frame, Pixel(159, 119), Color(0xff, 0x00, 0x00, 0xff));
+            draw_pixel(frame, Pixel::new(159, 119), Color(0xff, 0x00, 0x00, 0xff));
         }
         _ => {}
     }
@@ -387,7 +381,7 @@ fn draw_wall_system(
         // dbg!(view_b_top);
         // dbg!(view_b_bottom);
 
-        // draw_image(frame, Pixel(10, 10), &state.brick);
+        // draw_image(frame, Pixel::new(10, 10), &state.brick);
 
         let normalized_a_top = perspective_matrix.project_point3(view_a_top);
         let normalized_a_bottom = perspective_matrix.project_point3(view_a_bottom);
@@ -400,10 +394,10 @@ fn draw_wall_system(
         // dbg!(normalized_b_top);
         // dbg!(normalized_b_bottom);
 
-        let a_top = normalized_to_pixel(normalized_a_top);
-        let a_bottom = normalized_to_pixel(normalized_a_bottom);
-        let b_top = normalized_to_pixel(normalized_b_top);
-        let b_bottom = normalized_to_pixel(normalized_b_bottom);
+        let a_top = Pixel::from_normalized(normalized_a_top);
+        let a_bottom = Pixel::from_normalized(normalized_a_bottom);
+        let b_top = Pixel::from_normalized(normalized_b_top);
+        let b_bottom = Pixel::from_normalized(normalized_b_bottom);
 
         println!("\n......");
         dbg!(a_top);
@@ -445,29 +439,29 @@ fn draw_wall(
     time_since_startup: Duration,
     _texture: &RgbaImage,
 ) {
-    if a_top.0 != a_bottom.0 || b_top.0 != b_bottom.0 {
+    if a_top.x != a_bottom.x || b_top.x != b_bottom.x {
         panic!("top of wall is not directly above bottom of wall");
     }
 
-    let dy_top = b_top.1 - a_top.1;
-    let dy_bottom = b_bottom.1 - a_bottom.1;
-    let mut dx = b_top.0 - a_top.0;
+    let dy_top = b_top.y - a_top.y;
+    let dy_bottom = b_bottom.y - a_bottom.y;
+    let mut dx = b_top.x - a_top.x;
     if dx == 0 {
         dx = 1;
     }
-    let xs = a_top.0;
+    let xs = a_top.x;
 
     // Clip x
-    let x1 = if a_top.0 > 1 { a_top.0 } else { 1 };
-    let x2 = if b_top.0 < WIDTH_MINUS_1 - 1 {
-        b_top.0
+    let x1 = if a_top.x > 1 { a_top.x } else { 1 };
+    let x2 = if b_top.x < WIDTH_MINUS_1 - 1 {
+        b_top.x
     } else {
         WIDTH_MINUS_1 - 1
     };
 
     for x in x1..=x2 {
-        let y_top = dy_top * (x - xs) / dx + a_top.1;
-        let y_bottom = dy_bottom * (x - xs) / dx + a_bottom.1;
+        let y_top = dy_top * (x - xs) / dx + a_top.y;
+        let y_bottom = dy_bottom * (x - xs) / dx + a_bottom.y;
 
         // Clip y
         let y1 = if y_top > 1 { y_top } else { 1 };
@@ -478,7 +472,7 @@ fn draw_wall(
         };
 
         for y in y1..=y2 {
-            draw_pixel(frame, Pixel(x, y), Color(0xff, 0x00, 0xff, 0xff));
+            draw_pixel(frame, Pixel::new(x, y), Color(0xff, 0x00, 0xff, 0xff));
         }
     }
 
@@ -486,14 +480,14 @@ fn draw_wall(
     if time_since_startup.as_secs() & 1 == 1 {
         draw_line(
             frame,
-            Pixel(a_top.0, a_top.1),
-            Pixel(b_top.0, b_top.1),
+            Pixel::new(a_top.x, a_top.y),
+            Pixel::new(b_top.x, b_top.y),
             Color(0xff, 0x00, 0x00, 0xff),
         );
         draw_line(
             frame,
-            Pixel(a_bottom.0, a_bottom.1),
-            Pixel(b_bottom.0, b_bottom.1),
+            Pixel::new(a_bottom.x, a_bottom.y),
+            Pixel::new(b_bottom.x, b_bottom.y),
             Color(0xff, 0x00, 0x00, 0xff),
         );
 
@@ -505,7 +499,7 @@ fn draw_wall(
 }
 
 fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
-    let frame_offset = pixel_to_offset(location).unwrap();
+    let frame_offset = location.to_offset().unwrap();
     for (row_index, row) in image
         .as_raw()
         .chunks(image.dimensions().1 as usize * 4)
@@ -529,8 +523,8 @@ fn draw_minimap_system(
     for wall in query.iter() {
         match state.view {
             View::Absolute2d => {
-                let a_pixel = absolute_to_pixel(wall.a.0);
-                let b_pixel = absolute_to_pixel(wall.b.0);
+                let a_pixel = Pixel::from_absolute(wall.a.0);
+                let b_pixel = Pixel::from_absolute(wall.b.0);
                 draw_line(frame, a_pixel, b_pixel, wall.color);
             }
             View::FirstPerson2d => {
@@ -539,8 +533,8 @@ fn draw_minimap_system(
 
                 draw_line(
                     frame,
-                    absolute_to_pixel(a),
-                    absolute_to_pixel(b),
+                    Pixel::from_absolute(a),
+                    Pixel::from_absolute(b),
                     wall.color,
                 );
             }
@@ -550,35 +544,13 @@ fn draw_minimap_system(
 }
 
 fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: Color) {
-    for (x, y) in Bresenham::new((a.0, a.1), (b.0, b.1)) {
-        draw_pixel(frame, Pixel(x, y), color);
-    }
-}
-
-fn absolute_to_pixel(v: Vec3) -> Pixel {
-    Pixel(
-        v.x.floor() as isize + FRAC_WIDTH_2 as isize,
-        v.z.floor() as isize + FRAC_HEIGHT_2 as isize,
-    )
-}
-
-fn normalized_to_pixel(v: Vec3) -> Pixel {
-    Pixel(
-        FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * v.x).floor() as isize,
-        FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * v.y).floor() as isize,
-    )
-}
-
-fn pixel_to_offset(pixel: Pixel) -> Option<usize> {
-    if pixel.0 >= 0 && pixel.0 < WIDTH as isize && pixel.1 >= 0 && pixel.1 < HEIGHT as isize {
-        Some((pixel.1 as u32 * WIDTH * 4 + pixel.0 as u32 * 4) as usize)
-    } else {
-        None
+    for (x, y) in Bresenham::new(a.to_tuple(), b.to_tuple()) {
+        draw_pixel(frame, Pixel::new(x, y), color);
     }
 }
 
 fn draw_pixel(frame: &mut [u8], pixel: Pixel, color: Color) {
-    if let Some(offset) = pixel_to_offset(pixel) {
+    if let Some(offset) = pixel.to_offset() {
         frame[offset..offset + 4].copy_from_slice(&[color.0, color.1, color.2, color.3]);
     }
 }
