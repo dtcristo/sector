@@ -1,4 +1,7 @@
+mod draw;
 mod pixel;
+
+use crate::{draw::*, pixel::*};
 
 use bevy::{
     app::AppExit, input::mouse::MouseMotion, math::vec3, math::Vec3, prelude::*, utils::Duration,
@@ -6,8 +9,6 @@ use bevy::{
 };
 use bevy_pixels::prelude::*;
 use image::{io::Reader as ImageReader, RgbaImage};
-use pixel::Pixel;
-use rust_bresenham::Bresenham;
 
 const WIDTH: u32 = 320;
 const WIDTH_MINUS_1: isize = WIDTH as isize - 1;
@@ -19,15 +20,15 @@ const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const Z_NEAR: f32 = 0.1;
 
 #[derive(Component, Bundle, Debug)]
-struct Wall {
-    left: Position,
-    right: Position,
-    height: Length,
-    color: Color,
+pub struct Wall {
+    pub left: Position,
+    pub right: Position,
+    pub height: Length,
+    pub color: Color,
 }
 
 #[derive(Component, Debug, Copy, Clone)]
-struct Length(f32);
+pub struct Length(f32);
 
 // Position (https://bevy-cheatbook.github.io/features/coords.html)
 // +y.---> +x
@@ -35,10 +36,10 @@ struct Length(f32);
 //   v
 //   +z
 #[derive(Component, Debug, Copy, Clone)]
-struct Position(Vec3);
+pub struct Position(Vec3);
 
 #[derive(Debug, Copy, Clone)]
-struct Velocity(Vec3);
+pub struct Velocity(Vec3);
 
 // Direction
 //   ^   ^
@@ -46,10 +47,10 @@ struct Velocity(Vec3);
 //     \ |
 //       .
 #[derive(Debug, Copy, Clone)]
-struct Direction(f32);
+pub struct Direction(f32);
 
 #[derive(Component, Debug, Copy, Clone)]
-struct Color(u8, u8, u8, u8);
+pub struct Color(u8, u8, u8, u8);
 
 #[derive(Debug, PartialEq)]
 enum View {
@@ -430,87 +431,6 @@ fn clip_line_behind(back: &mut Vec3, front: Vec3) {
     back.z = -Z_NEAR;
 }
 
-fn draw_wall(
-    frame: &mut [u8],
-    left_top: Pixel,
-    left_bottom: Pixel,
-    right_top: Pixel,
-    right_bottom: Pixel,
-    time_since_startup: Duration,
-    _texture: &RgbaImage,
-) {
-    if left_top.x != left_bottom.x || right_top.x != right_bottom.x {
-        panic!("top of wall is not directly above bottom of wall");
-    }
-
-    let dy_top = right_top.y - left_top.y;
-    let dy_bottom = right_bottom.y - left_bottom.y;
-    let mut dx = right_top.x - left_top.x;
-    if dx == 0 {
-        dx = 1;
-    }
-    let xs = left_top.x;
-
-    // Clip x
-    let x1 = if left_top.x > 1 { left_top.x } else { 1 };
-    let x2 = if right_top.x < WIDTH_MINUS_1 - 1 {
-        right_top.x
-    } else {
-        WIDTH_MINUS_1 - 1
-    };
-
-    for x in x1..=x2 {
-        let y_top = dy_top * (x - xs) / dx + left_top.y;
-        let y_bottom = dy_bottom * (x - xs) / dx + left_bottom.y;
-
-        // Clip y
-        let y1 = if y_top > 1 { y_top } else { 1 };
-        let y2 = if y_bottom < HEIGHT_MINUS_1 - 1 {
-            y_bottom
-        } else {
-            HEIGHT_MINUS_1 - 1
-        };
-
-        for y in y1..=y2 {
-            draw_pixel(frame, Pixel::new(x, y), Color(0xff, 0x00, 0xff, 0xff));
-        }
-    }
-
-    // Draw wall outline (blinking)
-    if time_since_startup.as_secs() & 1 == 1 {
-        draw_line(
-            frame,
-            Pixel::new(left_top.x, left_top.y),
-            Pixel::new(right_top.x, right_top.y),
-            Color(0xff, 0x00, 0x00, 0xff),
-        );
-        draw_line(
-            frame,
-            Pixel::new(left_bottom.x, left_bottom.y),
-            Pixel::new(right_bottom.x, right_bottom.y),
-            Color(0xff, 0x00, 0x00, 0xff),
-        );
-
-        draw_pixel(frame, left_top, Color(0x00, 0xff, 0x00, 0xff));
-        draw_pixel(frame, left_bottom, Color(0x00, 0xff, 0x00, 0xff));
-        draw_pixel(frame, right_top, Color(0x00, 0xff, 0x00, 0xff));
-        draw_pixel(frame, right_bottom, Color(0x00, 0xff, 0x00, 0xff));
-    }
-}
-
-fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
-    let frame_offset = location.to_offset().unwrap();
-    for (row_index, row) in image
-        .as_raw()
-        .chunks(image.dimensions().1 as usize * 4)
-        .enumerate()
-    {
-        frame[frame_offset + row_index * WIDTH as usize * 4
-            ..frame_offset + row_index * WIDTH as usize * 4 + image.dimensions().1 as usize * 4]
-            .copy_from_slice(row);
-    }
-}
-
 fn draw_minimap_system(
     mut pixels_resource: ResMut<PixelsResource>,
     query: Query<&Wall>,
@@ -540,17 +460,5 @@ fn draw_minimap_system(
             }
             View::FirstPerson3d => {}
         }
-    }
-}
-
-fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: Color) {
-    for (x, y) in Bresenham::new(a.to_tuple(), b.to_tuple()) {
-        draw_pixel(frame, Pixel::new(x, y), color);
-    }
-}
-
-fn draw_pixel(frame: &mut [u8], pixel: Pixel, color: Color) {
-    if let Some(offset) = pixel.to_offset() {
-        frame[offset..offset + 4].copy_from_slice(&[color.0, color.1, color.2, color.3]);
     }
 }

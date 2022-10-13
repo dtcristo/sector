@@ -1,5 +1,4 @@
-use crate::{FRAC_HEIGHT_2, FRAC_WIDTH_2, HEIGHT, WIDTH};
-use bevy::math::Vec3;
+use crate::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Pixel {
@@ -36,5 +35,9 @@ impl Pixel {
         } else {
             None
         }
+    }
+
+    pub fn to_offset_unchecked(self) -> usize {
+        (self.y as u32 * WIDTH * 4 + self.x as u32 * 4) as usize
     }
 }
