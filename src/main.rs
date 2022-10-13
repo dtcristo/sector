@@ -356,8 +356,8 @@ fn draw_wall_system(
 
         println!("before clip");
         dbg!(view_left_top);
-        dbg!(view_left_bottom);
-        // dbg!(view_right_top);
+        // dbg!(view_left_bottom);
+        dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
         if view_left_top.z > -Z_NEAR && view_right_top.z > -Z_NEAR {
@@ -377,8 +377,8 @@ fn draw_wall_system(
 
         println!("after clip");
         dbg!(view_left_top);
-        dbg!(view_left_bottom);
-        // dbg!(view_right_top);
+        // dbg!(view_left_bottom);
+        dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
         // draw_image(frame, Pixel::new(10, 10), &state.brick);
@@ -390,8 +390,8 @@ fn draw_wall_system(
 
         println!("\n......");
         dbg!(normalized_left_top);
-        dbg!(normalized_left_bottom);
-        // dbg!(normalized_right_top);
+        // dbg!(normalized_left_bottom);
+        dbg!(normalized_right_top);
         // dbg!(normalized_right_bottom);
 
         let left_top = Pixel::from_normalized(normalized_left_top);
@@ -401,8 +401,8 @@ fn draw_wall_system(
 
         println!("\n......");
         dbg!(left_top);
-        dbg!(left_bottom);
-        // dbg!(right_top);
+        // dbg!(left_bottom);
+        dbg!(right_top);
         // dbg!(right_bottom);
 
         draw_wall(
