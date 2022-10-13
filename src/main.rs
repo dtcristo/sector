@@ -20,8 +20,8 @@ const Z_NEAR: f32 = 0.1;
 
 #[derive(Component, Bundle, Debug)]
 struct Wall {
-    a: Position,
-    b: Position,
+    left: Position,
+    right: Position,
     height: Length,
     color: Color,
 }
@@ -129,36 +129,36 @@ fn main() {
 
 fn setup_system(mut commands: Commands) {
     commands.spawn().insert(Wall {
-        a: Position(vec3(-5.0, 0.0, -5.0)),
-        b: Position(vec3(5.0, 0.0, -5.0)),
+        left: Position(vec3(-5.0, 0.0, -5.0)),
+        right: Position(vec3(5.0, 0.0, -5.0)),
         height: Length(4.0),
         color: Color(0xff, 0xff, 0x00, 0xff),
     });
 
     // commands.spawn().insert(Wall {
-    //     a: Position(vec3(-40.0, 0.0, -100.0)),
-    //     b: Position(vec3(40.0, 0.0, -50.0)),
+    //     left: Position(vec3(-40.0, 0.0, -100.0)),
+    //     right: Position(vec3(40.0, 0.0, -50.0)),
     //     height: Length(4.0),
     //     color: Color(0xff, 0xff, 0x00, 0xff),
     // });
 
     // commands.spawn().insert(Wall {
-    //     a: Position(vec3(40.0, 0.0, 30.0)),
-    //     b: Position(vec3(40.0, 0.0, 80.0)),
+    //     left: Position(vec3(40.0, 0.0, 30.0)),
+    //     right: Position(vec3(40.0, 0.0, 80.0)),
     //     height: Length(4.0),
     //     color: Color(0x00, 0xff, 0x00, 0xff),
     // });
 
     // commands.spawn().insert(Wall {
-    //     a: Position(vec3(40.0, 0.0, 80.0)),
-    //     b: Position(vec3(-110.0, 0.0, 80.0)),
+    //     left: Position(vec3(40.0, 0.0, 80.0)),
+    //     right: Position(vec3(-110.0, 0.0, 80.0)),
     //     height: Length(4.0),
     //     color: Color(0x00, 0x00, 0xff, 0xff),
     // });
 
     // commands.spawn().insert(Wall {
-    //     a: Position(vec3(-110.0, 0.0, 80.0)),
-    //     b: Position(vec3(-40.0, 0.0, -70.0)),
+    //     left: Position(vec3(-110.0, 0.0, 80.0)),
+    //     right: Position(vec3(-40.0, 0.0, -70.0)),
     //     height: Length(4.0),
     //     color: Color(0xff, 0x00, 0xff, 0xff),
     // });
@@ -344,73 +344,73 @@ fn draw_wall_system(
     for wall in query.iter() {
         println!("\n\n\n\n......");
 
-        let wall_a_top = vec3(wall.a.0.x, wall.height.0, wall.a.0.z);
-        let wall_a_bottom = wall.a.0;
-        let wall_b_top = vec3(wall.b.0.x, wall.height.0, wall.b.0.z);
-        let wall_b_bottom = wall.b.0;
+        let wall_left_top = vec3(wall.left.0.x, wall.height.0, wall.left.0.z);
+        let wall_left_bottom = wall.left.0;
+        let wall_right_top = vec3(wall.right.0.x, wall.height.0, wall.right.0.z);
+        let wall_right_bottom = wall.right.0;
 
-        let mut view_a_top = view_matrix.transform_point3(wall_a_top);
-        let mut view_b_top = view_matrix.transform_point3(wall_b_top);
-        let mut view_a_bottom = view_matrix.transform_point3(wall_a_bottom);
-        let mut view_b_bottom = view_matrix.transform_point3(wall_b_bottom);
+        let mut view_left_top = view_matrix.transform_point3(wall_left_top);
+        let mut view_left_bottom = view_matrix.transform_point3(wall_left_bottom);
+        let mut view_right_top = view_matrix.transform_point3(wall_right_top);
+        let mut view_right_bottom = view_matrix.transform_point3(wall_right_bottom);
 
         println!("before clip");
-        dbg!(view_a_top);
-        dbg!(view_a_bottom);
-        // dbg!(view_b_top);
-        // dbg!(view_b_bottom);
+        dbg!(view_left_top);
+        dbg!(view_left_bottom);
+        // dbg!(view_right_top);
+        // dbg!(view_right_bottom);
 
-        if view_a_top.z > -Z_NEAR && view_b_top.z > -Z_NEAR {
+        if view_left_top.z > -Z_NEAR && view_right_top.z > -Z_NEAR {
             // Wall entirely behind view plane, skip drawing
             continue;
-        } else if view_a_top.z > -Z_NEAR {
+        } else if view_left_top.z > -Z_NEAR {
             // Left side behind player
             println!("clipping left");
-            clip_line_behind(&mut view_a_top, view_b_top);
-            clip_line_behind(&mut view_a_bottom, view_b_bottom);
-        } else if view_b_top.z > -Z_NEAR {
+            clip_line_behind(&mut view_left_top, view_right_top);
+            clip_line_behind(&mut view_left_bottom, view_right_bottom);
+        } else if view_right_top.z > -Z_NEAR {
             // Right side behind player
             println!("clipping right");
-            clip_line_behind(&mut view_b_top, view_a_top);
-            clip_line_behind(&mut view_b_bottom, view_a_bottom);
+            clip_line_behind(&mut view_right_top, view_left_top);
+            clip_line_behind(&mut view_right_bottom, view_left_bottom);
         }
 
         println!("after clip");
-        dbg!(view_a_top);
-        dbg!(view_a_bottom);
-        // dbg!(view_b_top);
-        // dbg!(view_b_bottom);
+        dbg!(view_left_top);
+        dbg!(view_left_bottom);
+        // dbg!(view_right_top);
+        // dbg!(view_right_bottom);
 
         // draw_image(frame, Pixel::new(10, 10), &state.brick);
 
-        let normalized_a_top = perspective_matrix.project_point3(view_a_top);
-        let normalized_a_bottom = perspective_matrix.project_point3(view_a_bottom);
-        let normalized_b_top = perspective_matrix.project_point3(view_b_top);
-        let normalized_b_bottom = perspective_matrix.project_point3(view_b_bottom);
+        let normalized_left_top = perspective_matrix.project_point3(view_left_top);
+        let normalized_left_bottom = perspective_matrix.project_point3(view_left_bottom);
+        let normalized_right_top = perspective_matrix.project_point3(view_right_top);
+        let normalized_right_bottom = perspective_matrix.project_point3(view_right_bottom);
 
         println!("\n......");
-        dbg!(normalized_a_top);
-        dbg!(normalized_a_bottom);
-        // dbg!(normalized_b_top);
-        // dbg!(normalized_b_bottom);
+        dbg!(normalized_left_top);
+        dbg!(normalized_left_bottom);
+        // dbg!(normalized_right_top);
+        // dbg!(normalized_right_bottom);
 
-        let a_top = Pixel::from_normalized(normalized_a_top);
-        let a_bottom = Pixel::from_normalized(normalized_a_bottom);
-        let b_top = Pixel::from_normalized(normalized_b_top);
-        let b_bottom = Pixel::from_normalized(normalized_b_bottom);
+        let left_top = Pixel::from_normalized(normalized_left_top);
+        let left_bottom = Pixel::from_normalized(normalized_left_bottom);
+        let right_top = Pixel::from_normalized(normalized_right_top);
+        let right_bottom = Pixel::from_normalized(normalized_right_bottom);
 
         println!("\n......");
-        dbg!(a_top);
-        dbg!(a_bottom);
-        // dbg!(b_top);
-        // dbg!(b_bottom);
+        dbg!(left_top);
+        dbg!(left_bottom);
+        // dbg!(right_top);
+        // dbg!(right_bottom);
 
         draw_wall(
             frame,
-            a_top,
-            a_bottom,
-            b_top,
-            b_bottom,
+            left_top,
+            left_bottom,
+            right_top,
+            right_bottom,
             time_since_startup,
             &state.brick,
         );
@@ -432,36 +432,36 @@ fn clip_line_behind(back: &mut Vec3, front: Vec3) {
 
 fn draw_wall(
     frame: &mut [u8],
-    a_top: Pixel,
-    a_bottom: Pixel,
-    b_top: Pixel,
-    b_bottom: Pixel,
+    left_top: Pixel,
+    left_bottom: Pixel,
+    right_top: Pixel,
+    right_bottom: Pixel,
     time_since_startup: Duration,
     _texture: &RgbaImage,
 ) {
-    if a_top.x != a_bottom.x || b_top.x != b_bottom.x {
+    if left_top.x != left_bottom.x || right_top.x != right_bottom.x {
         panic!("top of wall is not directly above bottom of wall");
     }
 
-    let dy_top = b_top.y - a_top.y;
-    let dy_bottom = b_bottom.y - a_bottom.y;
-    let mut dx = b_top.x - a_top.x;
+    let dy_top = right_top.y - left_top.y;
+    let dy_bottom = right_bottom.y - left_bottom.y;
+    let mut dx = right_top.x - left_top.x;
     if dx == 0 {
         dx = 1;
     }
-    let xs = a_top.x;
+    let xs = left_top.x;
 
     // Clip x
-    let x1 = if a_top.x > 1 { a_top.x } else { 1 };
-    let x2 = if b_top.x < WIDTH_MINUS_1 - 1 {
-        b_top.x
+    let x1 = if left_top.x > 1 { left_top.x } else { 1 };
+    let x2 = if right_top.x < WIDTH_MINUS_1 - 1 {
+        right_top.x
     } else {
         WIDTH_MINUS_1 - 1
     };
 
     for x in x1..=x2 {
-        let y_top = dy_top * (x - xs) / dx + a_top.y;
-        let y_bottom = dy_bottom * (x - xs) / dx + a_bottom.y;
+        let y_top = dy_top * (x - xs) / dx + left_top.y;
+        let y_bottom = dy_bottom * (x - xs) / dx + left_bottom.y;
 
         // Clip y
         let y1 = if y_top > 1 { y_top } else { 1 };
@@ -480,21 +480,21 @@ fn draw_wall(
     if time_since_startup.as_secs() & 1 == 1 {
         draw_line(
             frame,
-            Pixel::new(a_top.x, a_top.y),
-            Pixel::new(b_top.x, b_top.y),
+            Pixel::new(left_top.x, left_top.y),
+            Pixel::new(right_top.x, right_top.y),
             Color(0xff, 0x00, 0x00, 0xff),
         );
         draw_line(
             frame,
-            Pixel::new(a_bottom.x, a_bottom.y),
-            Pixel::new(b_bottom.x, b_bottom.y),
+            Pixel::new(left_bottom.x, left_bottom.y),
+            Pixel::new(right_bottom.x, right_bottom.y),
             Color(0xff, 0x00, 0x00, 0xff),
         );
 
-        draw_pixel(frame, a_top, Color(0x00, 0xff, 0x00, 0xff));
-        draw_pixel(frame, a_bottom, Color(0x00, 0xff, 0x00, 0xff));
-        draw_pixel(frame, b_top, Color(0x00, 0xff, 0x00, 0xff));
-        draw_pixel(frame, b_bottom, Color(0x00, 0xff, 0x00, 0xff));
+        draw_pixel(frame, left_top, Color(0x00, 0xff, 0x00, 0xff));
+        draw_pixel(frame, left_bottom, Color(0x00, 0xff, 0x00, 0xff));
+        draw_pixel(frame, right_top, Color(0x00, 0xff, 0x00, 0xff));
+        draw_pixel(frame, right_bottom, Color(0x00, 0xff, 0x00, 0xff));
     }
 }
 
@@ -523,13 +523,13 @@ fn draw_minimap_system(
     for wall in query.iter() {
         match state.view {
             View::Absolute2d => {
-                let a_pixel = Pixel::from_absolute(wall.a.0);
-                let b_pixel = Pixel::from_absolute(wall.b.0);
-                draw_line(frame, a_pixel, b_pixel, wall.color);
+                let a = Pixel::from_absolute(wall.left.0);
+                let b = Pixel::from_absolute(wall.right.0);
+                draw_line(frame, a, b, wall.color);
             }
             View::FirstPerson2d => {
-                let a = view_matrix.transform_point3(wall.a.0);
-                let b = view_matrix.transform_point3(wall.b.0);
+                let a = view_matrix.transform_point3(wall.left.0);
+                let b = view_matrix.transform_point3(wall.right.0);
 
                 draw_line(
                     frame,
