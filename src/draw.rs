@@ -8,7 +8,7 @@ pub fn draw_wall(
     left_bottom: Pixel,
     right_top: Pixel,
     right_bottom: Pixel,
-    time_since_startup: Duration,
+    color: Color,
     _texture: &RgbaImage,
 ) {
     if left_top.x != left_bottom.x || right_top.x != right_bottom.x {
@@ -44,30 +44,28 @@ pub fn draw_wall(
         };
 
         for y in y1..=y2 {
-            draw_pixel_unchecked(frame, Pixel::new(x, y), Color(0xff, 0x00, 0xff, 0xff));
+            draw_pixel_unchecked(frame, Pixel::new(x, y), color);
         }
     }
 
-    // Draw wall outline (blinking)
-    if time_since_startup.as_secs() & 1 == 1 {
-        draw_line(
-            frame,
-            Pixel::new(left_top.x, left_top.y),
-            Pixel::new(right_top.x, right_top.y),
-            Color(0xff, 0x00, 0x00, 0xff),
-        );
-        draw_line(
-            frame,
-            Pixel::new(left_bottom.x, left_bottom.y),
-            Pixel::new(right_bottom.x, right_bottom.y),
-            Color(0xff, 0x00, 0x00, 0xff),
-        );
+    // Draw wall outline
+    draw_line(
+        frame,
+        Pixel::new(left_top.x, left_top.y),
+        Pixel::new(right_top.x, right_top.y),
+        Color(0xff, 0xff, 0xff, 0xff),
+    );
+    draw_line(
+        frame,
+        Pixel::new(left_bottom.x, left_bottom.y),
+        Pixel::new(right_bottom.x, right_bottom.y),
+        Color(0xff, 0xff, 0xff, 0xff),
+    );
 
-        draw_pixel(frame, left_top, Color(0x00, 0xff, 0x00, 0xff));
-        draw_pixel(frame, left_bottom, Color(0x00, 0xff, 0x00, 0xff));
-        draw_pixel(frame, right_top, Color(0x00, 0xff, 0x00, 0xff));
-        draw_pixel(frame, right_bottom, Color(0x00, 0xff, 0x00, 0xff));
-    }
+    draw_pixel(frame, left_top, Color(0x00, 0xff, 0x00, 0xff));
+    draw_pixel(frame, left_bottom, Color(0x00, 0xff, 0x00, 0xff));
+    draw_pixel(frame, right_top, Color(0x00, 0xff, 0x00, 0xff));
+    draw_pixel(frame, right_bottom, Color(0x00, 0xff, 0x00, 0xff));
 }
 
 pub fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {

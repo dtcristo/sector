@@ -4,7 +4,7 @@ mod pixel;
 use crate::{draw::*, pixel::*};
 
 use bevy::{
-    app::AppExit, input::mouse::MouseMotion, math::vec3, math::Vec3, prelude::*, utils::Duration,
+    app::AppExit, input::mouse::MouseMotion, math::vec3, math::Vec3, prelude::*,
     window::WindowResizeConstraints,
 };
 use bevy_pixels::prelude::*;
@@ -129,40 +129,40 @@ fn main() {
 }
 
 fn setup_system(mut commands: Commands) {
-    commands.spawn().insert(Wall {
-        left: Position(vec3(-5.0, 0.0, -5.0)),
-        right: Position(vec3(5.0, 0.0, -5.0)),
-        height: Length(4.0),
-        color: Color(0xff, 0xff, 0x00, 0xff),
-    });
-
     // commands.spawn().insert(Wall {
-    //     left: Position(vec3(-40.0, 0.0, -100.0)),
-    //     right: Position(vec3(40.0, 0.0, -50.0)),
+    //     left: Position(vec3(-5.0, 0.0, -5.0)),
+    //     right: Position(vec3(5.0, 0.0, -5.0)),
     //     height: Length(4.0),
     //     color: Color(0xff, 0xff, 0x00, 0xff),
     // });
 
-    // commands.spawn().insert(Wall {
-    //     left: Position(vec3(40.0, 0.0, 30.0)),
-    //     right: Position(vec3(40.0, 0.0, 80.0)),
-    //     height: Length(4.0),
-    //     color: Color(0x00, 0xff, 0x00, 0xff),
-    // });
+    commands.spawn().insert(Wall {
+        left: Position(vec3(-4.0, 0.0, -10.0)),
+        right: Position(vec3(4.0, 0.0, -5.0)),
+        height: Length(4.0),
+        color: Color(0xff, 0xff, 0x00, 0xff),
+    });
 
-    // commands.spawn().insert(Wall {
-    //     left: Position(vec3(40.0, 0.0, 80.0)),
-    //     right: Position(vec3(-110.0, 0.0, 80.0)),
-    //     height: Length(4.0),
-    //     color: Color(0x00, 0x00, 0xff, 0xff),
-    // });
+    commands.spawn().insert(Wall {
+        left: Position(vec3(4.0, 0.0, 3.0)),
+        right: Position(vec3(4.0, 0.0, 8.0)),
+        height: Length(4.0),
+        color: Color(0x00, 0xff, 0x00, 0xff),
+    });
 
-    // commands.spawn().insert(Wall {
-    //     left: Position(vec3(-110.0, 0.0, 80.0)),
-    //     right: Position(vec3(-40.0, 0.0, -70.0)),
-    //     height: Length(4.0),
-    //     color: Color(0xff, 0x00, 0xff, 0xff),
-    // });
+    commands.spawn().insert(Wall {
+        left: Position(vec3(4.0, 0.0, 8.0)),
+        right: Position(vec3(-11.0, 0.0, 8.0)),
+        height: Length(4.0),
+        color: Color(0x00, 0x00, 0xff, 0xff),
+    });
+
+    commands.spawn().insert(Wall {
+        left: Position(vec3(-11.0, 0.0, 8.0)),
+        right: Position(vec3(-4.0, 0.0, -10.0)),
+        height: Length(4.0),
+        color: Color(0xff, 0x00, 0xff, 0xff),
+    });
 }
 
 fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<MouseButton>>) {
@@ -193,6 +193,7 @@ fn escape_system(
             window.set_cursor_lock_mode(false);
             window.set_cursor_visibility(true);
         } else {
+            #[cfg(not(target_arch = "wasm32"))]
             app_exit_events.send(AppExit);
         }
     }
@@ -230,30 +231,36 @@ fn player_movement_system(
 
     if key.pressed(KeyCode::Left) || key.pressed(KeyCode::Q) {
         state.direction.0 += 0.05;
-    } else if key.pressed(KeyCode::Right) || key.pressed(KeyCode::E) {
+    }
+    if key.pressed(KeyCode::Right) || key.pressed(KeyCode::E) {
         state.direction.0 -= 0.05;
     }
 
+    state.velocity.0.x = 0.0;
+    state.velocity.0.z = 0.0;
+    state.velocity.0.y = 0.0;
+
     if key.pressed(KeyCode::Up) || key.pressed(KeyCode::W) {
-        state.velocity.0.x = -state.direction.0.sin();
-        state.velocity.0.z = -state.direction.0.cos();
-    } else if key.pressed(KeyCode::Down) || key.pressed(KeyCode::S) {
-        state.velocity.0.x = state.direction.0.sin();
-        state.velocity.0.z = state.direction.0.cos();
-    } else if key.pressed(KeyCode::A) {
-        state.velocity.0.x = -state.direction.0.cos();
-        state.velocity.0.z = state.direction.0.sin();
-    } else if key.pressed(KeyCode::D) {
-        state.velocity.0.x = state.direction.0.cos();
-        state.velocity.0.z = -state.direction.0.sin();
-    } else if key.pressed(KeyCode::Space) {
-        state.velocity.0.y = 1.0;
-    } else if key.pressed(KeyCode::LControl) {
-        state.velocity.0.y = -1.0;
-    } else {
-        state.velocity.0.x = 0.0;
-        state.velocity.0.y = 0.0;
-        state.velocity.0.z = 0.0;
+        state.velocity.0.x -= state.direction.0.sin();
+        state.velocity.0.z -= state.direction.0.cos();
+    }
+    if key.pressed(KeyCode::Down) || key.pressed(KeyCode::S) {
+        state.velocity.0.x += state.direction.0.sin();
+        state.velocity.0.z += state.direction.0.cos();
+    }
+    if key.pressed(KeyCode::A) {
+        state.velocity.0.x -= state.direction.0.cos();
+        state.velocity.0.z += state.direction.0.sin();
+    }
+    if key.pressed(KeyCode::D) {
+        state.velocity.0.x += state.direction.0.cos();
+        state.velocity.0.z -= state.direction.0.sin();
+    }
+    if key.pressed(KeyCode::Space) {
+        state.velocity.0.y += 1.0;
+    }
+    if key.pressed(KeyCode::LControl) {
+        state.velocity.0.y -= 1.0;
     }
 
     state.position.0.x += 0.05 * state.velocity.0.x;
@@ -332,11 +339,9 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
 fn draw_wall_system(
     mut pixels_resource: ResMut<PixelsResource>,
     query: Query<&Wall>,
-    time: Res<Time>,
     state: Res<AppState>,
 ) {
     let frame = pixels_resource.pixels.get_frame_mut();
-    let time_since_startup = time.time_since_startup();
     let view_matrix =
         Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
     let perspective_matrix =
@@ -412,7 +417,7 @@ fn draw_wall_system(
             left_bottom,
             right_top,
             right_bottom,
-            time_since_startup,
+            wall.color,
             &state.brick,
         );
     }
