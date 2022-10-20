@@ -8,7 +8,11 @@ use bevy::{
     window::WindowResizeConstraints,
 };
 use bevy_pixels::prelude::*;
+use bevy_render::color::Color as BevyColor;
 use image::{io::Reader as ImageReader, RgbaImage};
+
+#[macro_use]
+extern crate lazy_static;
 
 const WIDTH: u32 = 320;
 const WIDTH_MINUS_1: isize = WIDTH as isize - 1;
@@ -17,7 +21,17 @@ const HEIGHT_MINUS_1: isize = HEIGHT as isize - 1;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
-const Z_NEAR: f32 = 0.1;
+const Z_NEAR: f32 = 1.0;
+// const Z_FAR: f32 = 10.0;
+
+const LIGHTNESS_NEAR: f32 = 0.5;
+const LIGHTNESS_FAR: f32 = 0.0;
+const LIGHTNESS_RATE: f32 = 100.0;
+
+lazy_static! {
+    static ref LIGHTNESS_DIVISOR: f32 =
+        (LIGHTNESS_RATE + 1.0).log10() / (10.0f32.log10() * (LIGHTNESS_NEAR - LIGHTNESS_FAR));
+}
 
 #[derive(Component, Bundle, Debug)]
 pub struct Wall {
@@ -346,10 +360,9 @@ fn draw_wall_system(
         Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
     let perspective_matrix =
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, Z_NEAR);
+    // Mat4::perspective_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, Z_NEAR, Z_FAR);
 
     for wall in query.iter() {
-        println!("\n\n\n\n......");
-
         let wall_left_top = vec3(wall.left.0.x, wall.height.0, wall.left.0.z);
         let wall_left_bottom = wall.left.0;
         let wall_right_top = vec3(wall.right.0.x, wall.height.0, wall.right.0.z);
@@ -360,10 +373,10 @@ fn draw_wall_system(
         let mut view_right_top = view_matrix.transform_point3(wall_right_top);
         let mut view_right_bottom = view_matrix.transform_point3(wall_right_bottom);
 
-        println!("before clip");
-        dbg!(view_left_top);
+        // println!("before clip");
+        // dbg!(view_left_top);
         // dbg!(view_left_bottom);
-        dbg!(view_right_top);
+        // dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
         if view_left_top.z > -Z_NEAR && view_right_top.z > -Z_NEAR {
@@ -371,20 +384,20 @@ fn draw_wall_system(
             continue;
         } else if view_left_top.z > -Z_NEAR {
             // Left side behind player
-            println!("clipping left");
+            // println!("clipping left");
             clip_line_behind(&mut view_left_top, view_right_top);
             clip_line_behind(&mut view_left_bottom, view_right_bottom);
         } else if view_right_top.z > -Z_NEAR {
             // Right side behind player
-            println!("clipping right");
+            // println!("clipping right");
             clip_line_behind(&mut view_right_top, view_left_top);
             clip_line_behind(&mut view_right_bottom, view_left_bottom);
         }
 
-        println!("after clip");
-        dbg!(view_left_top);
+        // println!("after clip");
+        // dbg!(view_left_top);
         // dbg!(view_left_bottom);
-        dbg!(view_right_top);
+        // dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
         // draw_image(frame, Pixel::new(10, 10), &state.brick);
@@ -394,29 +407,18 @@ fn draw_wall_system(
         let normalized_right_top = perspective_matrix.project_point3(view_right_top);
         let normalized_right_bottom = perspective_matrix.project_point3(view_right_bottom);
 
-        println!("\n......");
-        dbg!(normalized_left_top);
+        // println!("\n......");
+        // dbg!(normalized_left_top);
         // dbg!(normalized_left_bottom);
-        dbg!(normalized_right_top);
+        // dbg!(normalized_right_top);
         // dbg!(normalized_right_bottom);
-
-        let left_top = Pixel::from_normalized(normalized_left_top);
-        let left_bottom = Pixel::from_normalized(normalized_left_bottom);
-        let right_top = Pixel::from_normalized(normalized_right_top);
-        let right_bottom = Pixel::from_normalized(normalized_right_bottom);
-
-        println!("\n......");
-        dbg!(left_top);
-        // dbg!(left_bottom);
-        dbg!(right_top);
-        // dbg!(right_bottom);
 
         draw_wall(
             frame,
-            left_top,
-            left_bottom,
-            right_top,
-            right_bottom,
+            normalized_left_top,
+            normalized_left_bottom,
+            normalized_right_top,
+            normalized_right_bottom,
             wall.color,
             &state.brick,
         );

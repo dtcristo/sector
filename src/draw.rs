@@ -4,13 +4,31 @@ use rust_bresenham::Bresenham;
 
 pub fn draw_wall(
     frame: &mut [u8],
-    left_top: Pixel,
-    left_bottom: Pixel,
-    right_top: Pixel,
-    right_bottom: Pixel,
+    normalized_left_top: Vec3,
+    normalized_left_bottom: Vec3,
+    normalized_right_top: Vec3,
+    normalized_right_bottom: Vec3,
     color: Color,
     _texture: &RgbaImage,
 ) {
+    let left_top = Pixel::from_normalized(normalized_left_top);
+    let left_bottom = Pixel::from_normalized(normalized_left_bottom);
+    let right_top = Pixel::from_normalized(normalized_right_top);
+    let right_bottom = Pixel::from_normalized(normalized_right_bottom);
+
+    let x_left = left_top.x;
+    let z_left = normalized_left_top.z;
+    let z_right = normalized_right_top.z;
+    let dz = z_right - z_left;
+
+    let color_hsla_raw = BevyColor::rgba_u8(color.0, color.1, color.2, color.3).as_hsla_f32();
+
+    // println!("\n......");
+    // dbg!(left_top);
+    // dbg!(left_bottom);
+    // dbg!(right_top);
+    // dbg!(right_bottom);
+
     if left_top.x != left_bottom.x || right_top.x != right_bottom.x {
         panic!("top of wall is not directly above bottom of wall");
     }
@@ -21,6 +39,7 @@ pub fn draw_wall(
     if dx == 0 {
         dx = 1;
     }
+    let dx_f32 = dx as f32;
     let xs = left_top.x;
 
     // Clip x
@@ -31,7 +50,23 @@ pub fn draw_wall(
         WIDTH_MINUS_1 - 1
     };
 
+    // dbg!(z_left);
+    // dbg!(z_right);
+    // dbg!(dz);
+    // dbg!(dx_f32);
+
     for x in x1..=x2 {
+        let progress = (x - x_left) as f32 / dx_f32;
+        let z = progress * dz + z_left;
+        let x_lightness = ((z * LIGHTNESS_RATE + 1.0).log10() / *LIGHTNESS_DIVISOR) + LIGHTNESS_FAR;
+        let x_lightness_rounded = (x_lightness * 100.0).ceil() / 100.0;
+        let x_color = BevyColor::hsla(
+            color_hsla_raw[0],
+            color_hsla_raw[1],
+            x_lightness_rounded,
+            color_hsla_raw[3],
+        );
+
         let y_top = dy_top * (x - xs) / dx + left_top.y;
         let y_bottom = dy_bottom * (x - xs) / dx + left_bottom.y;
 
@@ -44,7 +79,7 @@ pub fn draw_wall(
         };
 
         for y in y1..=y2 {
-            draw_pixel_unchecked(frame, Pixel::new(x, y), color);
+            draw_pixel_unchecked(frame, Pixel::new(x, y), x_color);
         }
     }
 
@@ -93,7 +128,7 @@ pub fn draw_pixel(frame: &mut [u8], pixel: Pixel, color: Color) {
     }
 }
 
-pub fn draw_pixel_unchecked(frame: &mut [u8], pixel: Pixel, color: Color) {
+pub fn draw_pixel_unchecked(frame: &mut [u8], pixel: Pixel, color: BevyColor) {
     let offset = pixel.to_offset_unchecked();
-    frame[offset..offset + 4].copy_from_slice(&[color.0, color.1, color.2, color.3]);
+    frame[offset..offset + 4].copy_from_slice(&color.as_rgba_u32().to_le_bytes());
 }

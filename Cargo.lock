@@ -1951,8 +1951,10 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_pixels",
+ "bevy_render",
  "console_error_panic_hook",
  "image",
+ "lazy_static",
  "rust_bresenham",
 ]
 
