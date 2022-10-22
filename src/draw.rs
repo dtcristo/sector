@@ -16,18 +16,17 @@ pub fn draw_wall(
     let right_top = Pixel::from_normalized(normalized_right_top);
     let right_bottom = Pixel::from_normalized(normalized_right_bottom);
 
+    // dbg!(left_top);
+    // dbg!(left_bottom);
+    // dbg!(right_top);
+    // dbg!(right_bottom);
+
     let x_left = left_top.x;
     let z_left = normalized_left_top.z;
     let z_right = normalized_right_top.z;
     let dz = z_right - z_left;
 
     let color_hsla_raw = BevyColor::rgba_u8(color.0, color.1, color.2, color.3).as_hsla_f32();
-
-    // println!("\n......");
-    // dbg!(left_top);
-    // dbg!(left_bottom);
-    // dbg!(right_top);
-    // dbg!(right_bottom);
 
     if left_top.x != left_bottom.x || right_top.x != right_bottom.x {
         panic!("top of wall is not directly above bottom of wall");

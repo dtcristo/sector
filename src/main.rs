@@ -4,7 +4,13 @@ mod pixel;
 use crate::{draw::*, pixel::*};
 
 use bevy::{
-    app::AppExit, input::mouse::MouseMotion, math::vec3, math::Vec3, prelude::*,
+    app::AppExit,
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    input::mouse::MouseMotion,
+    math::vec3,
+    math::Vec3,
+    prelude::*,
+    utils::Duration,
     window::WindowResizeConstraints,
 };
 use bevy_pixels::prelude::*;
@@ -80,6 +86,7 @@ pub struct AppState {
     velocity: Velocity,
     direction: Direction,
     brick: RgbaImage,
+    update_title_timer: Timer,
 }
 
 fn main() {
@@ -118,10 +125,14 @@ fn main() {
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
             brick: brick,
+            update_title_timer: Timer::new(Duration::from_millis(500), true),
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(PixelsPlugin)
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        // .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup_system)
+        .add_system(update_title_system)
         .add_system(mouse_capture_system)
         .add_system(escape_system)
         .add_system(switch_view_system)
@@ -143,13 +154,6 @@ fn main() {
 }
 
 fn setup_system(mut commands: Commands) {
-    // commands.spawn().insert(Wall {
-    //     left: Position(vec3(-5.0, 0.0, -5.0)),
-    //     right: Position(vec3(5.0, 0.0, -5.0)),
-    //     height: Length(4.0),
-    //     color: Color(0xff, 0xff, 0x00, 0xff),
-    // });
-
     commands.spawn().insert(Wall {
         left: Position(vec3(-4.0, 0.0, -10.0)),
         right: Position(vec3(4.0, 0.0, -5.0)),
@@ -158,7 +162,7 @@ fn setup_system(mut commands: Commands) {
     });
 
     commands.spawn().insert(Wall {
-        left: Position(vec3(4.0, 0.0, 3.0)),
+        left: Position(vec3(4.0, 0.0, -5.0)),
         right: Position(vec3(4.0, 0.0, 8.0)),
         height: Length(4.0),
         color: Color(0x00, 0xff, 0x00, 0xff),
@@ -177,6 +181,23 @@ fn setup_system(mut commands: Commands) {
         height: Length(4.0),
         color: Color(0xff, 0x00, 0xff, 0xff),
     });
+}
+
+fn update_title_system(
+    mut app_state: ResMut<AppState>,
+    mut windows: ResMut<Windows>,
+    time: Res<Time>,
+    diagnostics: Res<Diagnostics>,
+) {
+    if app_state.update_title_timer.tick(time.delta()).finished() {
+        let window = windows.primary_mut();
+
+        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+            if let Some(value) = fps.value() {
+                window.set_title(format!("sector: {value:.0} fps"));
+            }
+        }
+    }
 }
 
 fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<MouseButton>>) {
@@ -407,7 +428,6 @@ fn draw_wall_system(
         let normalized_right_top = perspective_matrix.project_point3(view_right_top);
         let normalized_right_bottom = perspective_matrix.project_point3(view_right_bottom);
 
-        // println!("\n......");
         // dbg!(normalized_left_top);
         // dbg!(normalized_left_bottom);
         // dbg!(normalized_right_top);
