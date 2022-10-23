@@ -5,7 +5,7 @@ build:
     cargo build --release
 
 serve: build_web
-    miniserve --index index.html wasm
+    miniserve --port 3000 --index index.html wasm
 
 build_web:
     cargo build --release --target wasm32-unknown-unknown
