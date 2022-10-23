@@ -21,9 +21,11 @@ use image::{io::Reader as ImageReader, RgbaImage};
 extern crate lazy_static;
 
 const WIDTH: u32 = 320;
-const WIDTH_MINUS_1: isize = WIDTH as isize - 1;
 const HEIGHT: u32 = 240;
-const HEIGHT_MINUS_1: isize = HEIGHT as isize - 1;
+const EDGE_GAP: isize = 1;
+const JOIN_GAP: isize = 0;
+const WIDTH_MINUS_EDGE_GAP: isize = WIDTH as isize - EDGE_GAP;
+const HEIGHT_MINUS_EDGE_GAP: isize = HEIGHT as isize - EDGE_GAP;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;

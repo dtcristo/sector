@@ -27,6 +27,8 @@ pub fn draw_wall(
     let dz = z_right - z_left;
 
     let color_hsla_raw = BevyColor::rgba_u8(color.0, color.1, color.2, color.3).as_hsla_f32();
+    let ceiling_color = BevyColor::rgba_u8(0xc4, 0xc4, 0xc4, 0xff);
+    let floor_color = BevyColor::rgba_u8(0x80, 0x80, 0x80, 0xff);
 
     if left_top.x != left_bottom.x || right_top.x != right_bottom.x {
         panic!("top of wall is not directly above bottom of wall");
@@ -42,11 +44,15 @@ pub fn draw_wall(
     let xs = left_top.x;
 
     // Clip x
-    let x1 = if left_top.x > 1 { left_top.x } else { 1 };
-    let x2 = if right_top.x < WIDTH_MINUS_1 - 1 {
+    let x1 = if left_top.x > EDGE_GAP {
+        left_top.x
+    } else {
+        EDGE_GAP
+    };
+    let x2 = if right_top.x < WIDTH_MINUS_EDGE_GAP {
         right_top.x
     } else {
-        WIDTH_MINUS_1 - 1
+        WIDTH_MINUS_EDGE_GAP
     };
 
     // dbg!(z_left);
@@ -54,7 +60,7 @@ pub fn draw_wall(
     // dbg!(dz);
     // dbg!(dx_f32);
 
-    for x in x1..=x2 {
+    for x in x1..(x2 - JOIN_GAP) {
         let progress = (x - x_left) as f32 / dx_f32;
         let z = progress * dz + z_left;
         let x_lightness = ((z * LIGHTNESS_RATE + 1.0).log10() / *LIGHTNESS_DIVISOR) + LIGHTNESS_FAR;
@@ -66,40 +72,66 @@ pub fn draw_wall(
             color_hsla_raw[3],
         );
 
-        let y_top = dy_top * (x - xs) / dx + left_top.y;
-        let y_bottom = dy_bottom * (x - xs) / dx + left_bottom.y;
+        let x_minus_xs = x - xs;
+        let y_top = dy_top * x_minus_xs / dx + left_top.y;
+        let y_bottom = dy_bottom * x_minus_xs / dx + left_bottom.y;
 
         // Clip y
-        let y1 = if y_top > 1 { y_top } else { 1 };
-        let y2 = if y_bottom < HEIGHT_MINUS_1 - 1 {
+        let y1 = if y_top > EDGE_GAP { y_top } else { EDGE_GAP };
+        let y2 = if y_bottom < HEIGHT_MINUS_EDGE_GAP {
             y_bottom
         } else {
-            HEIGHT_MINUS_1 - 1
+            HEIGHT_MINUS_EDGE_GAP
         };
 
-        for y in y1..=y2 {
+        // Ceiling
+        let mut ceiling_bottom = y1 - JOIN_GAP;
+        ceiling_bottom = if ceiling_bottom < HEIGHT_MINUS_EDGE_GAP {
+            ceiling_bottom
+        } else {
+            HEIGHT_MINUS_EDGE_GAP
+        };
+
+        for y in EDGE_GAP..ceiling_bottom {
+            draw_pixel_unchecked(frame, Pixel::new(x, y), ceiling_color);
+        }
+
+        // Wall
+        for y in y1..(y2 - JOIN_GAP) {
             draw_pixel_unchecked(frame, Pixel::new(x, y), x_color);
+        }
+
+        // Floor
+        let mut floor_top = y2;
+        floor_top = if floor_top > EDGE_GAP {
+            floor_top
+        } else {
+            EDGE_GAP
+        };
+
+        for y in floor_top..HEIGHT_MINUS_EDGE_GAP {
+            draw_pixel_unchecked(frame, Pixel::new(x, y), floor_color);
         }
     }
 
     // Draw wall outline
-    draw_line(
-        frame,
-        Pixel::new(left_top.x, left_top.y),
-        Pixel::new(right_top.x, right_top.y),
-        Color(0xff, 0xff, 0xff, 0xff),
-    );
-    draw_line(
-        frame,
-        Pixel::new(left_bottom.x, left_bottom.y),
-        Pixel::new(right_bottom.x, right_bottom.y),
-        Color(0xff, 0xff, 0xff, 0xff),
-    );
+    // draw_line(
+    //     frame,
+    //     Pixel::new(left_top.x, left_top.y),
+    //     Pixel::new(right_top.x, right_top.y),
+    //     Color(0xff, 0xff, 0xff, 0xff),
+    // );
+    // draw_line(
+    //     frame,
+    //     Pixel::new(left_bottom.x, left_bottom.y),
+    //     Pixel::new(right_bottom.x, right_bottom.y),
+    //     Color(0xff, 0xff, 0xff, 0xff),
+    // );
 
-    draw_pixel(frame, left_top, Color(0x00, 0xff, 0x00, 0xff));
-    draw_pixel(frame, left_bottom, Color(0x00, 0xff, 0x00, 0xff));
-    draw_pixel(frame, right_top, Color(0x00, 0xff, 0x00, 0xff));
-    draw_pixel(frame, right_bottom, Color(0x00, 0xff, 0x00, 0xff));
+    // draw_pixel(frame, left_top, Color(0x00, 0xff, 0x00, 0xff));
+    // draw_pixel(frame, left_bottom, Color(0x00, 0xff, 0x00, 0xff));
+    // draw_pixel(frame, right_top, Color(0x00, 0xff, 0x00, 0xff));
+    // draw_pixel(frame, right_bottom, Color(0x00, 0xff, 0x00, 0xff));
 }
 
 pub fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
