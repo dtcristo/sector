@@ -122,7 +122,7 @@ fn main() {
             height: HEIGHT,
         })
         .insert_resource(AppState {
-            view: View::FirstPerson2d,
+            view: View::FirstPerson3d,
             position: Position(vec3(0.0, 2.0, 0.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
@@ -355,19 +355,24 @@ fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<Ap
             draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
         }
         View::FirstPerson2d => {
+            let position = (FRAC_WIDTH_2 as isize - 1, FRAC_HEIGHT_2 as isize - 1);
             draw_line(
                 frame,
-                Pixel::new(159, 119),
-                Pixel::new(149, 109),
+                Pixel::new(position.0, position.1),
+                Pixel::new(position.0 - 10, position.1 - 10),
                 Color(0x88, 0x88, 0x88, 0xff),
             );
             draw_line(
                 frame,
-                Pixel::new(159, 119),
-                Pixel::new(169, 109),
+                Pixel::new(position.0, position.1),
+                Pixel::new(position.0 + 10, position.1 - 10),
                 Color(0x88, 0x88, 0x88, 0xff),
             );
-            draw_pixel(frame, Pixel::new(159, 119), Color(0xff, 0x00, 0x00, 0xff));
+            draw_pixel(
+                frame,
+                Pixel::new(position.0, position.1),
+                Color(0xff, 0x00, 0x00, 0xff),
+            );
         }
         _ => {}
     }
