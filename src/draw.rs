@@ -4,6 +4,8 @@ use rust_bresenham::Bresenham;
 
 pub fn draw_wall(
     frame: &mut [u8],
+    view_z_left: f32,
+    view_z_right: f32,
     normalized_left_top: Vec3,
     normalized_left_bottom: Vec3,
     normalized_right_top: Vec3,
@@ -22,8 +24,8 @@ pub fn draw_wall(
     // dbg!(right_bottom);
 
     let x_left = left_top.x;
-    let z_left = normalized_left_top.z;
-    let z_right = normalized_right_top.z;
+    let z_left = view_z_left;
+    let z_right = view_z_right;
     let dz = z_right - z_left;
 
     let color_hsla_raw = BevyColor::rgba_u8(color.0, color.1, color.2, color.3).as_hsla_f32();
@@ -63,8 +65,15 @@ pub fn draw_wall(
     for x in x1..(x2 - JOIN_GAP) {
         let progress = (x - x_left) as f32 / dx_f32;
         let z = progress * dz + z_left;
-        let x_lightness = ((z * LIGHTNESS_RATE + 1.0).log10() / *LIGHTNESS_DIVISOR) + LIGHTNESS_FAR;
+
+        let x_lightness = if z < Z_FAR {
+            LIGHTNESS_FAR
+        } else {
+            z * (LIGHTNESS_FAR - LIGHTNESS_NEAR) / (Z_FAR - Z_NEAR)
+                + (LIGHTNESS_NEAR * Z_FAR + LIGHTNESS_FAR * Z_NEAR) / (Z_FAR - Z_NEAR)
+        };
         let x_lightness_rounded = (x_lightness * 100.0).ceil() / 100.0;
+
         let x_color = BevyColor::hsla(
             color_hsla_raw[0],
             color_hsla_raw[1],

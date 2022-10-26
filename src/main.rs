@@ -17,8 +17,8 @@ use bevy_pixels::prelude::*;
 use bevy_render::color::Color as BevyColor;
 use image::{io::Reader as ImageReader, RgbaImage};
 
-#[macro_use]
-extern crate lazy_static;
+// #[macro_use]
+// extern crate lazy_static;
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
@@ -29,17 +29,10 @@ const HEIGHT_MINUS_EDGE_GAP: isize = HEIGHT as isize - EDGE_GAP;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
-const Z_NEAR: f32 = 1.0;
-// const Z_FAR: f32 = 10.0;
-
+const Z_NEAR: f32 = -1.0;
+const Z_FAR: f32 = -50.0;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
-const LIGHTNESS_RATE: f32 = 100.0;
-
-lazy_static! {
-    static ref LIGHTNESS_DIVISOR: f32 =
-        (LIGHTNESS_RATE + 1.0).log10() / (10.0f32.log10() * (LIGHTNESS_NEAR - LIGHTNESS_FAR));
-}
 
 #[derive(Component, Bundle, Debug)]
 pub struct Wall {
@@ -407,15 +400,15 @@ fn draw_wall_system(
         // dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
-        if view_left_top.z > -Z_NEAR && view_right_top.z > -Z_NEAR {
+        if view_left_top.z > Z_NEAR && view_right_top.z > Z_NEAR {
             // Wall entirely behind view plane, skip drawing
             continue;
-        } else if view_left_top.z > -Z_NEAR {
+        } else if view_left_top.z > Z_NEAR {
             // Left side behind player
             // println!("clipping left");
             clip_line_behind(&mut view_left_top, view_right_top);
             clip_line_behind(&mut view_left_bottom, view_right_bottom);
-        } else if view_right_top.z > -Z_NEAR {
+        } else if view_right_top.z > Z_NEAR {
             // Right side behind player
             // println!("clipping right");
             clip_line_behind(&mut view_right_top, view_left_top);
@@ -442,6 +435,8 @@ fn draw_wall_system(
 
         draw_wall(
             frame,
+            view_left_top.z,
+            view_right_top.z,
             normalized_left_top,
             normalized_left_bottom,
             normalized_right_top,
@@ -458,11 +453,11 @@ fn clip_line_behind(back: &mut Vec3, front: Vec3) {
     if dz1 == 0.0 {
         dz1 = 1.0
     };
-    let dz2 = -Z_NEAR - back.z;
+    let dz2 = Z_NEAR - back.z;
     let dx2 = dz2 * dx1 / dz1;
 
     back.x = back.x + dx2;
-    back.z = -Z_NEAR;
+    back.z = Z_NEAR;
 }
 
 fn draw_minimap_system(
