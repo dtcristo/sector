@@ -4,29 +4,33 @@ use rust_bresenham::Bresenham;
 
 pub fn draw_wall(
     frame: &mut [u8],
-    view_z_left: f32,
-    view_z_right: f32,
-    normalized_left_top: Vec3,
-    normalized_left_bottom: Vec3,
-    normalized_right_top: Vec3,
-    normalized_right_bottom: Vec3,
+    view_left_top: Vec3,
+    view_left_bottom: Vec3,
+    view_right_top: Vec3,
+    view_right_bottom: Vec3,
     color: Color,
     _texture: &RgbaImage,
 ) {
+    println!("--------");
+    let normalized_left_top = PERSPECTIVE_MATRIX.project_point3(view_left_top);
+    let normalized_left_bottom = PERSPECTIVE_MATRIX.project_point3(view_left_bottom);
+    let normalized_right_top = PERSPECTIVE_MATRIX.project_point3(view_right_top);
+    let normalized_right_bottom = PERSPECTIVE_MATRIX.project_point3(view_right_bottom);
+
+    dbg!(normalized_left_top);
+    // dbg!(normalized_left_bottom);
+    dbg!(normalized_right_top);
+    // dbg!(normalized_right_bottom);
+
     let left_top = Pixel::from_normalized(normalized_left_top);
     let left_bottom = Pixel::from_normalized(normalized_left_bottom);
     let right_top = Pixel::from_normalized(normalized_right_top);
     let right_bottom = Pixel::from_normalized(normalized_right_bottom);
 
-    // dbg!(left_top);
+    dbg!(left_top);
     // dbg!(left_bottom);
-    // dbg!(right_top);
+    dbg!(right_top);
     // dbg!(right_bottom);
-
-    let x_left = left_top.x;
-    let z_left = view_z_left;
-    let z_right = view_z_right;
-    let dz = z_right - z_left;
 
     let color_hsla_raw = BevyColor::rgba_u8(color.0, color.1, color.2, color.3).as_hsla_f32();
     let ceiling_color = BevyColor::rgba_u8(0xc4, 0xc4, 0xc4, 0xff);
@@ -57,10 +61,34 @@ pub fn draw_wall(
         WIDTH_MINUS_EDGE_GAP
     };
 
-    // dbg!(z_left);
-    // dbg!(z_right);
-    // dbg!(dz);
-    // dbg!(dx_f32);
+    let x_left = left_top.x;
+
+    let z_left = view_left_top.z;
+    let z_right = view_right_top.z;
+    let dz = z_right - z_left;
+
+    let y_top = view_left_top.y;
+    let y_bottom = view_left_bottom.y;
+    let y_middle = y_bottom + (y_top - y_bottom) / 2.0;
+
+    dbg!(x_left);
+    dbg!(dx);
+    dbg!(z_left);
+    dbg!(z_right);
+    dbg!(dz);
+    dbg!(y_middle);
+
+    let x1_progress = (x1 - x_left) as f32 / dx_f32;
+    let z_x1 = x1_progress * dz + z_left;
+    let x2_progress = (x2 - x_left) as f32 / dx_f32;
+    let z_x2 = x2_progress * dz + z_left;
+
+    dbg!(x1);
+    dbg!(x1_progress);
+    dbg!(z_x1);
+    dbg!(x2);
+    dbg!(x2_progress);
+    dbg!(z_x2);
 
     for x in x1..(x2 - JOIN_GAP) {
         let progress = (x - x_left) as f32 / dx_f32;
@@ -73,6 +101,7 @@ pub fn draw_wall(
                 + (LIGHTNESS_NEAR * Z_FAR + LIGHTNESS_FAR * Z_NEAR) / (Z_FAR - Z_NEAR)
         };
         let x_lightness_rounded = (x_lightness * 100.0).ceil() / 100.0;
+        // let x_lightness_rounded = x_lightness;
 
         let x_color = BevyColor::hsla(
             color_hsla_raw[0],
@@ -101,15 +130,6 @@ pub fn draw_wall(
             HEIGHT_MINUS_EDGE_GAP
         };
 
-        for y in EDGE_GAP..ceiling_bottom {
-            draw_pixel_unchecked(frame, Pixel::new(x, y), ceiling_color);
-        }
-
-        // Wall
-        for y in y1..(y2 - JOIN_GAP) {
-            draw_pixel_unchecked(frame, Pixel::new(x, y), x_color);
-        }
-
         // Floor
         let mut floor_top = y2;
         floor_top = if floor_top > EDGE_GAP {
@@ -118,9 +138,9 @@ pub fn draw_wall(
             EDGE_GAP
         };
 
-        for y in floor_top..HEIGHT_MINUS_EDGE_GAP {
-            draw_pixel_unchecked(frame, Pixel::new(x, y), floor_color);
-        }
+        draw_vertical_line(frame, x, EDGE_GAP, ceiling_bottom, ceiling_color);
+        draw_vertical_line(frame, x, y1, y2 - JOIN_GAP, x_color);
+        draw_vertical_line(frame, x, floor_top, HEIGHT_MINUS_EDGE_GAP, floor_color);
     }
 
     // Draw wall outline
@@ -141,6 +161,18 @@ pub fn draw_wall(
     // draw_pixel(frame, left_bottom, Color(0x00, 0xff, 0x00, 0xff));
     // draw_pixel(frame, right_top, Color(0x00, 0xff, 0x00, 0xff));
     // draw_pixel(frame, right_bottom, Color(0x00, 0xff, 0x00, 0xff));
+}
+
+pub fn draw_vertical_line(
+    frame: &mut [u8],
+    x: isize,
+    y_top: isize,
+    y_bottom: isize,
+    color: BevyColor,
+) {
+    for y in y_top..y_bottom {
+        draw_pixel_unchecked(frame, Pixel::new(x, y), color);
+    }
 }
 
 pub fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {

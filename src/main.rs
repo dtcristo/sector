@@ -15,24 +15,29 @@ use bevy::{
 };
 use bevy_pixels::prelude::*;
 use bevy_render::color::Color as BevyColor;
-use image::{io::Reader as ImageReader, RgbaImage};
+use image::RgbaImage;
 
-// #[macro_use]
-// extern crate lazy_static;
+#[macro_use]
+extern crate lazy_static;
 
-const WIDTH: u32 = 320;
+const WIDTH: u32 = 240;
 const HEIGHT: u32 = 240;
 const EDGE_GAP: isize = 1;
-const JOIN_GAP: isize = 0;
+const JOIN_GAP: isize = 1;
 const WIDTH_MINUS_EDGE_GAP: isize = WIDTH as isize - EDGE_GAP;
 const HEIGHT_MINUS_EDGE_GAP: isize = HEIGHT as isize - EDGE_GAP;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
-const Z_NEAR: f32 = -1.0;
+const Z_NEAR: f32 = -0.1;
 const Z_FAR: f32 = -50.0;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
+
+lazy_static! {
+    static ref PERSPECTIVE_MATRIX: Mat4 = Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, -Z_NEAR);
+    // static ref PERSPECTIVE_MATRIX: Mat4 = Mat4::perspective_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, Z_NEAR, Z_FAR);
+}
 
 #[derive(Component, Bundle, Debug)]
 pub struct Wall {
@@ -84,17 +89,55 @@ pub struct AppState {
     update_title_timer: Timer,
 }
 
+pub fn intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Vec2 {
+    let a_perp_dot = a1.perp_dot(a2);
+    let b_perp_dot = b1.perp_dot(b2);
+
+    let mut divisor = Vec2 {
+        x: a1.x - a2.x,
+        y: a1.y - a2.y,
+    }
+    .perp_dot(Vec2 {
+        x: b1.x - b2.x,
+        y: b1.y - b2.y,
+    });
+    if divisor == 0.0 {
+        divisor = 1.0
+    };
+
+    Vec2 {
+        x: Vec2 {
+            x: a_perp_dot,
+            y: a1.x - a2.x,
+        }
+        .perp_dot(Vec2 {
+            x: b_perp_dot,
+            y: b1.x - b2.x,
+        }) / divisor,
+        y: Vec2 {
+            x: a_perp_dot,
+            y: a1.y - a2.y,
+        }
+        .perp_dot(Vec2 {
+            x: b_perp_dot,
+            y: b1.y - b2.y,
+        }) / divisor,
+    }
+}
+
 fn main() {
     #[cfg(target_arch = "wasm32")]
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-    #[cfg(not(target_arch = "wasm32"))]
-    let brick = ImageReader::open("brick.png")
-        .unwrap()
-        .decode()
-        .unwrap()
-        .into_rgba8();
-    #[cfg(target_arch = "wasm32")]
+    // #[cfg(not(target_arch = "wasm32"))]
+    // let brick = ImageReader::open("brick.png")
+    //     .unwrap()
+    //     .decode()
+    //     .unwrap()
+    //     .into_rgba8();
+    // #[cfg(target_arch = "wasm32")]
+    // let brick = RgbaImage::new(64, 64);
+
     let brick = RgbaImage::new(64, 64);
 
     App::new()
@@ -379,9 +422,8 @@ fn draw_wall_system(
     let frame = pixels_resource.pixels.get_frame_mut();
     let view_matrix =
         Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
-    let perspective_matrix =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, Z_NEAR);
-    // Mat4::perspective_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, Z_NEAR, Z_FAR);
+
+    println!("\n\n...................");
 
     for wall in query.iter() {
         let wall_left_top = vec3(wall.left.0.x, wall.height.0, wall.left.0.z);
@@ -423,24 +465,12 @@ fn draw_wall_system(
 
         // draw_image(frame, Pixel::new(10, 10), &state.brick);
 
-        let normalized_left_top = perspective_matrix.project_point3(view_left_top);
-        let normalized_left_bottom = perspective_matrix.project_point3(view_left_bottom);
-        let normalized_right_top = perspective_matrix.project_point3(view_right_top);
-        let normalized_right_bottom = perspective_matrix.project_point3(view_right_bottom);
-
-        // dbg!(normalized_left_top);
-        // dbg!(normalized_left_bottom);
-        // dbg!(normalized_right_top);
-        // dbg!(normalized_right_bottom);
-
         draw_wall(
             frame,
-            view_left_top.z,
-            view_right_top.z,
-            normalized_left_top,
-            normalized_left_bottom,
-            normalized_right_top,
-            normalized_right_bottom,
+            view_left_top,
+            view_left_bottom,
+            view_right_top,
+            view_right_bottom,
             wall.color,
             &state.brick,
         );
