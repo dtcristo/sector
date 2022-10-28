@@ -20,7 +20,7 @@ use image::RgbaImage;
 #[macro_use]
 extern crate lazy_static;
 
-const WIDTH: u32 = 240;
+const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
 const EDGE_GAP: isize = 1;
 const JOIN_GAP: isize = 1;
@@ -29,14 +29,16 @@ const HEIGHT_MINUS_EDGE_GAP: isize = HEIGHT as isize - EDGE_GAP;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
+const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
 const Z_NEAR: f32 = -0.1;
 const Z_FAR: f32 = -50.0;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
 
 lazy_static! {
-    static ref PERSPECTIVE_MATRIX: Mat4 = Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, -Z_NEAR);
-    // static ref PERSPECTIVE_MATRIX: Mat4 = Mat4::perspective_rh(std::f32::consts::FRAC_PI_2, ASPECT_RATIO, Z_NEAR, Z_FAR);
+    static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
+    static ref PERSPECTIVE_MATRIX: Mat4 = Mat4::perspective_infinite_reverse_rh(*FOV_Y_RADIANS, ASPECT_RATIO, -Z_NEAR);
+    // static ref PERSPECTIVE_MATRIX: Mat4 = Mat4::perspective_rh(*FOV_Y_RADIANS, ASPECT_RATIO, -Z_NEAR, -Z_FAR);
 }
 
 #[derive(Component, Bundle, Debug)]
