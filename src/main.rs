@@ -23,7 +23,7 @@ extern crate lazy_static;
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
 const EDGE_GAP: isize = 1;
-const JOIN_GAP: isize = 1;
+const JOIN_GAP: isize = 0;
 const WIDTH_MINUS_EDGE_GAP: isize = WIDTH as isize - EDGE_GAP;
 const HEIGHT_MINUS_EDGE_GAP: isize = HEIGHT as isize - EDGE_GAP;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
@@ -32,13 +32,24 @@ const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
 const Z_NEAR: f32 = -0.1;
 const Z_FAR: f32 = -50.0;
+const LIGHTNESS_DISTANCE_NEAR: f32 = -Z_NEAR;
+const LIGHTNESS_DISTANCE_FAR: f32 = -Z_FAR;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
 
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
-    static ref PERSPECTIVE_MATRIX: Mat4 = Mat4::perspective_infinite_reverse_rh(*FOV_Y_RADIANS, ASPECT_RATIO, -Z_NEAR);
-    // static ref PERSPECTIVE_MATRIX: Mat4 = Mat4::perspective_rh(*FOV_Y_RADIANS, ASPECT_RATIO, -Z_NEAR, -Z_FAR);
+    static ref PERSPECTIVE_MATRIX: Mat4 =
+        Mat4::perspective_infinite_reverse_rh(*FOV_Y_RADIANS, ASPECT_RATIO, Z_NEAR);
+    static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
+    static ref X_NEAR: f32 = -Z_NEAR * *TAN_FAC_FOV_X_2;
+    static ref X_FAR: f32 = -Z_FAR * *TAN_FAC_FOV_X_2;
+    static ref BACK_CLIP_A: Vec2 = Vec2::new(-*X_NEAR, Z_NEAR);
+    static ref BACK_CLIP_B: Vec2 = Vec2::new(*X_NEAR, Z_NEAR);
+    static ref LEFT_CLIP_A: Vec2 = *BACK_CLIP_A;
+    static ref LEFT_CLIP_B: Vec2 = Vec2::new(-*X_FAR, Z_FAR);
+    static ref RIGHT_CLIP_A: Vec2 = *BACK_CLIP_B;
+    static ref RIGHT_CLIP_B: Vec2 = Vec2::new(*X_FAR, Z_FAR);
 }
 
 #[derive(Component, Bundle, Debug)]
@@ -89,42 +100,6 @@ pub struct AppState {
     direction: Direction,
     brick: RgbaImage,
     update_title_timer: Timer,
-}
-
-pub fn intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Vec2 {
-    let a_perp_dot = a1.perp_dot(a2);
-    let b_perp_dot = b1.perp_dot(b2);
-
-    let mut divisor = Vec2 {
-        x: a1.x - a2.x,
-        y: a1.y - a2.y,
-    }
-    .perp_dot(Vec2 {
-        x: b1.x - b2.x,
-        y: b1.y - b2.y,
-    });
-    if divisor == 0.0 {
-        divisor = 1.0
-    };
-
-    Vec2 {
-        x: Vec2 {
-            x: a_perp_dot,
-            y: a1.x - a2.x,
-        }
-        .perp_dot(Vec2 {
-            x: b_perp_dot,
-            y: b1.x - b2.x,
-        }) / divisor,
-        y: Vec2 {
-            x: a_perp_dot,
-            y: a1.y - a2.y,
-        }
-        .perp_dot(Vec2 {
-            x: b_perp_dot,
-            y: b1.y - b2.y,
-        }) / divisor,
-    }
 }
 
 fn main() {
@@ -348,74 +323,6 @@ fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
     frame.copy_from_slice(&[0x00, 0x00, 0x00, 0xff].repeat(frame.len() / 4));
 }
 
-fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<AppState>) {
-    let frame = pixels_resource.pixels.get_frame_mut();
-
-    // Debug lines and dots
-    // draw_line(
-    //     frame,
-    //     Pixel::new(0, 0),
-    //     Pixel::new(WIDTH as isize - 1, HEIGHT as isize - 1),
-    //     Color(0xff, 0x00, 0x00, 0xff),
-    // );
-    // draw_line(
-    //     frame,
-    //     Pixel::new(0, HEIGHT as isize - 1),
-    //     Pixel::new(WIDTH as isize - 1, 0),
-    //     Color(0xff, 0x00, 0x00, 0xff),
-    // );
-
-    // draw_pixel(frame, Pixel::new(0, 0), Color(0x00, 0xff, 0x00, 0xff));
-    // draw_pixel(
-    //     frame,
-    //     Pixel::new(WIDTH as isize - 1, 0),
-    //     Color(0x00, 0xff, 0x00, 0xff),
-    // );
-    // draw_pixel(
-    //     frame,
-    //     Pixel::new(0, HEIGHT as isize - 1),
-    //     Color(0x00, 0xff, 0x00, 0xff),
-    // );
-    // draw_pixel(
-    //     frame,
-    //     Pixel::new(WIDTH as isize - 1, HEIGHT as isize - 1),
-    //     Color(0x00, 0xff, 0x00, 0xff),
-    // );
-
-    match state.view {
-        View::Absolute2d => {
-            let pixel = Pixel::from_absolute(state.position.0);
-            let end = Pixel::new(
-                (pixel.x as f32 - 5.0 * state.direction.0.sin()).floor() as isize,
-                (pixel.y as f32 - 5.0 * state.direction.0.cos()).floor() as isize,
-            );
-            draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
-            draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
-        }
-        View::FirstPerson2d => {
-            let position = (FRAC_WIDTH_2 as isize - 1, FRAC_HEIGHT_2 as isize - 1);
-            draw_line(
-                frame,
-                Pixel::new(position.0, position.1),
-                Pixel::new(position.0 - 10, position.1 - 10),
-                Color(0x88, 0x88, 0x88, 0xff),
-            );
-            draw_line(
-                frame,
-                Pixel::new(position.0, position.1),
-                Pixel::new(position.0 + 10, position.1 - 10),
-                Color(0x88, 0x88, 0x88, 0xff),
-            );
-            draw_pixel(
-                frame,
-                Pixel::new(position.0, position.1),
-                Color(0xff, 0x00, 0x00, 0xff),
-            );
-        }
-        _ => {}
-    }
-}
-
 fn draw_wall_system(
     mut pixels_resource: ResMut<PixelsResource>,
     query: Query<&Wall>,
@@ -425,38 +332,32 @@ fn draw_wall_system(
     let view_matrix =
         Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
 
-    println!("\n\n...................");
-
     for wall in query.iter() {
         let wall_left_top = vec3(wall.left.0.x, wall.height.0, wall.left.0.z);
         let wall_left_bottom = wall.left.0;
         let wall_right_top = vec3(wall.right.0.x, wall.height.0, wall.right.0.z);
         let wall_right_bottom = wall.right.0;
 
-        let mut view_left_top = view_matrix.transform_point3(wall_left_top);
-        let mut view_left_bottom = view_matrix.transform_point3(wall_left_bottom);
-        let mut view_right_top = view_matrix.transform_point3(wall_right_top);
-        let mut view_right_bottom = view_matrix.transform_point3(wall_right_bottom);
+        let view_left_top = view_matrix.transform_point3(wall_left_top);
+        let view_left_bottom = view_matrix.transform_point3(wall_left_bottom);
+        let view_right_top = view_matrix.transform_point3(wall_right_top);
+        let view_right_bottom = view_matrix.transform_point3(wall_right_bottom);
 
+        println!("\n...");
         // println!("before clip");
         // dbg!(view_left_top);
         // dbg!(view_left_bottom);
         // dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
-        if view_left_top.z > Z_NEAR && view_right_top.z > Z_NEAR {
-            // Wall entirely behind view plane, skip drawing
+        let (view_left_top, view_left_bottom, view_right_top, view_right_bottom, draw) = clip_wall(
+            view_left_top,
+            view_left_bottom,
+            view_right_top,
+            view_right_bottom,
+        );
+        if !draw {
             continue;
-        } else if view_left_top.z > Z_NEAR {
-            // Left side behind player
-            // println!("clipping left");
-            clip_line_behind(&mut view_left_top, view_right_top);
-            clip_line_behind(&mut view_left_bottom, view_right_bottom);
-        } else if view_right_top.z > Z_NEAR {
-            // Right side behind player
-            // println!("clipping right");
-            clip_line_behind(&mut view_right_top, view_left_top);
-            clip_line_behind(&mut view_right_bottom, view_left_bottom);
         }
 
         // println!("after clip");
@@ -464,8 +365,6 @@ fn draw_wall_system(
         // dbg!(view_left_bottom);
         // dbg!(view_right_top);
         // dbg!(view_right_bottom);
-
-        // draw_image(frame, Pixel::new(10, 10), &state.brick);
 
         draw_wall(
             frame,
@@ -479,17 +378,84 @@ fn draw_wall_system(
     }
 }
 
-fn clip_line_behind(back: &mut Vec3, front: Vec3) {
-    let dx1 = front.x - back.x;
-    let mut dz1 = front.z - back.z;
-    if dz1 == 0.0 {
-        dz1 = 1.0
-    };
-    let dz2 = Z_NEAR - back.z;
-    let dx2 = dz2 * dx1 / dz1;
+fn clip_wall(
+    mut view_left_top: Vec3,
+    mut view_left_bottom: Vec3,
+    mut view_right_top: Vec3,
+    mut view_right_bottom: Vec3,
+) -> (Vec3, Vec3, Vec3, Vec3, bool) {
+    if view_left_top.z > Z_NEAR && view_right_top.z > Z_NEAR {
+        // Wall entirely behind view plane, skip drawing
+        return (
+            view_left_top,
+            view_left_bottom,
+            view_right_top,
+            view_right_bottom,
+            false,
+        );
+    }
 
-    back.x = back.x + dx2;
-    back.z = Z_NEAR;
+    if view_left_top.z > Z_NEAR {
+        // Left side behind, clip
+        view_left_top = clip_line_xz(view_left_top, view_right_top, *BACK_CLIP_A, *BACK_CLIP_B);
+        view_left_bottom.x = view_left_top.x;
+        view_left_bottom.z = view_left_top.z;
+    } else {
+        // Left side in front, clip right edge right side
+        view_right_top = clip_line_xz(view_right_top, view_left_top, *RIGHT_CLIP_A, *RIGHT_CLIP_B);
+        view_right_bottom.x = view_right_top.x;
+        view_right_bottom.z = view_right_top.z;
+    }
+
+    if view_right_top.z > Z_NEAR {
+        // Right side behind, clip
+        view_right_top = clip_line_xz(view_right_top, view_left_top, *BACK_CLIP_A, *BACK_CLIP_B);
+        view_right_bottom.x = view_right_top.x;
+        view_right_bottom.z = view_right_top.z;
+    } else {
+        // Right side in front, clip left edge left side
+        view_left_top = clip_line_xz(view_left_top, view_right_top, *LEFT_CLIP_A, *LEFT_CLIP_B);
+        view_left_bottom.x = view_left_top.x;
+        view_left_bottom.z = view_left_top.z;
+    }
+
+    (
+        view_left_top,
+        view_left_bottom,
+        view_right_top,
+        view_right_bottom,
+        true,
+    )
+}
+
+fn clip_line_xz(outside: Vec3, inside: Vec3, clip1: Vec2, clip2: Vec2) -> Vec3 {
+    if let Some(Vec2 { x, y: z }) = intersection(
+        Vec2::new(outside.x, outside.z),
+        Vec2::new(inside.x, inside.z),
+        clip1,
+        clip2,
+    ) {
+        if x > outside.x.min(inside.x) && x < outside.x.max(inside.x) {
+            return Vec3::new(x, outside.y, z);
+        }
+    }
+
+    outside
+}
+
+fn intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
+    let a_perp_dot = a1.perp_dot(a2);
+    let b_perp_dot = b1.perp_dot(b2);
+
+    let divisor = Vec2::new(a1.x - a2.x, a1.y - a2.y).perp_dot(Vec2::new(b1.x - b2.x, b1.y - b2.y));
+    if divisor == 0.0 {
+        return None;
+    };
+
+    Some(Vec2::new(
+        Vec2::new(a_perp_dot, a1.x - a2.x).perp_dot(Vec2::new(b_perp_dot, b1.x - b2.x)) / divisor,
+        Vec2::new(a_perp_dot, a1.y - a2.y).perp_dot(Vec2::new(b_perp_dot, b1.y - b2.y)) / divisor,
+    ))
 }
 
 fn draw_minimap_system(
@@ -509,17 +475,96 @@ fn draw_minimap_system(
                 draw_line(frame, a, b, wall.color);
             }
             View::FirstPerson2d => {
-                let a = view_matrix.transform_point3(wall.left.0);
-                let b = view_matrix.transform_point3(wall.right.0);
+                let wall_left_top = vec3(wall.left.0.x, wall.height.0, wall.left.0.z);
+                let wall_left_bottom = wall.left.0;
+                let wall_right_top = vec3(wall.right.0.x, wall.height.0, wall.right.0.z);
+                let wall_right_bottom = wall.right.0;
+
+                let view_left_top = view_matrix.transform_point3(wall_left_top);
+                let view_left_bottom = view_matrix.transform_point3(wall_left_bottom);
+                let view_right_top = view_matrix.transform_point3(wall_right_top);
+                let view_right_bottom = view_matrix.transform_point3(wall_right_bottom);
+
+                let (view_left_top_after_clip, _, view_right_top_after_clip, _, draw) = clip_wall(
+                    view_left_top,
+                    view_left_bottom,
+                    view_right_top,
+                    view_right_bottom,
+                );
+
+                if !draw {
+                    draw_line(
+                        frame,
+                        Pixel::from_absolute(view_left_top),
+                        Pixel::from_absolute(view_right_top),
+                        Color(0xff, 0xff, 0xff, 0xff),
+                    );
+                    continue;
+                }
+
+                if view_left_top_after_clip != view_left_top {
+                    draw_line(
+                        frame,
+                        Pixel::from_absolute(view_left_top),
+                        Pixel::from_absolute(view_left_top_after_clip),
+                        Color(0xff, 0xff, 0xff, 0xff),
+                    );
+                }
+
+                if view_right_top_after_clip != view_right_top {
+                    draw_line(
+                        frame,
+                        Pixel::from_absolute(view_right_top_after_clip),
+                        Pixel::from_absolute(view_right_top),
+                        Color(0xff, 0xff, 0xff, 0xff),
+                    );
+                }
 
                 draw_line(
                     frame,
-                    Pixel::from_absolute(a),
-                    Pixel::from_absolute(b),
+                    Pixel::from_absolute(view_left_top_after_clip),
+                    Pixel::from_absolute(view_right_top_after_clip),
                     wall.color,
                 );
             }
             View::FirstPerson3d => {}
         }
+    }
+}
+
+fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<AppState>) {
+    let frame = pixels_resource.pixels.get_frame_mut();
+
+    match state.view {
+        View::Absolute2d => {
+            let pixel = Pixel::from_absolute(state.position.0);
+            let end = Pixel::new(
+                (pixel.x as f32 - 10.0 * state.direction.0.sin()).floor() as isize,
+                (pixel.y as f32 - 10.0 * state.direction.0.cos()).floor() as isize,
+            );
+            draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
+            draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
+        }
+        View::FirstPerson2d => {
+            let position = (FRAC_WIDTH_2 as isize - 1, FRAC_HEIGHT_2 as isize - 1);
+            draw_line(
+                frame,
+                Pixel::new(position.0, position.1),
+                Pixel::new(position.0 - 80, position.1 - 80),
+                Color(0x88, 0x88, 0x88, 0xff),
+            );
+            draw_line(
+                frame,
+                Pixel::new(position.0, position.1),
+                Pixel::new(position.0 + 80, position.1 - 80),
+                Color(0x88, 0x88, 0x88, 0xff),
+            );
+            draw_pixel(
+                frame,
+                Pixel::new(position.0, position.1),
+                Color(0xff, 0x00, 0x00, 0xff),
+            );
+        }
+        _ => {}
     }
 }
