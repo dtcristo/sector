@@ -44,12 +44,12 @@ lazy_static! {
     static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
     static ref X_NEAR: f32 = -Z_NEAR * *TAN_FAC_FOV_X_2;
     static ref X_FAR: f32 = -Z_FAR * *TAN_FAC_FOV_X_2;
-    static ref BACK_CLIP_A: Vec2 = Vec2::new(-*X_NEAR, Z_NEAR);
-    static ref BACK_CLIP_B: Vec2 = Vec2::new(*X_NEAR, Z_NEAR);
-    static ref LEFT_CLIP_A: Vec2 = *BACK_CLIP_A;
-    static ref LEFT_CLIP_B: Vec2 = Vec2::new(-*X_FAR, Z_FAR);
-    static ref RIGHT_CLIP_A: Vec2 = *BACK_CLIP_B;
-    static ref RIGHT_CLIP_B: Vec2 = Vec2::new(*X_FAR, Z_FAR);
+    static ref BACK_CLIP_1: Vec2 = Vec2::new(-*X_NEAR, Z_NEAR);
+    static ref BACK_CLIP_2: Vec2 = Vec2::new(*X_NEAR, Z_NEAR);
+    static ref LEFT_CLIP_1: Vec2 = *BACK_CLIP_1;
+    static ref LEFT_CLIP_2: Vec2 = Vec2::new(-*X_FAR, Z_FAR);
+    static ref RIGHT_CLIP_1: Vec2 = *BACK_CLIP_2;
+    static ref RIGHT_CLIP_2: Vec2 = Vec2::new(*X_FAR, Z_FAR);
 }
 
 #[derive(Component, Bundle, Debug)]
@@ -397,24 +397,28 @@ fn clip_wall(
 
     if view_left_top.z > Z_NEAR {
         // Left side behind, clip
-        view_left_top = clip_line_xz(view_left_top, view_right_top, *BACK_CLIP_A, *BACK_CLIP_B);
+        // println!("clip left behind");
+        view_left_top = clip_line_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2);
         view_left_bottom.x = view_left_top.x;
         view_left_bottom.z = view_left_top.z;
     } else {
         // Left side in front, clip right edge right side
-        view_right_top = clip_line_xz(view_right_top, view_left_top, *RIGHT_CLIP_A, *RIGHT_CLIP_B);
+        // println!("clip right right");
+        view_right_top = clip_line_xz(view_right_top, view_left_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2);
         view_right_bottom.x = view_right_top.x;
         view_right_bottom.z = view_right_top.z;
     }
 
     if view_right_top.z > Z_NEAR {
         // Right side behind, clip
-        view_right_top = clip_line_xz(view_right_top, view_left_top, *BACK_CLIP_A, *BACK_CLIP_B);
+        // println!("clip right behind");
+        view_right_top = clip_line_xz(view_right_top, view_left_top, *BACK_CLIP_1, *BACK_CLIP_2);
         view_right_bottom.x = view_right_top.x;
         view_right_bottom.z = view_right_top.z;
     } else {
         // Right side in front, clip left edge left side
-        view_left_top = clip_line_xz(view_left_top, view_right_top, *LEFT_CLIP_A, *LEFT_CLIP_B);
+        // println!("clip left left");
+        view_left_top = clip_line_xz(view_left_top, view_right_top, *LEFT_CLIP_1, *LEFT_CLIP_2);
         view_left_bottom.x = view_left_top.x;
         view_left_bottom.z = view_left_top.z;
     }
@@ -428,14 +432,14 @@ fn clip_wall(
     )
 }
 
-fn clip_line_xz(outside: Vec3, inside: Vec3, clip1: Vec2, clip2: Vec2) -> Vec3 {
+fn clip_line_xz(outside: Vec3, inside: Vec3, clip_1: Vec2, clip_2: Vec2) -> Vec3 {
     if let Some(Vec2 { x, y: z }) = intersection(
         Vec2::new(outside.x, outside.z),
         Vec2::new(inside.x, inside.z),
-        clip1,
-        clip2,
+        clip_1,
+        clip_2,
     ) {
-        if x > outside.x.min(inside.x) && x < outside.x.max(inside.x) {
+        if x >= outside.x.min(inside.x) && x <= outside.x.max(inside.x) {
             return Vec3::new(x, outside.y, z);
         }
     }
