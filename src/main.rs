@@ -136,7 +136,7 @@ fn main() {
             height: HEIGHT,
         })
         .insert_resource(AppState {
-            minimap: Minimap::Off,
+            minimap: Minimap::FirstPerson,
             position: Position(vec3(0.0, 2.0, 0.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
@@ -386,36 +386,34 @@ fn clip_wall(
         );
     }
 
-    if view_left_top.z > Z_NEAR {
-        // Left side behind, clip
-        println!("clip left behind");
-        view_left_top = clip_line_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2);
+    // Clip left edge left side
+    let clipped = clip_line_xz(view_left_top, view_right_top, *LEFT_CLIP_1, *LEFT_CLIP_2);
+    if clipped.x < -*X_NEAR {
+        view_left_top = clipped;
         view_left_bottom.x = view_left_top.x;
         view_left_bottom.z = view_left_top.z;
-    } else {
-        // Left side in front, clip right edge right side
-        println!("clip right right");
-        view_right_top = clip_line_xz(view_right_top, view_left_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2);
+    }
+
+    // Clip right edge right side
+    let clipped = clip_line_xz(view_right_top, view_left_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2);
+    if clipped.x > *X_NEAR {
+        view_right_top = clipped;
         view_right_bottom.x = view_right_top.x;
         view_right_bottom.z = view_right_top.z;
     }
 
-    println!("mid clip");
-    dbg!(view_left_top);
-    dbg!(view_right_top);
+    if view_left_top.z > Z_NEAR {
+        // Left side behind, clip
+        view_left_top = clip_line_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2);
+        view_left_bottom.x = view_left_top.x;
+        view_left_bottom.z = view_left_top.z;
+    }
 
     if view_right_top.z > Z_NEAR {
         // Right side behind, clip
-        println!("clip right behind");
         view_right_top = clip_line_xz(view_right_top, view_left_top, *BACK_CLIP_1, *BACK_CLIP_2);
         view_right_bottom.x = view_right_top.x;
         view_right_bottom.z = view_right_top.z;
-    } else {
-        // Right side in front, clip left edge left side
-        println!("clip left left");
-        view_left_top = clip_line_xz(view_left_top, view_right_top, *LEFT_CLIP_1, *LEFT_CLIP_2);
-        view_left_bottom.x = view_left_top.x;
-        view_left_bottom.z = view_left_top.z;
     }
 
     (
@@ -434,12 +432,10 @@ fn clip_line_xz(outside: Vec3, inside: Vec3, clip_1: Vec2, clip_2: Vec2) -> Vec3
         clip_1,
         clip_2,
     ) {
-        if x >= outside.x.min(inside.x) && x <= outside.x.max(inside.x) {
-            return Vec3::new(x, outside.y, z);
-        }
+        Vec3::new(x, outside.y, z)
+    } else {
+        outside
     }
-
-    outside
 }
 
 fn intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
@@ -451,10 +447,20 @@ fn intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
         return None;
     };
 
-    Some(Vec2::new(
+    let result = Vec2::new(
         Vec2::new(a_perp_dot, a1.x - a2.x).perp_dot(Vec2::new(b_perp_dot, b1.x - b2.x)) / divisor,
         Vec2::new(a_perp_dot, a1.y - a2.y).perp_dot(Vec2::new(b_perp_dot, b1.y - b2.y)) / divisor,
-    ))
+    );
+
+    if between(result.x, a1.x, a2.x) {
+        Some(result)
+    } else {
+        None
+    }
+}
+
+fn between(test: f32, a: f32, b: f32) -> bool {
+    test >= a.min(b) && test <= a.max(b)
 }
 
 fn draw_minimap_system(
