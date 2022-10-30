@@ -30,7 +30,7 @@ const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
-const Z_NEAR: f32 = -1.0;
+const Z_NEAR: f32 = -0.1;
 const Z_FAR: f32 = -50.0;
 const LIGHTNESS_DISTANCE_NEAR: f32 = -Z_NEAR;
 const LIGHTNESS_DISTANCE_FAR: f32 = -Z_FAR;
@@ -436,7 +436,7 @@ fn clip_wall(
     }
 
     // Skip entirely behind right side
-    if point_behind_xz(view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
+    if point_behind_xz(view_left_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
         return None;
     }
 
@@ -471,7 +471,7 @@ fn intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
         Vec2::new(a_perp_dot, a1.y - a2.y).perp_dot(Vec2::new(b_perp_dot, b1.y - b2.y)) / divisor,
     );
 
-    if between(result.x, a1.x, a2.x) {
+    if between(result.x, a1.x, a2.x) && between(result.y, a1.y, a2.y) {
         Some(result)
     } else {
         None
