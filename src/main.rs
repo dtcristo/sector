@@ -87,15 +87,15 @@ pub struct Direction(f32);
 pub struct Color(u8, u8, u8, u8);
 
 #[derive(Debug, PartialEq)]
-enum View {
-    Absolute2d,
-    FirstPerson2d,
-    FirstPerson3d,
+enum Minimap {
+    Off,
+    FirstPerson,
+    Absolute,
 }
 
 #[derive(Debug)]
 pub struct AppState {
-    view: View,
+    minimap: Minimap,
     position: Position,
     velocity: Velocity,
     direction: Direction,
@@ -136,7 +136,7 @@ fn main() {
             height: HEIGHT,
         })
         .insert_resource(AppState {
-            view: View::FirstPerson3d,
+            minimap: Minimap::Off,
             position: Position(vec3(0.0, 2.0, 0.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
@@ -151,7 +151,7 @@ fn main() {
         .add_system(update_title_system)
         .add_system(mouse_capture_system)
         .add_system(escape_system)
-        .add_system(switch_view_system)
+        .add_system(switch_minimap_system)
         .add_system(player_movement_system)
         .add_system_to_stage(PixelsStage::Draw, draw_background_system)
         .add_system_to_stage(
@@ -246,18 +246,12 @@ fn escape_system(
     }
 }
 
-fn switch_view_system(key: Res<Input<KeyCode>>, mut state: ResMut<AppState>) {
-    if key.just_pressed(KeyCode::Key1) {
-        if state.view != View::Absolute2d {
-            state.view = View::Absolute2d;
-        }
-    } else if key.just_pressed(KeyCode::Key2) {
-        if state.view != View::FirstPerson2d {
-            state.view = View::FirstPerson2d;
-        }
-    } else if key.just_pressed(KeyCode::Key3) {
-        if state.view != View::FirstPerson3d {
-            state.view = View::FirstPerson3d;
+fn switch_minimap_system(key: Res<Input<KeyCode>>, mut state: ResMut<AppState>) {
+    if key.just_pressed(KeyCode::Tab) {
+        state.minimap = match state.minimap {
+            Minimap::Off => Minimap::FirstPerson,
+            Minimap::FirstPerson => Minimap::Absolute,
+            Minimap::Absolute => Minimap::Off,
         }
     }
 }
@@ -468,100 +462,106 @@ fn draw_minimap_system(
     query: Query<&Wall>,
     state: Res<AppState>,
 ) {
+    if state.minimap == Minimap::Off {
+        return;
+    }
+
     let frame = pixels_resource.pixels.get_frame_mut();
     let view_matrix =
         Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
+    let reverse_view_matrix =
+        Mat4::from_translation(state.position.0) * Mat4::from_rotation_y(state.direction.0);
 
-    for wall in query.iter() {
-        match state.view {
-            View::Absolute2d => {
-                let a = Pixel::from_absolute(wall.left.0);
-                let b = Pixel::from_absolute(wall.right.0);
-                draw_line(frame, a, b, wall.color);
-            }
-            View::FirstPerson2d => {
-                let wall_left_top = vec3(wall.left.0.x, wall.height.0, wall.left.0.z);
-                let wall_left_bottom = wall.left.0;
-                let wall_right_top = vec3(wall.right.0.x, wall.height.0, wall.right.0.z);
-                let wall_right_bottom = wall.right.0;
-
-                let view_left_top = view_matrix.transform_point3(wall_left_top);
-                let view_left_bottom = view_matrix.transform_point3(wall_left_bottom);
-                let view_right_top = view_matrix.transform_point3(wall_right_top);
-                let view_right_bottom = view_matrix.transform_point3(wall_right_bottom);
-
-                let (view_left_top_after_clip, _, view_right_top_after_clip, _, draw) = clip_wall(
-                    view_left_top,
-                    view_left_bottom,
-                    view_right_top,
-                    view_right_bottom,
-                );
-
-                if !draw {
-                    draw_line(
-                        frame,
-                        Pixel::from_absolute(view_left_top),
-                        Pixel::from_absolute(view_right_top),
-                        Color(0xff, 0xff, 0xff, 0xff),
-                    );
-                    continue;
-                }
-
-                if view_left_top_after_clip != view_left_top {
-                    draw_line(
-                        frame,
-                        Pixel::from_absolute(view_left_top),
-                        Pixel::from_absolute(view_left_top_after_clip),
-                        Color(0xff, 0xff, 0xff, 0xff),
-                    );
-                }
-
-                if view_right_top_after_clip != view_right_top {
-                    draw_line(
-                        frame,
-                        Pixel::from_absolute(view_right_top_after_clip),
-                        Pixel::from_absolute(view_right_top),
-                        Color(0xff, 0xff, 0xff, 0xff),
-                    );
-                }
-
-                draw_line(
-                    frame,
-                    Pixel::from_absolute(view_left_top_after_clip),
-                    Pixel::from_absolute(view_right_top_after_clip),
-                    wall.color,
-                );
-            }
-            View::FirstPerson3d => {}
-        }
-    }
-
-    // Draw player
+    let wall_clipped_color = Color(0xff, 0xff, 0xff, 0xff);
     let frustum_color = Color(0x88, 0x88, 0x88, 0xff);
     let player_color = Color(0xff, 0x00, 0x00, 0xff);
 
-    match state.view {
-        View::Absolute2d => {
-            let player = Pixel::from_absolute(state.position.0);
-            let end = Pixel::new(
-                (player.x as f32 - 10.0 * state.direction.0.sin()).floor() as isize,
-                (player.y as f32 - 10.0 * state.direction.0.cos()).floor() as isize,
-            );
-            draw_line(frame, player, end, frustum_color);
-            draw_pixel(frame, player, player_color);
+    // Draw walls
+    for wall in query.iter() {
+        let wall_left_top = vec3(wall.left.0.x, wall.height.0, wall.left.0.z);
+        let wall_right_top = vec3(wall.right.0.x, wall.height.0, wall.right.0.z);
+
+        let view_left_top = view_matrix.transform_point3(wall_left_top);
+        let view_right_top = view_matrix.transform_point3(wall_right_top);
+
+        let (view_left_top_after_clip, _, view_right_top_after_clip, _, draw) =
+            clip_wall(view_left_top, view_left_top, view_right_top, view_right_top);
+
+        if let Some((left_top, right_top, left_top_after_clip, right_top_after_clip)) =
+            match state.minimap {
+                Minimap::Off => None,
+                Minimap::FirstPerson => Some((
+                    Pixel::from_absolute(view_left_top),
+                    Pixel::from_absolute(view_right_top),
+                    Pixel::from_absolute(view_left_top_after_clip),
+                    Pixel::from_absolute(view_right_top_after_clip),
+                )),
+                Minimap::Absolute => {
+                    let absolute_left_top = reverse_view_matrix.transform_point3(view_left_top);
+                    let absolute_right_top = reverse_view_matrix.transform_point3(view_right_top);
+                    let absolute_left_top_after_clip =
+                        reverse_view_matrix.transform_point3(view_left_top_after_clip);
+                    let absolute_right_top_after_clip =
+                        reverse_view_matrix.transform_point3(view_right_top_after_clip);
+
+                    Some((
+                        Pixel::from_absolute(absolute_left_top),
+                        Pixel::from_absolute(absolute_right_top),
+                        Pixel::from_absolute(absolute_left_top_after_clip),
+                        Pixel::from_absolute(absolute_right_top_after_clip),
+                    ))
+                }
+            }
+        {
+            if !draw {
+                draw_line(frame, left_top, right_top, wall_clipped_color);
+                continue;
+            }
+            if left_top_after_clip != left_top {
+                draw_line(frame, left_top, left_top_after_clip, wall_clipped_color);
+            }
+            if right_top_after_clip != right_top {
+                draw_line(frame, right_top_after_clip, right_top, wall_clipped_color);
+            }
+            draw_line(frame, left_top_after_clip, right_top_after_clip, wall.color);
         }
-        View::FirstPerson2d => {
-            let player = Pixel::from_absolute(Vec3::new(0.0, 0.0, 0.0));
-            let near_left = Pixel::from_absolute(Vec3::new(-*X_NEAR, 0.0, Z_NEAR));
-            let near_right = Pixel::from_absolute(Vec3::new(*X_NEAR, 0.0, Z_NEAR));
-            let far_left = Pixel::from_absolute(Vec3::new(-*X_FAR, 0.0, Z_FAR));
-            let far_right = Pixel::from_absolute(Vec3::new(*X_FAR, 0.0, Z_FAR));
-            let frustum_color = frustum_color;
-            draw_line(frame, near_left, far_left, frustum_color);
-            draw_line(frame, near_right, far_right, frustum_color);
-            draw_line(frame, near_left, near_right, frustum_color);
-            draw_pixel(frame, player, player_color);
+    }
+
+    // Draw frustum and player
+    let view_player = Vec3::new(0.0, 0.0, 0.0);
+    let view_near_left = Vec3::new(-*X_NEAR, 0.0, Z_NEAR);
+    let view_near_right = Vec3::new(*X_NEAR, 0.0, Z_NEAR);
+    let view_far_left = Vec3::new(-*X_FAR, 0.0, Z_FAR);
+    let view_far_right = Vec3::new(*X_FAR, 0.0, Z_FAR);
+
+    if let Some((player, near_left, near_right, far_left, far_right)) = match state.minimap {
+        Minimap::Off => None,
+        Minimap::FirstPerson => Some((
+            Pixel::from_absolute(view_player),
+            Pixel::from_absolute(view_near_left),
+            Pixel::from_absolute(view_near_right),
+            Pixel::from_absolute(view_far_left),
+            Pixel::from_absolute(view_far_right),
+        )),
+        Minimap::Absolute => {
+            let absolute_player = state.position.0;
+            let absolute_near_left = reverse_view_matrix.transform_point3(view_near_left);
+            let absolute_near_right = reverse_view_matrix.transform_point3(view_near_right);
+            let absolute_far_left = reverse_view_matrix.transform_point3(view_far_left);
+            let absolute_far_right = reverse_view_matrix.transform_point3(view_far_right);
+
+            Some((
+                Pixel::from_absolute(absolute_player),
+                Pixel::from_absolute(absolute_near_left),
+                Pixel::from_absolute(absolute_near_right),
+                Pixel::from_absolute(absolute_far_left),
+                Pixel::from_absolute(absolute_far_right),
+            ))
         }
-        _ => {}
+    } {
+        draw_line(frame, near_left, far_left, frustum_color);
+        draw_line(frame, near_right, far_right, frustum_color);
+        draw_line(frame, near_left, near_right, frustum_color);
+        draw_pixel(frame, player, player_color);
     }
 }
