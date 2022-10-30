@@ -30,12 +30,13 @@ const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
-const Z_NEAR: f32 = -0.1;
+const Z_NEAR: f32 = -1.0;
 const Z_FAR: f32 = -50.0;
 const LIGHTNESS_DISTANCE_NEAR: f32 = -Z_NEAR;
 const LIGHTNESS_DISTANCE_FAR: f32 = -Z_FAR;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
+const MINIMAP_SCALE: f32 = 8.0;
 
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
@@ -160,10 +161,6 @@ fn main() {
         .add_system_to_stage(
             PixelsStage::Draw,
             draw_minimap_system.after(draw_wall_system),
-        )
-        .add_system_to_stage(
-            PixelsStage::Draw,
-            draw_player_system.after(draw_minimap_system),
         )
         .run();
 }
@@ -344,10 +341,10 @@ fn draw_wall_system(
         let view_right_bottom = view_matrix.transform_point3(wall_right_bottom);
 
         println!("\n...");
-        // println!("before clip");
-        // dbg!(view_left_top);
+        println!("before clip");
+        dbg!(view_left_top);
         // dbg!(view_left_bottom);
-        // dbg!(view_right_top);
+        dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
         let (view_left_top, view_left_bottom, view_right_top, view_right_bottom, draw) = clip_wall(
@@ -360,10 +357,10 @@ fn draw_wall_system(
             continue;
         }
 
-        // println!("after clip");
-        // dbg!(view_left_top);
+        println!("after clip");
+        dbg!(view_left_top);
         // dbg!(view_left_bottom);
-        // dbg!(view_right_top);
+        dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
         draw_wall(
@@ -397,27 +394,31 @@ fn clip_wall(
 
     if view_left_top.z > Z_NEAR {
         // Left side behind, clip
-        // println!("clip left behind");
+        println!("clip left behind");
         view_left_top = clip_line_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2);
         view_left_bottom.x = view_left_top.x;
         view_left_bottom.z = view_left_top.z;
     } else {
         // Left side in front, clip right edge right side
-        // println!("clip right right");
+        println!("clip right right");
         view_right_top = clip_line_xz(view_right_top, view_left_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2);
         view_right_bottom.x = view_right_top.x;
         view_right_bottom.z = view_right_top.z;
     }
 
+    println!("mid clip");
+    dbg!(view_left_top);
+    dbg!(view_right_top);
+
     if view_right_top.z > Z_NEAR {
         // Right side behind, clip
-        // println!("clip right behind");
+        println!("clip right behind");
         view_right_top = clip_line_xz(view_right_top, view_left_top, *BACK_CLIP_1, *BACK_CLIP_2);
         view_right_bottom.x = view_right_top.x;
         view_right_bottom.z = view_right_top.z;
     } else {
         // Right side in front, clip left edge left side
-        // println!("clip left left");
+        println!("clip left left");
         view_left_top = clip_line_xz(view_left_top, view_right_top, *LEFT_CLIP_1, *LEFT_CLIP_2);
         view_left_bottom.x = view_left_top.x;
         view_left_bottom.z = view_left_top.z;
@@ -534,40 +535,32 @@ fn draw_minimap_system(
             View::FirstPerson3d => {}
         }
     }
-}
 
-fn draw_player_system(mut pixels_resource: ResMut<PixelsResource>, state: Res<AppState>) {
-    let frame = pixels_resource.pixels.get_frame_mut();
+    // Draw player
+    let frustum_color = Color(0x88, 0x88, 0x88, 0xff);
+    let player_color = Color(0xff, 0x00, 0x00, 0xff);
 
     match state.view {
         View::Absolute2d => {
-            let pixel = Pixel::from_absolute(state.position.0);
+            let player = Pixel::from_absolute(state.position.0);
             let end = Pixel::new(
-                (pixel.x as f32 - 10.0 * state.direction.0.sin()).floor() as isize,
-                (pixel.y as f32 - 10.0 * state.direction.0.cos()).floor() as isize,
+                (player.x as f32 - 10.0 * state.direction.0.sin()).floor() as isize,
+                (player.y as f32 - 10.0 * state.direction.0.cos()).floor() as isize,
             );
-            draw_line(frame, pixel, end, Color(0x88, 0x88, 0x88, 0xff));
-            draw_pixel(frame, pixel, Color(0xff, 0x00, 0x00, 0xff));
+            draw_line(frame, player, end, frustum_color);
+            draw_pixel(frame, player, player_color);
         }
         View::FirstPerson2d => {
-            let position = (FRAC_WIDTH_2 as isize - 1, FRAC_HEIGHT_2 as isize - 1);
-            draw_line(
-                frame,
-                Pixel::new(position.0, position.1),
-                Pixel::new(position.0 - 80, position.1 - 80),
-                Color(0x88, 0x88, 0x88, 0xff),
-            );
-            draw_line(
-                frame,
-                Pixel::new(position.0, position.1),
-                Pixel::new(position.0 + 80, position.1 - 80),
-                Color(0x88, 0x88, 0x88, 0xff),
-            );
-            draw_pixel(
-                frame,
-                Pixel::new(position.0, position.1),
-                Color(0xff, 0x00, 0x00, 0xff),
-            );
+            let player = Pixel::from_absolute(Vec3::new(0.0, 0.0, 0.0));
+            let near_left = Pixel::from_absolute(Vec3::new(-*X_NEAR, 0.0, Z_NEAR));
+            let near_right = Pixel::from_absolute(Vec3::new(*X_NEAR, 0.0, Z_NEAR));
+            let far_left = Pixel::from_absolute(Vec3::new(-*X_FAR, 0.0, Z_FAR));
+            let far_right = Pixel::from_absolute(Vec3::new(*X_FAR, 0.0, Z_FAR));
+            let frustum_color = frustum_color;
+            draw_line(frame, near_left, far_left, frustum_color);
+            draw_line(frame, near_right, far_right, frustum_color);
+            draw_line(frame, near_left, near_right, frustum_color);
+            draw_pixel(frame, player, player_color);
         }
         _ => {}
     }
