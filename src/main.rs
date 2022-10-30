@@ -45,12 +45,12 @@ lazy_static! {
     static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
     static ref X_NEAR: f32 = -Z_NEAR * *TAN_FAC_FOV_X_2;
     static ref X_FAR: f32 = -Z_FAR * *TAN_FAC_FOV_X_2;
-    static ref BACK_CLIP_1: Vec2 = Vec2::new(-*X_NEAR, Z_NEAR);
-    static ref BACK_CLIP_2: Vec2 = Vec2::new(*X_NEAR, Z_NEAR);
-    static ref LEFT_CLIP_1: Vec2 = *BACK_CLIP_1;
+    static ref BACK_CLIP_1: Vec2 = Vec2::new(*X_NEAR, Z_NEAR);
+    static ref BACK_CLIP_2: Vec2 = Vec2::new(-*X_NEAR, Z_NEAR);
+    static ref LEFT_CLIP_1: Vec2 = *BACK_CLIP_2;
     static ref LEFT_CLIP_2: Vec2 = Vec2::new(-*X_FAR, Z_FAR);
     static ref RIGHT_CLIP_1: Vec2 = Vec2::new(*X_FAR, Z_FAR);
-    static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_2;
+    static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_1;
 }
 
 #[derive(Component, Bundle, Debug)]
@@ -335,10 +335,10 @@ fn draw_wall_system(
         let view_right_bottom = view_matrix.transform_point3(wall_right_bottom);
 
         println!("\n...");
-        println!("before clip");
-        dbg!(view_left_top);
+        // println!("before clip");
+        // dbg!(view_left_top);
         // dbg!(view_left_bottom);
-        dbg!(view_right_top);
+        // dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
         if let Some((view_left_top, view_left_bottom, view_right_top, view_right_bottom)) =
@@ -349,10 +349,10 @@ fn draw_wall_system(
                 view_right_bottom,
             )
         {
-            println!("after clip");
-            dbg!(view_left_top);
+            // println!("after clip");
+            // dbg!(view_left_top);
             // dbg!(view_left_bottom);
-            dbg!(view_right_top);
+            // dbg!(view_right_top);
             // dbg!(view_right_bottom);
 
             draw_wall(
@@ -374,61 +374,69 @@ fn clip_wall(
     mut view_right_top: Vec3,
     mut view_right_bottom: Vec3,
 ) -> Option<(Vec3, Vec3, Vec3, Vec3)> {
+    // Skip entirely behind back
     if view_left_top.z > Z_NEAR && view_right_top.z > Z_NEAR {
-        // Wall entirely behind view plane, skip drawing
         return None;
     }
 
-    // Clip left edge left side
+    // Clip left side
     if let Some(intersection) =
         intersect_xz(view_left_top, view_right_top, *LEFT_CLIP_1, *LEFT_CLIP_2)
     {
         if intersection.x < -*X_NEAR {
-            view_left_top = intersection;
-            view_left_bottom.x = view_left_top.x;
-            view_left_bottom.z = view_left_top.z;
+            if point_behind_xz(view_left_top, *LEFT_CLIP_1, *LEFT_CLIP_2) {
+                view_left_top = intersection;
+                view_left_bottom.x = view_left_top.x;
+                view_left_bottom.z = view_left_top.z;
+            } else {
+                view_right_top = intersection;
+                view_right_bottom.x = view_right_top.x;
+                view_right_bottom.z = view_right_top.z;
+            }
         }
     }
 
-    // Clip right edge right side
+    // Clip right side
     if let Some(intersection) =
         intersect_xz(view_left_top, view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2)
     {
         if intersection.x > *X_NEAR {
-            view_right_top = intersection;
-            view_right_bottom.x = view_right_top.x;
-            view_right_bottom.z = view_right_top.z;
+            if point_behind_xz(view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
+                view_right_top = intersection;
+                view_right_bottom.x = view_right_top.x;
+                view_right_bottom.z = view_right_top.z;
+            } else {
+                view_left_top = intersection;
+                view_left_bottom.x = view_left_top.x;
+                view_left_bottom.z = view_left_top.z;
+            }
         }
     }
 
-    if view_left_top.z > Z_NEAR {
-        // Left side behind, clip
+    // Clip behind back
+    if view_left_top.z > Z_NEAR || view_right_top.z > Z_NEAR {
         if let Some(intersection) =
             intersect_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2)
         {
-            view_left_top = intersection;
-            view_left_bottom.x = view_left_top.x;
-            view_left_bottom.z = view_left_top.z;
+            if point_behind_xz(view_left_top, *BACK_CLIP_1, *BACK_CLIP_2) {
+                view_left_top = intersection;
+                view_left_bottom.x = view_left_top.x;
+                view_left_bottom.z = view_left_top.z;
+            } else {
+                view_right_top = intersection;
+                view_right_bottom.x = view_right_top.x;
+                view_right_bottom.z = view_right_top.z;
+            }
         }
     }
 
-    if view_right_top.z > Z_NEAR {
-        // Right side behind, clip
-        if let Some(intersection) =
-            intersect_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2)
-        {
-            view_right_top = intersection;
-            view_right_bottom.x = view_right_top.x;
-            view_right_bottom.z = view_right_top.z;
-        }
-    }
-
-    // TODO
-    if point_side_xz(view_left_top, *LEFT_CLIP_1, *LEFT_CLIP_2) < 0.0 {
+    // Skip entirely behind left side
+    if point_behind_xz(view_left_top, *LEFT_CLIP_1, *LEFT_CLIP_2) {
         return None;
     }
 
-    if point_side_xz(view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) < 0.0 {
+    // Skip entirely behind right side
+    if point_behind_xz(view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
         return None;
     }
 
@@ -474,12 +482,12 @@ fn between(test: f32, a: f32, b: f32) -> bool {
     test >= a.min(b) && test <= a.max(b)
 }
 
-fn point_side_xz(point: Vec3, a: Vec2, b: Vec2) -> f32 {
-    point_side(Vec2::new(point.x, point.z), a, b)
+fn point_behind_xz(point: Vec3, a: Vec2, b: Vec2) -> bool {
+    point_behind(Vec2::new(point.x, point.z), a, b)
 }
 
-fn point_side(point: Vec2, a: Vec2, b: Vec2) -> f32 {
-    Vec2::new(b.x - a.x, b.y - a.y).perp_dot(Vec2::new(point.x - a.x, point.y - a.y))
+fn point_behind(point: Vec2, a: Vec2, b: Vec2) -> bool {
+    Vec2::new(b.x - a.x, b.y - a.y).perp_dot(Vec2::new(point.x - a.x, point.y - a.y)) < 0.0
 }
 
 fn draw_minimap_system(
