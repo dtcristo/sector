@@ -401,14 +401,14 @@ fn clip_wall(
         intersect_xz(view_left_top, view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2)
     {
         if intersection.x > *X_NEAR {
-            if point_behind_xz(view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
-                view_right_top = intersection;
-                view_right_bottom.x = view_right_top.x;
-                view_right_bottom.z = view_right_top.z;
-            } else {
+            if point_behind_xz(view_left_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
                 view_left_top = intersection;
                 view_left_bottom.x = view_left_top.x;
                 view_left_bottom.z = view_left_top.z;
+            } else {
+                view_right_top = intersection;
+                view_right_bottom.x = view_right_top.x;
+                view_right_bottom.z = view_right_top.z;
             }
         }
     }
