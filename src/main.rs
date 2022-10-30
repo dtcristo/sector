@@ -15,7 +15,6 @@ use bevy::{
 };
 use bevy_pixels::prelude::*;
 use bevy_render::color::Color as BevyColor;
-use image::RgbaImage;
 
 #[macro_use]
 extern crate lazy_static;
@@ -34,6 +33,7 @@ const Z_NEAR: f32 = -0.1;
 const Z_FAR: f32 = -50.0;
 const LIGHTNESS_DISTANCE_NEAR: f32 = -Z_NEAR;
 const LIGHTNESS_DISTANCE_FAR: f32 = -Z_FAR;
+const DELTA_LIGHTNESS_DISTANCE: f32 = LIGHTNESS_DISTANCE_FAR - LIGHTNESS_DISTANCE_NEAR;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
 const MINIMAP_SCALE: f32 = 8.0;
@@ -99,24 +99,12 @@ pub struct AppState {
     position: Position,
     velocity: Velocity,
     direction: Direction,
-    brick: RgbaImage,
     update_title_timer: Timer,
 }
 
 fn main() {
     #[cfg(target_arch = "wasm32")]
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-
-    // #[cfg(not(target_arch = "wasm32"))]
-    // let brick = ImageReader::open("brick.png")
-    //     .unwrap()
-    //     .decode()
-    //     .unwrap()
-    //     .into_rgba8();
-    // #[cfg(target_arch = "wasm32")]
-    // let brick = RgbaImage::new(64, 64);
-
-    let brick = RgbaImage::new(64, 64);
 
     App::new()
         .insert_resource(WindowDescriptor {
@@ -140,7 +128,6 @@ fn main() {
             position: Position(vec3(0.0, 2.0, 0.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
-            brick: brick,
             update_title_timer: Timer::new(Duration::from_millis(500), true),
         })
         .add_plugins(DefaultPlugins)
@@ -362,7 +349,6 @@ fn draw_wall_system(
                 view_right_top,
                 view_right_bottom,
                 wall.color,
-                &state.brick,
             );
         };
     }

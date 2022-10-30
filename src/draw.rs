@@ -9,7 +9,6 @@ pub fn draw_wall(
     view_right_top: Vec3,
     view_right_bottom: Vec3,
     color: Color,
-    _texture: &RgbaImage,
 ) {
     let normalized_left_top = PERSPECTIVE_MATRIX.project_point3(view_left_top);
     let normalized_left_bottom = PERSPECTIVE_MATRIX.project_point3(view_left_bottom);
@@ -55,19 +54,8 @@ pub fn draw_wall(
         WIDTH_MINUS_EDGE_GAP
     };
 
-    let view_z_left = view_left_top.z;
-    let view_z_right = view_right_top.z;
-    let view_dz = view_z_right - view_z_left;
-
-    // let view_y_top = view_left_top.y;
-    // let view_y_bottom = view_left_bottom.y;
-    // let view_y_middle = view_y_bottom + (view_y_top - view_y_bottom) / 2.0;
-
-    // dbg!(x_left);
-    // dbg!(view_z_left);
-    // dbg!(view_z_right);
-    // dbg!(view_dz);
-    // dbg!(view_y_middle);
+    let view_dz = view_right_top.z - view_left_top.z;
+    // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
 
     let color_hsla_raw = BevyColor::rgba_u8(color.0, color.1, color.2, color.3).as_hsla_f32();
     let ceiling_color = BevyColor::rgba_u8(0xc4, 0xc4, 0xc4, 0xff);
@@ -75,7 +63,7 @@ pub fn draw_wall(
 
     for x in x1..(x2 - JOIN_GAP) {
         let progress = (x - left_top.x) as f32 / dx as f32;
-        let view_z = progress * view_dz + view_z_left;
+        let view_z = progress * view_dz + view_left_top.z;
 
         let distance = view_z.abs();
 
@@ -84,14 +72,12 @@ pub fn draw_wall(
         } else if distance < LIGHTNESS_DISTANCE_NEAR {
             LIGHTNESS_NEAR
         } else {
-            distance * (LIGHTNESS_FAR - LIGHTNESS_NEAR)
-                / (LIGHTNESS_DISTANCE_FAR - LIGHTNESS_DISTANCE_NEAR)
+            distance * (LIGHTNESS_FAR - LIGHTNESS_NEAR) / DELTA_LIGHTNESS_DISTANCE
                 + (LIGHTNESS_NEAR * LIGHTNESS_DISTANCE_FAR
                     + LIGHTNESS_FAR * LIGHTNESS_DISTANCE_NEAR)
-                    / (LIGHTNESS_DISTANCE_FAR - LIGHTNESS_DISTANCE_NEAR)
+                    / DELTA_LIGHTNESS_DISTANCE
         };
         let lightness_rounded = (lightness * 100.0).ceil() / 100.0;
-        // let lightness_rounded = lightness;
 
         let x_color = BevyColor::hsla(
             color_hsla_raw[0],
@@ -132,11 +118,6 @@ pub fn draw_wall(
         draw_vertical_line(frame, x, y1, y2 - JOIN_GAP, x_color);
         draw_vertical_line(frame, x, floor_top, HEIGHT_MINUS_EDGE_GAP, floor_color);
     }
-
-    // draw_pixel(frame, left_top, Color(0x00, 0xff, 0x00, 0xff));
-    // draw_pixel(frame, left_bottom, Color(0x00, 0xff, 0x00, 0xff));
-    // draw_pixel(frame, right_top, Color(0x00, 0xff, 0x00, 0xff));
-    // draw_pixel(frame, right_bottom, Color(0x00, 0xff, 0x00, 0xff));
 }
 
 pub fn draw_vertical_line(
@@ -151,18 +132,18 @@ pub fn draw_vertical_line(
     }
 }
 
-pub fn _draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
-    let frame_offset = location.to_offset().unwrap();
-    for (row_index, row) in image
-        .as_raw()
-        .chunks(image.dimensions().1 as usize * 4)
-        .enumerate()
-    {
-        frame[frame_offset + row_index * WIDTH as usize * 4
-            ..frame_offset + row_index * WIDTH as usize * 4 + image.dimensions().1 as usize * 4]
-            .copy_from_slice(row);
-    }
-}
+// pub fn draw_image(frame: &mut [u8], location: Pixel, image: &RgbaImage) {
+//     let frame_offset = location.to_offset().unwrap();
+//     for (row_index, row) in image
+//         .as_raw()
+//         .chunks(image.dimensions().1 as usize * 4)
+//         .enumerate()
+//     {
+//         frame[frame_offset + row_index * WIDTH as usize * 4
+//             ..frame_offset + row_index * WIDTH as usize * 4 + image.dimensions().1 as usize * 4]
+//             .copy_from_slice(row);
+//     }
+// }
 
 pub fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: Color) {
     for (x, y) in Bresenham::new(a.to_tuple(), b.to_tuple()) {
