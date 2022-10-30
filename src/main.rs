@@ -49,8 +49,8 @@ lazy_static! {
     static ref BACK_CLIP_2: Vec2 = Vec2::new(*X_NEAR, Z_NEAR);
     static ref LEFT_CLIP_1: Vec2 = *BACK_CLIP_1;
     static ref LEFT_CLIP_2: Vec2 = Vec2::new(-*X_FAR, Z_FAR);
-    static ref RIGHT_CLIP_1: Vec2 = *BACK_CLIP_2;
-    static ref RIGHT_CLIP_2: Vec2 = Vec2::new(*X_FAR, Z_FAR);
+    static ref RIGHT_CLIP_1: Vec2 = Vec2::new(*X_FAR, Z_FAR);
+    static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_2;
 }
 
 #[derive(Component, Bundle, Debug)]
@@ -341,31 +341,30 @@ fn draw_wall_system(
         dbg!(view_right_top);
         // dbg!(view_right_bottom);
 
-        let (view_left_top, view_left_bottom, view_right_top, view_right_bottom, draw) = clip_wall(
-            view_left_top,
-            view_left_bottom,
-            view_right_top,
-            view_right_bottom,
-        );
-        if !draw {
-            continue;
-        }
+        if let Some((view_left_top, view_left_bottom, view_right_top, view_right_bottom)) =
+            clip_wall(
+                view_left_top,
+                view_left_bottom,
+                view_right_top,
+                view_right_bottom,
+            )
+        {
+            println!("after clip");
+            dbg!(view_left_top);
+            // dbg!(view_left_bottom);
+            dbg!(view_right_top);
+            // dbg!(view_right_bottom);
 
-        println!("after clip");
-        dbg!(view_left_top);
-        // dbg!(view_left_bottom);
-        dbg!(view_right_top);
-        // dbg!(view_right_bottom);
-
-        draw_wall(
-            frame,
-            view_left_top,
-            view_left_bottom,
-            view_right_top,
-            view_right_bottom,
-            wall.color,
-            &state.brick,
-        );
+            draw_wall(
+                frame,
+                view_left_top,
+                view_left_bottom,
+                view_right_top,
+                view_right_bottom,
+                wall.color,
+                &state.brick,
+            );
+        };
     }
 }
 
@@ -374,71 +373,83 @@ fn clip_wall(
     mut view_left_bottom: Vec3,
     mut view_right_top: Vec3,
     mut view_right_bottom: Vec3,
-) -> (Vec3, Vec3, Vec3, Vec3, bool) {
+) -> Option<(Vec3, Vec3, Vec3, Vec3)> {
     if view_left_top.z > Z_NEAR && view_right_top.z > Z_NEAR {
         // Wall entirely behind view plane, skip drawing
-        return (
-            view_left_top,
-            view_left_bottom,
-            view_right_top,
-            view_right_bottom,
-            false,
-        );
+        return None;
     }
 
     // Clip left edge left side
-    let clipped = clip_line_xz(view_left_top, view_right_top, *LEFT_CLIP_1, *LEFT_CLIP_2);
-    if clipped.x < -*X_NEAR {
-        view_left_top = clipped;
-        view_left_bottom.x = view_left_top.x;
-        view_left_bottom.z = view_left_top.z;
+    if let Some(intersection) =
+        intersect_xz(view_left_top, view_right_top, *LEFT_CLIP_1, *LEFT_CLIP_2)
+    {
+        if intersection.x < -*X_NEAR {
+            view_left_top = intersection;
+            view_left_bottom.x = view_left_top.x;
+            view_left_bottom.z = view_left_top.z;
+        }
     }
 
     // Clip right edge right side
-    let clipped = clip_line_xz(view_right_top, view_left_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2);
-    if clipped.x > *X_NEAR {
-        view_right_top = clipped;
-        view_right_bottom.x = view_right_top.x;
-        view_right_bottom.z = view_right_top.z;
+    if let Some(intersection) =
+        intersect_xz(view_left_top, view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2)
+    {
+        if intersection.x > *X_NEAR {
+            view_right_top = intersection;
+            view_right_bottom.x = view_right_top.x;
+            view_right_bottom.z = view_right_top.z;
+        }
     }
 
     if view_left_top.z > Z_NEAR {
         // Left side behind, clip
-        view_left_top = clip_line_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2);
-        view_left_bottom.x = view_left_top.x;
-        view_left_bottom.z = view_left_top.z;
+        if let Some(intersection) =
+            intersect_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2)
+        {
+            view_left_top = intersection;
+            view_left_bottom.x = view_left_top.x;
+            view_left_bottom.z = view_left_top.z;
+        }
     }
 
     if view_right_top.z > Z_NEAR {
         // Right side behind, clip
-        view_right_top = clip_line_xz(view_right_top, view_left_top, *BACK_CLIP_1, *BACK_CLIP_2);
-        view_right_bottom.x = view_right_top.x;
-        view_right_bottom.z = view_right_top.z;
+        if let Some(intersection) =
+            intersect_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2)
+        {
+            view_right_top = intersection;
+            view_right_bottom.x = view_right_top.x;
+            view_right_bottom.z = view_right_top.z;
+        }
     }
 
-    (
+    // TODO
+    if point_side_xz(view_left_top, *LEFT_CLIP_1, *LEFT_CLIP_2) < 0.0 {
+        return None;
+    }
+
+    if point_side_xz(view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) < 0.0 {
+        return None;
+    }
+
+    Some((
         view_left_top,
         view_left_bottom,
         view_right_top,
         view_right_bottom,
-        true,
-    )
+    ))
 }
 
-fn clip_line_xz(outside: Vec3, inside: Vec3, clip_1: Vec2, clip_2: Vec2) -> Vec3 {
-    if let Some(Vec2 { x, y: z }) = intersection(
-        Vec2::new(outside.x, outside.z),
-        Vec2::new(inside.x, inside.z),
-        clip_1,
-        clip_2,
-    ) {
-        Vec3::new(x, outside.y, z)
+fn intersect_xz(a1: Vec3, a2: Vec3, b1: Vec2, b2: Vec2) -> Option<Vec3> {
+    if let Some(Vec2 { x, y: z }) = intersect(Vec2::new(a1.x, a1.z), Vec2::new(a2.x, a2.z), b1, b2)
+    {
+        Some(Vec3::new(x, a1.y, z))
     } else {
-        outside
+        None
     }
 }
 
-fn intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
+fn intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
     let a_perp_dot = a1.perp_dot(a2);
     let b_perp_dot = b1.perp_dot(b2);
 
@@ -461,6 +472,14 @@ fn intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
 
 fn between(test: f32, a: f32, b: f32) -> bool {
     test >= a.min(b) && test <= a.max(b)
+}
+
+fn point_side_xz(point: Vec3, a: Vec2, b: Vec2) -> f32 {
+    point_side(Vec2::new(point.x, point.z), a, b)
+}
+
+fn point_side(point: Vec2, a: Vec2, b: Vec2) -> f32 {
+    Vec2::new(b.x - a.x, b.y - a.y).perp_dot(Vec2::new(point.x - a.x, point.y - a.y))
 }
 
 fn draw_minimap_system(
@@ -490,8 +509,14 @@ fn draw_minimap_system(
         let view_left_top = view_matrix.transform_point3(wall_left_top);
         let view_right_top = view_matrix.transform_point3(wall_right_top);
 
-        let (view_left_top_after_clip, _, view_right_top_after_clip, _, draw) =
-            clip_wall(view_left_top, view_left_top, view_right_top, view_right_top);
+        let mut view_left_top_after_clip = view_left_top;
+        let mut view_right_top_after_clip = view_right_top;
+
+        let clipping = clip_wall(view_left_top, view_left_top, view_right_top, view_right_top);
+        if let Some((l, _, r, _)) = clipping {
+            view_left_top_after_clip = l;
+            view_right_top_after_clip = r;
+        }
 
         if let Some((left_top, right_top, left_top_after_clip, right_top_after_clip)) =
             match state.minimap {
@@ -519,7 +544,7 @@ fn draw_minimap_system(
                 }
             }
         {
-            if !draw {
+            if clipping.is_none() {
                 draw_line(frame, left_top, right_top, wall_clipped_color);
                 continue;
             }
