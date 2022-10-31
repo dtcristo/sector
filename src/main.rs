@@ -7,8 +7,8 @@ use bevy::{
     app::AppExit,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     input::mouse::MouseMotion,
+    math::vec2,
     math::vec3,
-    math::Vec3,
     prelude::*,
     utils::Duration,
     window::WindowResizeConstraints,
@@ -45,11 +45,11 @@ lazy_static! {
     static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
     static ref X_NEAR: f32 = -Z_NEAR * *TAN_FAC_FOV_X_2;
     static ref X_FAR: f32 = -Z_FAR * *TAN_FAC_FOV_X_2;
-    static ref BACK_CLIP_1: Vec2 = Vec2::new(*X_NEAR, Z_NEAR);
-    static ref BACK_CLIP_2: Vec2 = Vec2::new(-*X_NEAR, Z_NEAR);
+    static ref BACK_CLIP_1: Vec2 = vec2(*X_NEAR, Z_NEAR);
+    static ref BACK_CLIP_2: Vec2 = vec2(-*X_NEAR, Z_NEAR);
     static ref LEFT_CLIP_1: Vec2 = *BACK_CLIP_2;
-    static ref LEFT_CLIP_2: Vec2 = Vec2::new(-*X_FAR, Z_FAR);
-    static ref RIGHT_CLIP_1: Vec2 = Vec2::new(*X_FAR, Z_FAR);
+    static ref LEFT_CLIP_2: Vec2 = vec2(-*X_FAR, Z_FAR);
+    static ref RIGHT_CLIP_1: Vec2 = vec2(*X_FAR, Z_FAR);
     static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_1;
 }
 
@@ -435,9 +435,8 @@ fn clip_wall(
 }
 
 fn intersect_xz(a1: Vec3, a2: Vec3, b1: Vec2, b2: Vec2) -> Option<Vec3> {
-    if let Some(Vec2 { x, y: z }) = intersect(Vec2::new(a1.x, a1.z), Vec2::new(a2.x, a2.z), b1, b2)
-    {
-        Some(Vec3::new(x, a1.y, z))
+    if let Some(Vec2 { x, y: z }) = intersect(vec2(a1.x, a1.z), vec2(a2.x, a2.z), b1, b2) {
+        Some(vec3(x, a1.y, z))
     } else {
         None
     }
@@ -447,14 +446,14 @@ fn intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
     let a_perp_dot = a1.perp_dot(a2);
     let b_perp_dot = b1.perp_dot(b2);
 
-    let divisor = Vec2::new(a1.x - a2.x, a1.y - a2.y).perp_dot(Vec2::new(b1.x - b2.x, b1.y - b2.y));
+    let divisor = vec2(a1.x - a2.x, a1.y - a2.y).perp_dot(vec2(b1.x - b2.x, b1.y - b2.y));
     if divisor == 0.0 {
         return None;
     };
 
-    let result = Vec2::new(
-        Vec2::new(a_perp_dot, a1.x - a2.x).perp_dot(Vec2::new(b_perp_dot, b1.x - b2.x)) / divisor,
-        Vec2::new(a_perp_dot, a1.y - a2.y).perp_dot(Vec2::new(b_perp_dot, b1.y - b2.y)) / divisor,
+    let result = vec2(
+        vec2(a_perp_dot, a1.x - a2.x).perp_dot(vec2(b_perp_dot, b1.x - b2.x)) / divisor,
+        vec2(a_perp_dot, a1.y - a2.y).perp_dot(vec2(b_perp_dot, b1.y - b2.y)) / divisor,
     );
 
     if between(result.x, a1.x, a2.x) && between(result.y, a1.y, a2.y) {
@@ -469,11 +468,11 @@ fn between(test: f32, a: f32, b: f32) -> bool {
 }
 
 fn point_behind_xz(point: Vec3, a: Vec2, b: Vec2) -> bool {
-    point_behind(Vec2::new(point.x, point.z), a, b)
+    point_behind(vec2(point.x, point.z), a, b)
 }
 
 fn point_behind(point: Vec2, a: Vec2, b: Vec2) -> bool {
-    Vec2::new(b.x - a.x, b.y - a.y).perp_dot(Vec2::new(point.x - a.x, point.y - a.y)) < 0.0
+    vec2(b.x - a.x, b.y - a.y).perp_dot(vec2(point.x - a.x, point.y - a.y)) < 0.0
 }
 
 fn draw_minimap_system(
@@ -553,11 +552,11 @@ fn draw_minimap_system(
     }
 
     // Draw frustum and player
-    let view_player = Vec3::new(0.0, 0.0, 0.0);
-    let view_near_left = Vec3::new(-*X_NEAR, 0.0, Z_NEAR);
-    let view_near_right = Vec3::new(*X_NEAR, 0.0, Z_NEAR);
-    let view_far_left = Vec3::new(-*X_FAR, 0.0, Z_FAR);
-    let view_far_right = Vec3::new(*X_FAR, 0.0, Z_FAR);
+    let view_player = vec3(0.0, 0.0, 0.0);
+    let view_near_left = vec3(-*X_NEAR, 0.0, Z_NEAR);
+    let view_near_right = vec3(*X_NEAR, 0.0, Z_NEAR);
+    let view_far_left = vec3(-*X_FAR, 0.0, Z_FAR);
+    let view_far_right = vec3(*X_FAR, 0.0, Z_FAR);
 
     if let Some((player, near_left, near_right, far_left, far_right)) = match state.minimap {
         Minimap::Off => None,
