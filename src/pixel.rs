@@ -11,10 +11,10 @@ impl Pixel {
         Self { x, y }
     }
 
-    pub fn from_absolute(v: Vec3) -> Self {
+    pub fn from_absolute(v: Vec2) -> Self {
         Self {
             x: (MINIMAP_SCALE * v.x).round() as isize + FRAC_WIDTH_2 as isize,
-            y: (MINIMAP_SCALE * v.z).round() as isize + FRAC_HEIGHT_2 as isize,
+            y: (MINIMAP_SCALE * v.y).round() as isize + FRAC_HEIGHT_2 as isize,
         }
     }
 

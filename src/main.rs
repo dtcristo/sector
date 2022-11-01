@@ -53,15 +53,16 @@ lazy_static! {
     static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_1;
 }
 
-#[derive(Component, Bundle, Debug)]
+#[derive(Component, Debug)]
 pub struct Wall {
-    pub left: Position,
-    pub right: Position,
-    pub height: Length,
+    pub left: Vertex,
+    pub right: Vertex,
+    pub floor: Length,
+    pub ceiling_height: Length,
     pub color: Color,
 }
 
-#[derive(Component, Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Length(f32);
 
 // Position (https://bevy-cheatbook.github.io/features/coords.html)
@@ -69,8 +70,44 @@ pub struct Length(f32);
 //   |
 //   v
 //   +z
-#[derive(Component, Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Position(Vec3);
+
+#[derive(Debug, Copy, Clone)]
+pub struct Vertex {
+    x: f32,
+    z: f32,
+}
+
+impl Vertex {
+    fn new(x: f32, z: f32) -> Self {
+        Self { x, z }
+    }
+}
+
+impl From<Vec2> for Vertex {
+    fn from(v: Vec2) -> Self {
+        Self::new(v.x, v.y)
+    }
+}
+
+impl From<Vertex> for Vec2 {
+    fn from(v: Vertex) -> Self {
+        vec2(v.x, v.z)
+    }
+}
+
+impl From<Vec3> for Vertex {
+    fn from(v: Vec3) -> Self {
+        Self::new(v.x, v.z)
+    }
+}
+
+impl From<Vertex> for Vec3 {
+    fn from(v: Vertex) -> Self {
+        vec3(v.x, 0.0, v.z)
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct Velocity(Vec3);
@@ -83,7 +120,7 @@ pub struct Velocity(Vec3);
 #[derive(Debug, Copy, Clone)]
 pub struct Direction(f32);
 
-#[derive(Component, Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Color(u8, u8, u8, u8);
 
 #[derive(Debug, PartialEq)]
@@ -154,30 +191,34 @@ fn main() {
 
 fn setup_system(mut commands: Commands) {
     commands.spawn().insert(Wall {
-        left: Position(vec3(-4.0, 0.0, -10.0)),
-        right: Position(vec3(4.0, 0.0, -5.0)),
-        height: Length(4.0),
+        left: Vertex::new(-4.0, -10.0),
+        right: Vertex::new(4.0, -5.0),
+        floor: Length(0.0),
+        ceiling_height: Length(4.0),
         color: Color(0xff, 0xff, 0x00, 0xff),
     });
 
     commands.spawn().insert(Wall {
-        left: Position(vec3(4.0, 0.0, -5.0)),
-        right: Position(vec3(4.0, 0.0, 8.0)),
-        height: Length(4.0),
+        left: Vertex::new(4.0, -5.0),
+        right: Vertex::new(4.0, 8.0),
+        floor: Length(0.0),
+        ceiling_height: Length(4.0),
         color: Color(0x00, 0xff, 0x00, 0xff),
     });
 
     commands.spawn().insert(Wall {
-        left: Position(vec3(4.0, 0.0, 8.0)),
-        right: Position(vec3(-11.0, 0.0, 8.0)),
-        height: Length(4.0),
+        left: Vertex::new(4.0, 8.0),
+        right: Vertex::new(-11.0, 8.0),
+        floor: Length(0.0),
+        ceiling_height: Length(4.0),
         color: Color(0x00, 0x00, 0xff, 0xff),
     });
 
     commands.spawn().insert(Wall {
-        left: Position(vec3(-11.0, 0.0, 8.0)),
-        right: Position(vec3(-4.0, 0.0, -10.0)),
-        height: Length(4.0),
+        left: Vertex::new(-11.0, 8.0),
+        right: Vertex::new(-4.0, -10.0),
+        floor: Length(0.0),
+        ceiling_height: Length(4.0),
         color: Color(0xff, 0x00, 0xff, 0xff),
     });
 }
@@ -307,139 +348,93 @@ fn draw_wall_system(
     state: Res<AppState>,
 ) {
     let frame = pixels_resource.pixels.get_frame_mut();
-    let view_matrix =
-        Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
+    let view_matrix = Mat3::from_rotation_z(state.direction.0)
+        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.z));
 
     for wall in query.iter() {
-        let wall_left_top = vec3(wall.left.0.x, wall.height.0, wall.left.0.z);
-        let wall_left_bottom = wall.left.0;
-        let wall_right_top = vec3(wall.right.0.x, wall.height.0, wall.right.0.z);
-        let wall_right_bottom = wall.right.0;
+        let view_left = view_matrix.transform_point2(wall.left.into()).into();
+        let view_right = view_matrix.transform_point2(wall.right.into()).into();
+        let view_floor = Length(wall.floor.0 - state.position.0.y);
+        let view_ceiling = Length(wall.floor.0 + wall.ceiling_height.0 - state.position.0.y);
 
-        let view_left_top = view_matrix.transform_point3(wall_left_top);
-        let view_left_bottom = view_matrix.transform_point3(wall_left_bottom);
-        let view_right_top = view_matrix.transform_point3(wall_right_top);
-        let view_right_bottom = view_matrix.transform_point3(wall_right_bottom);
-
-        println!("\n...");
-        // println!("before clip");
-        // dbg!(view_left_top);
-        // dbg!(view_left_bottom);
-        // dbg!(view_right_top);
-        // dbg!(view_right_bottom);
-
-        if let Some((view_left_top, view_left_bottom, view_right_top, view_right_bottom)) =
-            clip_wall(
-                view_left_top,
-                view_left_bottom,
-                view_right_top,
-                view_right_bottom,
-            )
-        {
-            // println!("after clip");
-            // dbg!(view_left_top);
-            // dbg!(view_left_bottom);
-            // dbg!(view_right_top);
-            // dbg!(view_right_bottom);
-
+        if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
             draw_wall(
                 frame,
-                view_left_top,
-                view_left_bottom,
-                view_right_top,
-                view_right_bottom,
+                view_left,
+                view_right,
+                view_floor,
+                view_ceiling,
                 wall.color,
             );
         };
     }
 }
 
-fn clip_wall(
-    mut view_left_top: Vec3,
-    mut view_left_bottom: Vec3,
-    mut view_right_top: Vec3,
-    mut view_right_bottom: Vec3,
-) -> Option<(Vec3, Vec3, Vec3, Vec3)> {
+fn clip_wall(mut view_left: Vertex, mut view_right: Vertex) -> Option<(Vertex, Vertex)> {
     // Skip entirely behind back
-    if view_left_top.z > Z_NEAR && view_right_top.z > Z_NEAR {
+    if view_left.z > Z_NEAR && view_right.z > Z_NEAR {
         return None;
     }
 
     // Clip left side
-    if let Some(intersection) =
-        intersect_xz(view_left_top, view_right_top, *LEFT_CLIP_1, *LEFT_CLIP_2)
-    {
+    if let Some(intersection) = intersect(
+        view_left.into(),
+        view_right.into(),
+        *LEFT_CLIP_1,
+        *LEFT_CLIP_2,
+    ) {
         if intersection.x < -*X_NEAR {
-            if point_behind_xz(view_left_top, *LEFT_CLIP_1, *LEFT_CLIP_2) {
-                view_left_top = intersection;
-                view_left_bottom.x = view_left_top.x;
-                view_left_bottom.z = view_left_top.z;
+            if point_behind(view_left.into(), *LEFT_CLIP_1, *LEFT_CLIP_2) {
+                view_left = intersection.into();
             } else {
-                view_right_top = intersection;
-                view_right_bottom.x = view_right_top.x;
-                view_right_bottom.z = view_right_top.z;
+                view_right = intersection.into();
             }
         }
     }
 
     // Clip right side
-    if let Some(intersection) =
-        intersect_xz(view_left_top, view_right_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2)
-    {
+    if let Some(intersection) = intersect(
+        view_left.into(),
+        view_right.into(),
+        *RIGHT_CLIP_1,
+        *RIGHT_CLIP_2,
+    ) {
         if intersection.x > *X_NEAR {
-            if point_behind_xz(view_left_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
-                view_left_top = intersection;
-                view_left_bottom.x = view_left_top.x;
-                view_left_bottom.z = view_left_top.z;
+            if point_behind(view_left.into(), *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
+                view_left = intersection.into();
             } else {
-                view_right_top = intersection;
-                view_right_bottom.x = view_right_top.x;
-                view_right_bottom.z = view_right_top.z;
+                view_right = intersection.into();
             }
         }
     }
 
     // Clip behind back
-    if view_left_top.z > Z_NEAR || view_right_top.z > Z_NEAR {
-        if let Some(intersection) =
-            intersect_xz(view_left_top, view_right_top, *BACK_CLIP_1, *BACK_CLIP_2)
-        {
-            if point_behind_xz(view_left_top, *BACK_CLIP_1, *BACK_CLIP_2) {
-                view_left_top = intersection;
-                view_left_bottom.x = view_left_top.x;
-                view_left_bottom.z = view_left_top.z;
+    if view_left.z > Z_NEAR || view_right.z > Z_NEAR {
+        if let Some(intersection) = intersect(
+            view_left.into(),
+            view_right.into(),
+            *BACK_CLIP_1,
+            *BACK_CLIP_2,
+        ) {
+            if point_behind(view_left.into(), *BACK_CLIP_1, *BACK_CLIP_2) {
+                view_left = intersection.into();
             } else {
-                view_right_top = intersection;
-                view_right_bottom.x = view_right_top.x;
-                view_right_bottom.z = view_right_top.z;
+                view_right = intersection.into();
             }
         }
     }
 
     // Skip entirely behind left side
-    if point_behind_xz(view_left_top, *LEFT_CLIP_1, *LEFT_CLIP_2) {
+    if point_behind(view_left.into(), *LEFT_CLIP_1, *LEFT_CLIP_2) {
         return None;
     }
 
     // Skip entirely behind right side
-    if point_behind_xz(view_left_top, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
+    if point_behind(view_left.into(), *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
         return None;
     }
 
-    Some((
-        view_left_top,
-        view_left_bottom,
-        view_right_top,
-        view_right_bottom,
-    ))
-}
-
-fn intersect_xz(a1: Vec3, a2: Vec3, b1: Vec2, b2: Vec2) -> Option<Vec3> {
-    if let Some(Vec2 { x, y: z }) = intersect(vec2(a1.x, a1.z), vec2(a2.x, a2.z), b1, b2) {
-        Some(vec3(x, a1.y, z))
-    } else {
-        None
-    }
+    Some((view_left, view_right))
 }
 
 fn intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
@@ -467,10 +462,6 @@ fn between(test: f32, a: f32, b: f32) -> bool {
     test >= a.min(b) && test <= a.max(b)
 }
 
-fn point_behind_xz(point: Vec3, a: Vec2, b: Vec2) -> bool {
-    point_behind(vec2(point.x, point.z), a, b)
-}
-
 fn point_behind(point: Vec2, a: Vec2, b: Vec2) -> bool {
     vec2(b.x - a.x, b.y - a.y).perp_dot(vec2(point.x - a.x, point.y - a.y)) < 0.0
 }
@@ -485,10 +476,10 @@ fn draw_minimap_system(
     }
 
     let frame = pixels_resource.pixels.get_frame_mut();
-    let view_matrix =
-        Mat4::from_rotation_y(-state.direction.0) * Mat4::from_translation(-state.position.0);
-    let reverse_view_matrix =
-        Mat4::from_translation(state.position.0) * Mat4::from_rotation_y(state.direction.0);
+    let view_matrix = Mat3::from_rotation_z(state.direction.0)
+        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.z));
+    let reverse_view_matrix = Mat3::from_translation(vec2(state.position.0.x, state.position.0.z))
+        * Mat3::from_rotation_z(-state.direction.0);
 
     let wall_clipped_color = Color(0xff, 0xff, 0xff, 0xff);
     let frustum_color = Color(0x88, 0x88, 0x88, 0xff);
@@ -496,67 +487,62 @@ fn draw_minimap_system(
 
     // Draw walls
     for wall in query.iter() {
-        let wall_left_top = vec3(wall.left.0.x, wall.height.0, wall.left.0.z);
-        let wall_right_top = vec3(wall.right.0.x, wall.height.0, wall.right.0.z);
+        let view_left = view_matrix.transform_point2(wall.left.into()).into();
+        let view_right = view_matrix.transform_point2(wall.right.into()).into();
 
-        let view_left_top = view_matrix.transform_point3(wall_left_top);
-        let view_right_top = view_matrix.transform_point3(wall_right_top);
+        let mut view_left_after_clip = view_left;
+        let mut view_right_after_clip = view_right;
 
-        let mut view_left_top_after_clip = view_left_top;
-        let mut view_right_top_after_clip = view_right_top;
-
-        let clipping = clip_wall(view_left_top, view_left_top, view_right_top, view_right_top);
-        if let Some((l, _, r, _)) = clipping {
-            view_left_top_after_clip = l;
-            view_right_top_after_clip = r;
+        let clipping = clip_wall(view_left, view_right);
+        if let Some((l, r)) = clipping {
+            view_left_after_clip = l;
+            view_right_after_clip = r;
         }
 
-        if let Some((left_top, right_top, left_top_after_clip, right_top_after_clip)) =
-            match state.minimap {
-                Minimap::Off => None,
-                Minimap::FirstPerson => Some((
-                    Pixel::from_absolute(view_left_top),
-                    Pixel::from_absolute(view_right_top),
-                    Pixel::from_absolute(view_left_top_after_clip),
-                    Pixel::from_absolute(view_right_top_after_clip),
-                )),
-                Minimap::Absolute => {
-                    let absolute_left_top = reverse_view_matrix.transform_point3(view_left_top);
-                    let absolute_right_top = reverse_view_matrix.transform_point3(view_right_top);
-                    let absolute_left_top_after_clip =
-                        reverse_view_matrix.transform_point3(view_left_top_after_clip);
-                    let absolute_right_top_after_clip =
-                        reverse_view_matrix.transform_point3(view_right_top_after_clip);
+        if let Some((left, right, left_after_clip, right_after_clip)) = match state.minimap {
+            Minimap::Off => None,
+            Minimap::FirstPerson => Some((
+                Pixel::from_absolute(view_left.into()),
+                Pixel::from_absolute(view_right.into()),
+                Pixel::from_absolute(view_left_after_clip.into()),
+                Pixel::from_absolute(view_right_after_clip.into()),
+            )),
+            Minimap::Absolute => {
+                let absolute_left = reverse_view_matrix.transform_point2(view_left.into());
+                let absolute_right = reverse_view_matrix.transform_point2(view_right.into());
+                let absolute_left_after_clip =
+                    reverse_view_matrix.transform_point2(view_left_after_clip.into());
+                let absolute_right_after_clip =
+                    reverse_view_matrix.transform_point2(view_right_after_clip.into());
 
-                    Some((
-                        Pixel::from_absolute(absolute_left_top),
-                        Pixel::from_absolute(absolute_right_top),
-                        Pixel::from_absolute(absolute_left_top_after_clip),
-                        Pixel::from_absolute(absolute_right_top_after_clip),
-                    ))
-                }
+                Some((
+                    Pixel::from_absolute(absolute_left),
+                    Pixel::from_absolute(absolute_right),
+                    Pixel::from_absolute(absolute_left_after_clip),
+                    Pixel::from_absolute(absolute_right_after_clip),
+                ))
             }
-        {
+        } {
             if clipping.is_none() {
-                draw_line(frame, left_top, right_top, wall_clipped_color);
+                draw_line(frame, left, right, wall_clipped_color);
                 continue;
             }
-            if left_top_after_clip != left_top {
-                draw_line(frame, left_top, left_top_after_clip, wall_clipped_color);
+            if left_after_clip != left {
+                draw_line(frame, left, left_after_clip, wall_clipped_color);
             }
-            if right_top_after_clip != right_top {
-                draw_line(frame, right_top_after_clip, right_top, wall_clipped_color);
+            if right_after_clip != right {
+                draw_line(frame, right_after_clip, right, wall_clipped_color);
             }
-            draw_line(frame, left_top_after_clip, right_top_after_clip, wall.color);
+            draw_line(frame, left_after_clip, right_after_clip, wall.color);
         }
     }
 
     // Draw frustum and player
-    let view_player = vec3(0.0, 0.0, 0.0);
-    let view_near_left = vec3(-*X_NEAR, 0.0, Z_NEAR);
-    let view_near_right = vec3(*X_NEAR, 0.0, Z_NEAR);
-    let view_far_left = vec3(-*X_FAR, 0.0, Z_FAR);
-    let view_far_right = vec3(*X_FAR, 0.0, Z_FAR);
+    let view_player = vec2(0.0, 0.0);
+    let view_near_left = vec2(-*X_NEAR, Z_NEAR);
+    let view_near_right = vec2(*X_NEAR, Z_NEAR);
+    let view_far_left = vec2(-*X_FAR, Z_FAR);
+    let view_far_right = vec2(*X_FAR, Z_FAR);
 
     if let Some((player, near_left, near_right, far_left, far_right)) = match state.minimap {
         Minimap::Off => None,
@@ -568,11 +554,11 @@ fn draw_minimap_system(
             Pixel::from_absolute(view_far_right),
         )),
         Minimap::Absolute => {
-            let absolute_player = state.position.0;
-            let absolute_near_left = reverse_view_matrix.transform_point3(view_near_left);
-            let absolute_near_right = reverse_view_matrix.transform_point3(view_near_right);
-            let absolute_far_left = reverse_view_matrix.transform_point3(view_far_left);
-            let absolute_far_right = reverse_view_matrix.transform_point3(view_far_right);
+            let absolute_player = vec2(state.position.0.x, state.position.0.z);
+            let absolute_near_left = reverse_view_matrix.transform_point2(view_near_left);
+            let absolute_near_right = reverse_view_matrix.transform_point2(view_near_right);
+            let absolute_far_left = reverse_view_matrix.transform_point2(view_far_left);
+            let absolute_far_right = reverse_view_matrix.transform_point2(view_far_right);
 
             Some((
                 Pixel::from_absolute(absolute_player),

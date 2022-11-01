@@ -4,16 +4,20 @@ use rust_bresenham::Bresenham;
 
 pub fn draw_wall(
     frame: &mut [u8],
-    view_left_top: Vec3,
-    view_left_bottom: Vec3,
-    view_right_top: Vec3,
-    view_right_bottom: Vec3,
+    view_left: Vertex,
+    view_right: Vertex,
+    view_floor: Length,
+    view_ceiling: Length,
     color: Color,
 ) {
-    let normalized_left_top = PERSPECTIVE_MATRIX.project_point3(view_left_top);
-    let normalized_left_bottom = PERSPECTIVE_MATRIX.project_point3(view_left_bottom);
-    let normalized_right_top = PERSPECTIVE_MATRIX.project_point3(view_right_top);
-    let normalized_right_bottom = PERSPECTIVE_MATRIX.project_point3(view_right_bottom);
+    let normalized_left_top =
+        PERSPECTIVE_MATRIX.project_point3(vec3(view_left.x, view_ceiling.0, view_left.z));
+    let normalized_left_bottom =
+        PERSPECTIVE_MATRIX.project_point3(vec3(view_left.x, view_floor.0, view_left.z));
+    let normalized_right_top =
+        PERSPECTIVE_MATRIX.project_point3(vec3(view_right.x, view_ceiling.0, view_right.z));
+    let normalized_right_bottom =
+        PERSPECTIVE_MATRIX.project_point3(vec3(view_right.x, view_floor.0, view_right.z));
 
     // dbg!(normalized_left_top);
     // dbg!(normalized_left_bottom);
@@ -29,10 +33,6 @@ pub fn draw_wall(
     // dbg!(left_bottom);
     // dbg!(right_top);
     // dbg!(right_bottom);
-
-    if left_top.x != left_bottom.x || right_top.x != right_bottom.x {
-        panic!("top of wall is not directly above bottom of wall");
-    }
 
     let dx = right_top.x - left_top.x;
     if dx <= 0 {
@@ -54,7 +54,7 @@ pub fn draw_wall(
         WIDTH_MINUS_EDGE_GAP
     };
 
-    let view_dz = view_right_top.z - view_left_top.z;
+    let view_dz = view_right.z - view_left.z;
     // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
 
     let color_hsla_raw = BevyColor::rgba_u8(color.0, color.1, color.2, color.3).as_hsla_f32();
@@ -63,7 +63,7 @@ pub fn draw_wall(
 
     for x in x1..(x2 - JOIN_GAP) {
         let progress = (x - left_top.x) as f32 / dx as f32;
-        let view_z = progress * view_dz + view_left_top.z;
+        let view_z = progress * view_dz + view_left.z;
 
         let distance = view_z.abs();
 
