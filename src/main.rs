@@ -14,7 +14,7 @@ use bevy::{
     window::WindowResizeConstraints,
 };
 use bevy_pixels::prelude::*;
-use bevy_render::color::Color as BevyColor;
+use bevy_render::color::Color;
 
 #[macro_use]
 extern crate lazy_static;
@@ -45,12 +45,19 @@ lazy_static! {
     static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
     static ref X_NEAR: f32 = -Z_NEAR * *TAN_FAC_FOV_X_2;
     static ref X_FAR: f32 = -Z_FAR * *TAN_FAC_FOV_X_2;
+    // Clip boundaries
     static ref BACK_CLIP_1: Vec2 = vec2(*X_NEAR, Z_NEAR);
     static ref BACK_CLIP_2: Vec2 = vec2(-*X_NEAR, Z_NEAR);
     static ref LEFT_CLIP_1: Vec2 = *BACK_CLIP_2;
     static ref LEFT_CLIP_2: Vec2 = vec2(-*X_FAR, Z_FAR);
     static ref RIGHT_CLIP_1: Vec2 = vec2(*X_FAR, Z_FAR);
     static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_1;
+    // Colors
+    static ref CEILING_COLOR: Color = Color::SILVER;
+    static ref FLOOR_COLOR: Color = Color::GRAY;
+    static ref WALL_CLIPPED_COLOR: Color = Color::WHITE;
+    static ref FRUSTUM_COLOR: Color = Color::DARK_GRAY;
+    static ref PLAYER_COLOR: Color = Color::RED;
 }
 
 #[derive(Component, Debug)]
@@ -119,9 +126,6 @@ pub struct Velocity(Vec3);
 //       .
 #[derive(Debug, Copy, Clone)]
 pub struct Direction(f32);
-
-#[derive(Debug, Copy, Clone)]
-pub struct Color(u8, u8, u8, u8);
 
 #[derive(Debug, PartialEq)]
 enum Minimap {
@@ -195,7 +199,7 @@ fn setup_system(mut commands: Commands) {
         right: Vertex::new(4.0, -5.0),
         floor: Length(0.0),
         ceiling_height: Length(4.0),
-        color: Color(0xff, 0xff, 0x00, 0xff),
+        color: Color::YELLOW,
     });
 
     commands.spawn().insert(Wall {
@@ -203,7 +207,7 @@ fn setup_system(mut commands: Commands) {
         right: Vertex::new(4.0, 8.0),
         floor: Length(0.0),
         ceiling_height: Length(4.0),
-        color: Color(0x00, 0xff, 0x00, 0xff),
+        color: Color::GREEN,
     });
 
     commands.spawn().insert(Wall {
@@ -211,7 +215,7 @@ fn setup_system(mut commands: Commands) {
         right: Vertex::new(-11.0, 8.0),
         floor: Length(0.0),
         ceiling_height: Length(4.0),
-        color: Color(0x00, 0x00, 0xff, 0xff),
+        color: Color::BLUE,
     });
 
     commands.spawn().insert(Wall {
@@ -219,7 +223,7 @@ fn setup_system(mut commands: Commands) {
         right: Vertex::new(-4.0, -10.0),
         floor: Length(0.0),
         ceiling_height: Length(4.0),
-        color: Color(0xff, 0x00, 0xff, 0xff),
+        color: Color::FUCHSIA,
     });
 }
 
@@ -481,10 +485,6 @@ fn draw_minimap_system(
     let reverse_view_matrix = Mat3::from_translation(vec2(state.position.0.x, state.position.0.z))
         * Mat3::from_rotation_z(-state.direction.0);
 
-    let wall_clipped_color = Color(0xff, 0xff, 0xff, 0xff);
-    let frustum_color = Color(0x88, 0x88, 0x88, 0xff);
-    let player_color = Color(0xff, 0x00, 0x00, 0xff);
-
     // Draw walls
     for wall in query.iter() {
         let view_left = view_matrix.transform_point2(wall.left.into()).into();
@@ -524,14 +524,14 @@ fn draw_minimap_system(
             }
         } {
             if clipping.is_none() {
-                draw_line(frame, left, right, wall_clipped_color);
+                draw_line(frame, left, right, *WALL_CLIPPED_COLOR);
                 continue;
             }
             if left_after_clip != left {
-                draw_line(frame, left, left_after_clip, wall_clipped_color);
+                draw_line(frame, left, left_after_clip, *WALL_CLIPPED_COLOR);
             }
             if right_after_clip != right {
-                draw_line(frame, right_after_clip, right, wall_clipped_color);
+                draw_line(frame, right_after_clip, right, *WALL_CLIPPED_COLOR);
             }
             draw_line(frame, left_after_clip, right_after_clip, wall.color);
         }
@@ -569,9 +569,9 @@ fn draw_minimap_system(
             ))
         }
     } {
-        draw_line(frame, near_left, far_left, frustum_color);
-        draw_line(frame, near_right, far_right, frustum_color);
-        draw_line(frame, near_left, near_right, frustum_color);
-        draw_pixel(frame, player, player_color);
+        draw_line(frame, near_left, far_left, *FRUSTUM_COLOR);
+        draw_line(frame, near_right, far_right, *FRUSTUM_COLOR);
+        draw_line(frame, near_left, near_right, *FRUSTUM_COLOR);
+        draw_pixel(frame, player, *PLAYER_COLOR);
     }
 }
