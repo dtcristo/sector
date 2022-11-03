@@ -401,7 +401,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pixels"
-version = "0.5.0"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4cf7d546f864525234164143473f8d0d374644ad3de4ccf8078723f20606a1b"
 dependencies = [
  "bevy",
  "pixels",
@@ -1747,8 +1749,9 @@ checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 
 [[package]]
 name = "pixels"
-version = "0.9.0"
-source = "git+https://github.com/parasyte/pixels?rev=9c3edeb1d4efc8a06b4c5536577cc0909c62714b#9c3edeb1d4efc8a06b4c5536577cc0909c62714b"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4110d5d4895e4e474ac7acf49f7dbefd3c2ae9f5635d804a425b7af7d4f5001"
 dependencies = [
  "bytemuck",
  "pollster",
