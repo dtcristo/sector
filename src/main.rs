@@ -65,7 +65,7 @@ pub struct Wall {
     pub left: Vertex,
     pub right: Vertex,
     pub floor: Length,
-    pub ceiling_height: Length,
+    pub ceiling: Length,
     pub color: Color,
 }
 
@@ -198,7 +198,7 @@ fn setup_system(mut commands: Commands) {
         left: Vertex::new(-4.0, -10.0),
         right: Vertex::new(4.0, -5.0),
         floor: Length(0.0),
-        ceiling_height: Length(4.0),
+        ceiling: Length(4.0),
         color: Color::YELLOW,
     });
 
@@ -206,7 +206,7 @@ fn setup_system(mut commands: Commands) {
         left: Vertex::new(4.0, -5.0),
         right: Vertex::new(4.0, 8.0),
         floor: Length(0.0),
-        ceiling_height: Length(4.0),
+        ceiling: Length(4.0),
         color: Color::GREEN,
     });
 
@@ -214,7 +214,7 @@ fn setup_system(mut commands: Commands) {
         left: Vertex::new(4.0, 8.0),
         right: Vertex::new(-11.0, 8.0),
         floor: Length(0.0),
-        ceiling_height: Length(4.0),
+        ceiling: Length(4.0),
         color: Color::BLUE,
     });
 
@@ -222,7 +222,7 @@ fn setup_system(mut commands: Commands) {
         left: Vertex::new(-11.0, 8.0),
         right: Vertex::new(-4.0, -10.0),
         floor: Length(0.0),
-        ceiling_height: Length(4.0),
+        ceiling: Length(4.0),
         color: Color::FUCHSIA,
     });
 }
@@ -359,7 +359,7 @@ fn draw_wall_system(
         let view_left = view_matrix.transform_point2(wall.left.into()).into();
         let view_right = view_matrix.transform_point2(wall.right.into()).into();
         let view_floor = Length(wall.floor.0 - state.position.0.y);
-        let view_ceiling = Length(wall.floor.0 + wall.ceiling_height.0 - state.position.0.y);
+        let view_ceiling = Length(wall.ceiling.0 - state.position.0.y);
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
             draw_wall(
