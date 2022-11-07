@@ -61,12 +61,52 @@ lazy_static! {
 }
 
 #[derive(Component, Debug)]
-pub struct Wall {
-    pub left: Vertex,
-    pub right: Vertex,
-    pub floor: Length,
-    pub ceiling: Length,
-    pub color: Color,
+struct Sector {
+    vertices: Vec<Vertex>,
+    adjacent_sectors: Vec<Option<Entity>>,
+    colors: Vec<Color>,
+    floor: Length,
+    ceiling: Length,
+}
+
+impl Sector {
+    fn to_walls(&self) -> Vec<Wall> {
+        let mut walls = Vec::with_capacity(self.vertices.len());
+
+        let mut vertex_iter = self.vertices.iter();
+        let mut adjacent_sector_iter = self.adjacent_sectors.iter();
+        let mut color_iter = self.colors.iter();
+
+        let Some(&initial) = vertex_iter.next() else { return walls };
+
+        let mut add_wall = |left: Vertex, right: Vertex| {
+            walls.push(Wall {
+                left,
+                right,
+                adjacent_sector: *adjacent_sector_iter.next().unwrap_or(&None),
+                color: *color_iter.next().unwrap_or(&Color::RED),
+            })
+        };
+
+        let mut previous = initial;
+
+        for &vertex in vertex_iter {
+            add_wall(previous, vertex);
+            previous = vertex;
+        }
+
+        add_wall(previous, initial);
+
+        walls
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct Wall {
+    left: Vertex,
+    right: Vertex,
+    adjacent_sector: Option<Entity>,
+    color: Color,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -141,6 +181,7 @@ pub struct AppState {
     velocity: Velocity,
     direction: Direction,
     update_title_timer: Timer,
+    current_sector: Entity,
 }
 
 fn main() {
@@ -170,6 +211,7 @@ fn main() {
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
             update_title_timer: Timer::new(Duration::from_millis(500), true),
+            current_sector: Entity::from_raw(u32::MAX), // Initial invalid Entity, correctly set within setup
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(PixelsPlugin)
@@ -193,37 +235,45 @@ fn main() {
         .run();
 }
 
-fn setup_system(mut commands: Commands) {
-    commands.spawn().insert(Wall {
-        left: Vertex::new(-4.0, -10.0),
-        right: Vertex::new(4.0, -5.0),
+fn setup_system(mut commands: Commands, mut state: ResMut<AppState>) {
+    // Vertices
+    let v0 = Vertex::new(-4.0, -10.0);
+    let v1 = Vertex::new(-2.0, -10.0);
+    let v2 = Vertex::new(2.0, -5.0);
+    let v3 = Vertex::new(4.0, -1.0);
+    let v4 = Vertex::new(4.0, 8.0);
+    let v5 = Vertex::new(-11.0, 8.0);
+    let v6 = Vertex::new(-4.0, -15.0);
+    let v7 = Vertex::new(4.0, -15.0);
+
+    // Sectors
+    let s0 = commands.spawn().id();
+    let s1 = commands.spawn().id();
+
+    // Player starts in sector 0
+    state.current_sector = s0;
+
+    commands.entity(s0).insert(Sector {
+        vertices: vec![v0, v1, v2, v3, v4, v5],
+        adjacent_sectors: vec![None, Some(s1), None, None, None, None],
+        colors: vec![
+            Color::BLUE,
+            Color::WHITE,
+            Color::GREEN,
+            Color::ORANGE,
+            Color::FUCHSIA,
+            Color::YELLOW,
+        ],
         floor: Length(0.0),
         ceiling: Length(4.0),
-        color: Color::YELLOW,
     });
 
-    commands.spawn().insert(Wall {
-        left: Vertex::new(4.0, -5.0),
-        right: Vertex::new(4.0, 8.0),
-        floor: Length(0.0),
-        ceiling: Length(4.0),
-        color: Color::GREEN,
-    });
-
-    commands.spawn().insert(Wall {
-        left: Vertex::new(4.0, 8.0),
-        right: Vertex::new(-11.0, 8.0),
-        floor: Length(0.0),
-        ceiling: Length(4.0),
-        color: Color::BLUE,
-    });
-
-    commands.spawn().insert(Wall {
-        left: Vertex::new(-11.0, 8.0),
-        right: Vertex::new(-4.0, -10.0),
-        floor: Length(0.0),
-        ceiling: Length(4.0),
-        color: Color::FUCHSIA,
+    commands.entity(s1).insert(Sector {
+        vertices: vec![v2, v1, v6, v7],
+        adjacent_sectors: vec![Some(s0), None, None, None],
+        colors: vec![Color::WHITE, Color::YELLOW, Color::GREEN, Color::FUCHSIA],
+        floor: Length(0.25),
+        ceiling: Length(3.75),
     });
 }
 
@@ -278,7 +328,7 @@ fn escape_system(
     }
 }
 
-fn switch_minimap_system(key: Res<Input<KeyCode>>, mut state: ResMut<AppState>) {
+fn switch_minimap_system(mut state: ResMut<AppState>, key: Res<Input<KeyCode>>) {
     if key.just_pressed(KeyCode::Tab) {
         state.minimap = match state.minimap {
             Minimap::Off => Minimap::FirstPerson,
@@ -289,10 +339,10 @@ fn switch_minimap_system(key: Res<Input<KeyCode>>, mut state: ResMut<AppState>) 
 }
 
 fn player_movement_system(
-    windows: Res<Windows>,
+    mut state: ResMut<AppState>,
     mut mouse_motion_events: EventReader<MouseMotion>,
     key: Res<Input<KeyCode>>,
-    mut state: ResMut<AppState>,
+    windows: Res<Windows>,
 ) {
     let window = windows.get_primary().unwrap();
 
@@ -348,18 +398,21 @@ fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
 
 fn draw_wall_system(
     mut pixels_resource: ResMut<PixelsResource>,
-    query: Query<&Wall>,
     state: Res<AppState>,
+    sector_query: Query<&Sector>,
 ) {
     let frame = pixels_resource.pixels.get_frame_mut();
     let view_matrix = Mat3::from_rotation_z(state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.z));
 
-    for wall in query.iter() {
+    let Ok(sector) = sector_query.get(state.current_sector) else { return };
+
+    let view_floor = Length(sector.floor.0 - state.position.0.y);
+    let view_ceiling = Length(sector.ceiling.0 - state.position.0.y);
+
+    for wall in sector.to_walls() {
         let view_left = view_matrix.transform_point2(wall.left.into()).into();
         let view_right = view_matrix.transform_point2(wall.right.into()).into();
-        let view_floor = Length(wall.floor.0 - state.position.0.y);
-        let view_ceiling = Length(wall.ceiling.0 - state.position.0.y);
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
             draw_wall(
@@ -472,8 +525,8 @@ fn point_behind(point: Vec2, a: Vec2, b: Vec2) -> bool {
 
 fn draw_minimap_system(
     mut pixels_resource: ResMut<PixelsResource>,
-    query: Query<&Wall>,
     state: Res<AppState>,
+    sector_query: Query<&Sector>,
 ) {
     if state.minimap == Minimap::Off {
         return;
@@ -486,54 +539,56 @@ fn draw_minimap_system(
         * Mat3::from_rotation_z(-state.direction.0);
 
     // Draw walls
-    for wall in query.iter() {
-        let view_left = view_matrix.transform_point2(wall.left.into()).into();
-        let view_right = view_matrix.transform_point2(wall.right.into()).into();
+    for sector in sector_query.iter() {
+        for wall in sector.to_walls() {
+            let view_left = view_matrix.transform_point2(wall.left.into()).into();
+            let view_right = view_matrix.transform_point2(wall.right.into()).into();
 
-        let mut view_left_after_clip = view_left;
-        let mut view_right_after_clip = view_right;
+            let mut view_left_after_clip = view_left;
+            let mut view_right_after_clip = view_right;
 
-        let clipping = clip_wall(view_left, view_right);
-        if let Some((l, r)) = clipping {
-            view_left_after_clip = l;
-            view_right_after_clip = r;
-        }
+            let clipping = clip_wall(view_left, view_right);
+            if let Some((l, r)) = clipping {
+                view_left_after_clip = l;
+                view_right_after_clip = r;
+            }
 
-        if let Some((left, right, left_after_clip, right_after_clip)) = match state.minimap {
-            Minimap::Off => None,
-            Minimap::FirstPerson => Some((
-                Pixel::from_absolute(view_left.into()),
-                Pixel::from_absolute(view_right.into()),
-                Pixel::from_absolute(view_left_after_clip.into()),
-                Pixel::from_absolute(view_right_after_clip.into()),
-            )),
-            Minimap::Absolute => {
-                let absolute_left = reverse_view_matrix.transform_point2(view_left.into());
-                let absolute_right = reverse_view_matrix.transform_point2(view_right.into());
-                let absolute_left_after_clip =
-                    reverse_view_matrix.transform_point2(view_left_after_clip.into());
-                let absolute_right_after_clip =
-                    reverse_view_matrix.transform_point2(view_right_after_clip.into());
+            if let Some((left, right, left_after_clip, right_after_clip)) = match state.minimap {
+                Minimap::Off => None,
+                Minimap::FirstPerson => Some((
+                    Pixel::from_absolute(view_left.into()),
+                    Pixel::from_absolute(view_right.into()),
+                    Pixel::from_absolute(view_left_after_clip.into()),
+                    Pixel::from_absolute(view_right_after_clip.into()),
+                )),
+                Minimap::Absolute => {
+                    let absolute_left = reverse_view_matrix.transform_point2(view_left.into());
+                    let absolute_right = reverse_view_matrix.transform_point2(view_right.into());
+                    let absolute_left_after_clip =
+                        reverse_view_matrix.transform_point2(view_left_after_clip.into());
+                    let absolute_right_after_clip =
+                        reverse_view_matrix.transform_point2(view_right_after_clip.into());
 
-                Some((
-                    Pixel::from_absolute(absolute_left),
-                    Pixel::from_absolute(absolute_right),
-                    Pixel::from_absolute(absolute_left_after_clip),
-                    Pixel::from_absolute(absolute_right_after_clip),
-                ))
+                    Some((
+                        Pixel::from_absolute(absolute_left),
+                        Pixel::from_absolute(absolute_right),
+                        Pixel::from_absolute(absolute_left_after_clip),
+                        Pixel::from_absolute(absolute_right_after_clip),
+                    ))
+                }
+            } {
+                if clipping.is_none() {
+                    draw_line(frame, left, right, *WALL_CLIPPED_COLOR);
+                    continue;
+                }
+                if left_after_clip != left {
+                    draw_line(frame, left, left_after_clip, *WALL_CLIPPED_COLOR);
+                }
+                if right_after_clip != right {
+                    draw_line(frame, right_after_clip, right, *WALL_CLIPPED_COLOR);
+                }
+                draw_line(frame, left_after_clip, right_after_clip, wall.color);
             }
-        } {
-            if clipping.is_none() {
-                draw_line(frame, left, right, *WALL_CLIPPED_COLOR);
-                continue;
-            }
-            if left_after_clip != left {
-                draw_line(frame, left, left_after_clip, *WALL_CLIPPED_COLOR);
-            }
-            if right_after_clip != right {
-                draw_line(frame, right_after_clip, right, *WALL_CLIPPED_COLOR);
-            }
-            draw_line(frame, left_after_clip, right_after_clip, wall.color);
         }
     }
 
