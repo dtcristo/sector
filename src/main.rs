@@ -61,7 +61,7 @@ lazy_static! {
 }
 
 #[derive(Component, Debug)]
-struct Sector {
+pub struct Sector {
     vertices: Vec<Vertex>,
     adjacent_sectors: Vec<Option<Entity>>,
     colors: Vec<Color>,
@@ -89,12 +89,10 @@ impl Sector {
         };
 
         let mut previous = initial;
-
         for &vertex in vertex_iter {
             add_wall(previous, vertex);
             previous = vertex;
         }
-
         add_wall(previous, initial);
 
         walls
@@ -401,6 +399,9 @@ fn draw_wall_system(
     sector_query: Query<&Sector>,
 ) {
     let frame = pixels_resource.pixels.get_frame_mut();
+    let mut y_top_max = vec![HEIGHT as isize; WIDTH as usize];
+    let mut y_bottom_min = vec![0isize; WIDTH as usize];
+
     let view_matrix = Mat3::from_rotation_z(state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.z));
 
@@ -414,14 +415,111 @@ fn draw_wall_system(
         let view_right = view_matrix.transform_point2(wall.right.into()).into();
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
-            draw_wall(
-                frame,
-                view_left,
-                view_right,
-                view_floor,
-                view_ceiling,
-                wall.color,
-            );
+            let adjacent_sector = wall
+                .adjacent_sector
+                .and_then(|adjacent_sector_id| sector_query.get(adjacent_sector_id).ok());
+
+            let normalized_left_top =
+                PERSPECTIVE_MATRIX.project_point3(vec3(view_left.x, view_ceiling.0, view_left.z));
+            let normalized_left_bottom =
+                PERSPECTIVE_MATRIX.project_point3(vec3(view_left.x, view_floor.0, view_left.z));
+            let normalized_right_top =
+                PERSPECTIVE_MATRIX.project_point3(vec3(view_right.x, view_ceiling.0, view_right.z));
+            let normalized_right_bottom =
+                PERSPECTIVE_MATRIX.project_point3(vec3(view_right.x, view_floor.0, view_right.z));
+
+            let left_top = Pixel::from_normalized(normalized_left_top);
+            let left_bottom = Pixel::from_normalized(normalized_left_bottom);
+            let right_top = Pixel::from_normalized(normalized_right_top);
+            let right_bottom = Pixel::from_normalized(normalized_right_bottom);
+
+            let dx = right_top.x - left_top.x;
+            if dx <= 0 {
+                // Right of wall side is on the left of left of wall, looking at back of wall, skip drawing
+                return;
+            }
+            let dy_top = right_top.y - left_top.y;
+            let dy_bottom = right_bottom.y - left_bottom.y;
+
+            // Clip x
+            let x1 = if left_top.x > EDGE_GAP {
+                left_top.x
+            } else {
+                EDGE_GAP
+            };
+            let x2 = if right_top.x < WIDTH_MINUS_EDGE_GAP {
+                right_top.x
+            } else {
+                WIDTH_MINUS_EDGE_GAP
+            };
+
+            let view_dz = view_right.z - view_left.z;
+            // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
+
+            let color_hsla_raw = wall.color.as_hsla_f32();
+
+            for x in x1..(x2 - JOIN_GAP) {
+                let progress = (x - left_top.x) as f32 / dx as f32;
+                let view_z = progress * view_dz + view_left.z;
+
+                let distance = view_z.abs();
+
+                let lightness = if distance > LIGHTNESS_DISTANCE_FAR {
+                    LIGHTNESS_FAR
+                } else if distance < LIGHTNESS_DISTANCE_NEAR {
+                    LIGHTNESS_NEAR
+                } else {
+                    distance * (LIGHTNESS_FAR - LIGHTNESS_NEAR) / DELTA_LIGHTNESS_DISTANCE
+                        + (LIGHTNESS_NEAR * LIGHTNESS_DISTANCE_FAR
+                            + LIGHTNESS_FAR * LIGHTNESS_DISTANCE_NEAR)
+                            / DELTA_LIGHTNESS_DISTANCE
+                };
+                let lightness_rounded = (lightness * 100.0).ceil() / 100.0;
+
+                let x_color = Color::hsla(
+                    color_hsla_raw[0],
+                    color_hsla_raw[1],
+                    lightness_rounded,
+                    color_hsla_raw[3],
+                );
+
+                let x_minus_x_left = x - left_top.x;
+                let y_top = dy_top * x_minus_x_left / dx + left_top.y;
+                let y_bottom = dy_bottom * x_minus_x_left / dx + left_bottom.y;
+
+                // Clip y
+                let y1 = if y_top > EDGE_GAP { y_top } else { EDGE_GAP };
+                let y2 = if y_bottom < HEIGHT_MINUS_EDGE_GAP {
+                    y_bottom
+                } else {
+                    HEIGHT_MINUS_EDGE_GAP
+                };
+
+                // Ceiling
+                let mut ceiling_bottom = y1 - JOIN_GAP;
+                ceiling_bottom = if ceiling_bottom < HEIGHT_MINUS_EDGE_GAP {
+                    ceiling_bottom
+                } else {
+                    HEIGHT_MINUS_EDGE_GAP
+                };
+
+                // Floor
+                let mut floor_top = y2;
+                floor_top = if floor_top > EDGE_GAP {
+                    floor_top
+                } else {
+                    EDGE_GAP
+                };
+
+                draw_vertical_line(frame, x, EDGE_GAP, ceiling_bottom, *CEILING_COLOR);
+
+                match adjacent_sector {
+                    Some(_) => {}
+                    None => draw_vertical_line(frame, x, y1, y2 - JOIN_GAP, x_color),
+                }
+
+                draw_vertical_line(frame, x, floor_top, HEIGHT_MINUS_EDGE_GAP, *FLOOR_COLOR);
+            }
         };
     }
 }
