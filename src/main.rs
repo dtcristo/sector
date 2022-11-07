@@ -101,7 +101,6 @@ impl Sector {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
 struct Wall {
     left: Vertex,
     right: Vertex,
@@ -118,7 +117,7 @@ pub struct Length(f32);
 //   v
 //   +z
 #[derive(Debug, Copy, Clone)]
-pub struct Position(Vec3);
+struct Position(Vec3);
 
 #[derive(Debug, Copy, Clone)]
 pub struct Vertex {
@@ -157,7 +156,7 @@ impl From<Vertex> for Vec3 {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Velocity(Vec3);
+struct Velocity(Vec3);
 
 // Direction
 //   ^   ^
@@ -165,7 +164,7 @@ pub struct Velocity(Vec3);
 //     \ |
 //       .
 #[derive(Debug, Copy, Clone)]
-pub struct Direction(f32);
+struct Direction(f32);
 
 #[derive(Debug, PartialEq)]
 enum Minimap {
@@ -175,7 +174,7 @@ enum Minimap {
 }
 
 #[derive(Debug)]
-pub struct AppState {
+struct AppState {
     minimap: Minimap,
     position: Position,
     velocity: Velocity,
