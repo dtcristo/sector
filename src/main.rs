@@ -11,7 +11,7 @@ use bevy::{
     math::vec3,
     prelude::*,
     utils::Duration,
-    window::WindowResizeConstraints,
+    window::{CursorGrabMode, WindowResizeConstraints},
 };
 use bevy_pixels::prelude::*;
 use bevy_render::color::Color;
@@ -171,7 +171,7 @@ enum Minimap {
     Absolute,
 }
 
-#[derive(Debug)]
+#[derive(Resource, Debug)]
 struct AppState {
     minimap: Minimap,
     position: Position,
@@ -186,18 +186,6 @@ fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "sector".to_string(),
-            width: (3 * WIDTH) as f32,
-            height: (3 * HEIGHT) as f32,
-            resize_constraints: WindowResizeConstraints {
-                min_width: WIDTH as f32,
-                min_height: HEIGHT as f32,
-                ..default()
-            },
-            fit_canvas_to_parent: true,
-            ..default()
-        })
         .insert_resource(PixelsOptions {
             width: WIDTH,
             height: HEIGHT,
@@ -207,10 +195,24 @@ fn main() {
             position: Position(vec3(0.0, 2.0, 0.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
-            update_title_timer: Timer::new(Duration::from_millis(500), true),
+            update_title_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
             current_sector: Entity::from_raw(u32::MAX), // Initial invalid Entity, correctly set within setup
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "sector".to_string(),
+                width: (3 * WIDTH) as f32,
+                height: (3 * HEIGHT) as f32,
+                resize_constraints: WindowResizeConstraints {
+                    min_width: WIDTH as f32,
+                    min_height: HEIGHT as f32,
+                    ..default()
+                },
+                fit_canvas_to_parent: true,
+                ..default()
+            },
+            ..default()
+        }))
         .add_plugin(PixelsPlugin)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         // .add_plugin(LogDiagnosticsPlugin::default())
@@ -244,8 +246,8 @@ fn setup_system(mut commands: Commands, mut state: ResMut<AppState>) {
     let v7 = Vertex::new(4.0, -15.0);
 
     // Sectors
-    let s0 = commands.spawn().id();
-    let s1 = commands.spawn().id();
+    let s0 = commands.spawn(()).id();
+    let s1 = commands.spawn(()).id();
 
     // Player starts in sector 0
     state.current_sector = s0;
@@ -294,15 +296,15 @@ fn update_title_system(
 fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<MouseButton>>) {
     let window = windows.get_primary_mut().unwrap();
 
-    if window.cursor_locked() {
-        if mouse_button.just_pressed(MouseButton::Right) {
-            window.set_cursor_lock_mode(false);
-            window.set_cursor_visibility(true);
+    if window.cursor_grab_mode() == CursorGrabMode::None {
+        if mouse_button.just_pressed(MouseButton::Left) {
+            window.set_cursor_grab_mode(CursorGrabMode::Locked);
+            window.set_cursor_visibility(false);
         }
     } else {
-        if mouse_button.just_pressed(MouseButton::Left) {
-            window.set_cursor_lock_mode(true);
-            window.set_cursor_visibility(false);
+        if mouse_button.just_pressed(MouseButton::Right) {
+            window.set_cursor_grab_mode(CursorGrabMode::None);
+            window.set_cursor_visibility(true);
         }
     }
 }
@@ -315,12 +317,12 @@ fn escape_system(
     if key.just_pressed(KeyCode::Escape) {
         let window = windows.get_primary_mut().unwrap();
 
-        if window.cursor_locked() {
-            window.set_cursor_lock_mode(false);
-            window.set_cursor_visibility(true);
-        } else {
+        if window.cursor_grab_mode() == CursorGrabMode::None {
             #[cfg(not(target_arch = "wasm32"))]
             app_exit_events.send(AppExit);
+        } else {
+            window.set_cursor_grab_mode(CursorGrabMode::None);
+            window.set_cursor_visibility(true);
         }
     }
 }
@@ -343,7 +345,7 @@ fn player_movement_system(
 ) {
     let window = windows.get_primary().unwrap();
 
-    if window.cursor_locked() {
+    if window.cursor_grab_mode() == CursorGrabMode::Locked {
         for mouse_motion in mouse_motion_events.iter() {
             state.direction.0 += -mouse_motion.delta.x * 0.005;
         }
