@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.9", default_features = false }
-bevy_pixels = { path = "../bevy_pixels", version = "0.6" }
+bevy_pixels = { path = "../bevy_pixels", version = "0.7" }
 bevy_render = "0.9"
 lazy_static = "1.4"
 rust_bresenham = "0.1"

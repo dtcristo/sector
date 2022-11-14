@@ -186,10 +186,6 @@ fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     App::new()
-        .insert_resource(PixelsOptions {
-            width: WIDTH,
-            height: HEIGHT,
-        })
         .insert_resource(AppState {
             minimap: Minimap::FirstPerson,
             position: Position(vec3(0.0, 2.0, 0.0)),
@@ -213,7 +209,11 @@ fn main() {
             },
             ..default()
         }))
-        .add_plugin(PixelsPlugin)
+        .add_plugin(PixelsPlugin {
+            width: WIDTH,
+            height: HEIGHT,
+            ..default()
+        })
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         // .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup_system)
@@ -246,8 +246,8 @@ fn setup_system(mut commands: Commands, mut state: ResMut<AppState>) {
     let v7 = Vertex::new(4.0, -15.0);
 
     // Sectors
-    let s0 = commands.spawn(()).id();
-    let s1 = commands.spawn(()).id();
+    let s0 = commands.spawn_empty().id();
+    let s1 = commands.spawn_empty().id();
 
     // Player starts in sector 0
     state.current_sector = s0;
