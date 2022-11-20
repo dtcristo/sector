@@ -199,7 +199,7 @@ fn main() {
         .register_type::<Option<Entity>>()
         .register_type::<Color>()
         .insert_resource(AppState {
-            minimap: Minimap::FirstPerson,
+            minimap: Minimap::Off,
             position: Position(vec3(0.0, 2.0, 0.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
@@ -273,7 +273,7 @@ fn setup_system(world: &mut World) {
         adjacent_sectors: vec![None, Some(s1), None, None, None, None],
         colors: vec![
             Color::BLUE,
-            Color::WHITE,
+            Color::RED,
             Color::GREEN,
             Color::ORANGE,
             Color::FUCHSIA,
@@ -286,7 +286,7 @@ fn setup_system(world: &mut World) {
     world.entity_mut(s1).insert(Sector {
         vertices: vec![v2, v1, v6, v7],
         adjacent_sectors: vec![Some(s0), None, None, None],
-        colors: vec![Color::WHITE, Color::YELLOW, Color::GREEN, Color::FUCHSIA],
+        colors: vec![Color::RED, Color::YELLOW, Color::GREEN, Color::FUCHSIA],
         floor: Length(0.25),
         ceiling: Length(3.75),
     });
@@ -446,71 +446,96 @@ fn draw_wall_system(
     sector_query: Query<&Sector>,
 ) {
     let frame = pixels_resource.pixels.get_frame_mut();
-    let mut y_top_max = vec![HEIGHT as isize; WIDTH as usize];
-    let mut y_bottom_min = vec![0isize; WIDTH as usize];
 
-    let view_matrix = Mat3::from_rotation_z(state.direction.0)
-        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.z));
+    let x_min = EDGE_GAP;
+    let x_max = WIDTH_MINUS_EDGE_GAP;
+    let y_min_vec = vec![EDGE_GAP; WIDTH as usize];
+    let y_max_vec = vec![HEIGHT_MINUS_EDGE_GAP as isize; WIDTH as usize];
 
     let Ok(sector) = sector_query.get(state.current_sector) else { return };
 
-    let view_floor = Length(sector.floor.0 - state.position.0.y);
     let view_ceiling = Length(sector.ceiling.0 - state.position.0.y);
+    let view_floor = Length(sector.floor.0 - state.position.0.y);
+
+    let view_matrix = Mat3::from_rotation_z(state.direction.0)
+        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.z));
 
     for wall in sector.to_walls() {
         let view_left = view_matrix.transform_point2(wall.left.into()).into();
         let view_right = view_matrix.transform_point2(wall.right.into()).into();
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
+            let norm_left_top = project(vec3(view_left.x, view_ceiling.0, view_left.z));
+            let norm_left_bottom = project(vec3(view_left.x, view_floor.0, view_left.z));
+            let norm_right_top = project(vec3(view_right.x, view_ceiling.0, view_right.z));
+            let norm_right_bottom = project(vec3(view_right.x, view_floor.0, view_right.z));
+
+            let left_top = Pixel::from_norm(norm_left_top);
+            let left_bottom = Pixel::from_norm(norm_left_bottom);
+            let right_top = Pixel::from_norm(norm_right_top);
+            let right_bottom = Pixel::from_norm(norm_right_bottom);
+
             let adjacent_sector = wall
                 .adjacent_sector
                 .and_then(|adjacent_sector_id| sector_query.get(adjacent_sector_id).ok());
 
-            let normalized_left_top =
-                PERSPECTIVE_MATRIX.project_point3(vec3(view_left.x, view_ceiling.0, view_left.z));
-            let normalized_left_bottom =
-                PERSPECTIVE_MATRIX.project_point3(vec3(view_left.x, view_floor.0, view_left.z));
-            let normalized_right_top =
-                PERSPECTIVE_MATRIX.project_point3(vec3(view_right.x, view_ceiling.0, view_right.z));
-            let normalized_right_bottom =
-                PERSPECTIVE_MATRIX.project_point3(vec3(view_right.x, view_floor.0, view_right.z));
+            let (adj_top, adj_bottom) = if let Some(adjacent_sector) = adjacent_sector {
+                let adj_view_ceiling = Length(adjacent_sector.ceiling.0 - state.position.0.y);
+                let adj_view_floor = Length(adjacent_sector.floor.0 - state.position.0.y);
 
-            let left_top = Pixel::from_normalized(normalized_left_top);
-            let left_bottom = Pixel::from_normalized(normalized_left_bottom);
-            let right_top = Pixel::from_normalized(normalized_right_top);
-            let right_bottom = Pixel::from_normalized(normalized_right_bottom);
+                let adj_top = if adj_view_ceiling.0 < view_ceiling.0 {
+                    let adj_norm_left_top =
+                        project(vec3(view_left.x, adj_view_ceiling.0, view_left.z));
+                    let adj_norm_right_top =
+                        project(vec3(view_right.x, adj_view_ceiling.0, view_right.z));
+
+                    Some((
+                        Pixel::from_norm(adj_norm_left_top),
+                        Pixel::from_norm(adj_norm_right_top),
+                    ))
+                } else {
+                    None
+                };
+
+                let adj_bottom = if adj_view_floor.0 > view_floor.0 {
+                    let adj_norm_left_bottom =
+                        project(vec3(view_left.x, adj_view_floor.0, view_left.z));
+                    let adj_norm_right_bottom =
+                        project(vec3(view_right.x, adj_view_floor.0, view_right.z));
+
+                    Some((
+                        Pixel::from_norm(adj_norm_left_bottom),
+                        Pixel::from_norm(adj_norm_right_bottom),
+                    ))
+                } else {
+                    None
+                };
+
+                (adj_top, adj_bottom)
+            } else {
+                (None, None)
+            };
 
             let dx = right_top.x - left_top.x;
             if dx <= 0 {
                 // Right of wall side is on the left of left of wall, looking at back of wall, skip drawing
                 return;
             }
-            let dy_top = right_top.y - left_top.y;
-            let dy_bottom = right_bottom.y - left_bottom.y;
 
             // Clip x
-            let x1 = if left_top.x > EDGE_GAP {
-                left_top.x
-            } else {
-                EDGE_GAP
-            };
-            let x2 = if right_top.x < WIDTH_MINUS_EDGE_GAP {
-                right_top.x
-            } else {
-                WIDTH_MINUS_EDGE_GAP
-            };
+            let x_left = x_min.max(left_top.x);
+            let x_right = right_top.x.min(x_max);
 
-            let view_dz = view_right.z - view_left.z;
+            // TODO: Use `view_y_middle` in `distance` calculation below
             // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
 
             let color_hsla_raw = wall.color.as_hsla_f32();
 
-            for x in x1..(x2 - JOIN_GAP) {
+            for x in x_left..(x_right - JOIN_GAP) {
                 let progress = (x - left_top.x) as f32 / dx as f32;
-                let view_z = progress * view_dz + view_left.z;
+                let distance = (progress * (view_right.z - view_left.z) + view_left.z).abs();
 
-                let distance = view_z.abs();
-
+                // Lightness for distance
                 let lightness = if distance > LIGHTNESS_DISTANCE_FAR {
                     LIGHTNESS_FAR
                 } else if distance < LIGHTNESS_DISTANCE_NEAR {
@@ -523,6 +548,7 @@ fn draw_wall_system(
                 };
                 let lightness_rounded = (lightness * 100.0).ceil() / 100.0;
 
+                // Color for lightness
                 let x_color = Color::hsla(
                     color_hsla_raw[0],
                     color_hsla_raw[1],
@@ -530,45 +556,72 @@ fn draw_wall_system(
                     color_hsla_raw[3],
                 );
 
+                // Get y bounds
+                let y_min = y_min_vec[x as usize];
+                let y_max = y_max_vec[x as usize];
+
+                // Interpolate y
                 let x_minus_x_left = x - left_top.x;
-                let y_top = dy_top * x_minus_x_left / dx + left_top.y;
-                let y_bottom = dy_bottom * x_minus_x_left / dx + left_bottom.y;
+                let y_top = (right_top.y - left_top.y) * x_minus_x_left / dx + left_top.y;
+                let y_bottom =
+                    (right_bottom.y - left_bottom.y) * x_minus_x_left / dx + left_bottom.y;
 
                 // Clip y
-                let y1 = if y_top > EDGE_GAP { y_top } else { EDGE_GAP };
-                let y2 = if y_bottom < HEIGHT_MINUS_EDGE_GAP {
-                    y_bottom
-                } else {
-                    HEIGHT_MINUS_EDGE_GAP
-                };
+                let y_top = y_min.max(y_top);
+                let y_bottom = y_bottom.min(y_max);
 
-                // Ceiling
-                let mut ceiling_bottom = y1 - JOIN_GAP;
-                ceiling_bottom = if ceiling_bottom < HEIGHT_MINUS_EDGE_GAP {
-                    ceiling_bottom
-                } else {
-                    HEIGHT_MINUS_EDGE_GAP
-                };
-
-                // Floor
-                let mut floor_top = y2;
-                floor_top = if floor_top > EDGE_GAP {
-                    floor_top
-                } else {
-                    EDGE_GAP
-                };
-
-                draw_vertical_line(frame, x, EDGE_GAP, ceiling_bottom, *CEILING_COLOR);
+                // Draw ceiling
+                draw_vertical_line(
+                    frame,
+                    x,
+                    y_min,
+                    (y_top - JOIN_GAP).min(y_max),
+                    *CEILING_COLOR,
+                );
 
                 match adjacent_sector {
-                    Some(_) => {}
-                    None => draw_vertical_line(frame, x, y1, y2 - JOIN_GAP, x_color),
+                    Some(_adjacent_sector) => {
+                        // Draw adjacent ceiling wall
+                        if let Some((adj_left_top, adj_right_top)) = adj_top {
+                            let y_adj_top = (adj_right_top.y - adj_left_top.y) * x_minus_x_left
+                                / dx
+                                + adj_left_top.y;
+                            draw_vertical_line(
+                                frame,
+                                x,
+                                y_top,
+                                (y_adj_top - JOIN_GAP).min(y_bottom - JOIN_GAP),
+                                x_color,
+                            )
+                        }
+
+                        // Draw adjacent floor wall
+                        if let Some((adj_left_bottom, adj_right_bottom)) = adj_bottom {
+                            let y_adj_bottom =
+                                (adj_right_bottom.y - adj_left_bottom.y) * x_minus_x_left / dx
+                                    + adj_left_bottom.y;
+                            draw_vertical_line(
+                                frame,
+                                x,
+                                y_top.max(y_adj_bottom),
+                                y_bottom - JOIN_GAP,
+                                x_color,
+                            )
+                        }
+                    }
+                    // Draw wall
+                    None => draw_vertical_line(frame, x, y_top, y_bottom - JOIN_GAP, x_color),
                 }
 
-                draw_vertical_line(frame, x, floor_top, HEIGHT_MINUS_EDGE_GAP, *FLOOR_COLOR);
+                // Draw floor
+                draw_vertical_line(frame, x, y_min.max(y_bottom), y_max, *FLOOR_COLOR);
             }
         };
     }
+}
+
+fn project(point: Vec3) -> Vec3 {
+    PERSPECTIVE_MATRIX.project_point3(point)
 }
 
 fn clip_wall(mut view_left: Vertex, mut view_right: Vertex) -> Option<(Vertex, Vertex)> {
@@ -700,24 +753,24 @@ fn draw_minimap_system(
             if let Some((left, right, left_after_clip, right_after_clip)) = match state.minimap {
                 Minimap::Off => None,
                 Minimap::FirstPerson => Some((
-                    Pixel::from_absolute(view_left.into()),
-                    Pixel::from_absolute(view_right.into()),
-                    Pixel::from_absolute(view_left_after_clip.into()),
-                    Pixel::from_absolute(view_right_after_clip.into()),
+                    Pixel::from_abs(view_left.into()),
+                    Pixel::from_abs(view_right.into()),
+                    Pixel::from_abs(view_left_after_clip.into()),
+                    Pixel::from_abs(view_right_after_clip.into()),
                 )),
                 Minimap::Absolute => {
-                    let absolute_left = reverse_view_matrix.transform_point2(view_left.into());
-                    let absolute_right = reverse_view_matrix.transform_point2(view_right.into());
-                    let absolute_left_after_clip =
+                    let abs_left = reverse_view_matrix.transform_point2(view_left.into());
+                    let abs_right = reverse_view_matrix.transform_point2(view_right.into());
+                    let abs_left_after_clip =
                         reverse_view_matrix.transform_point2(view_left_after_clip.into());
-                    let absolute_right_after_clip =
+                    let abs_right_after_clip =
                         reverse_view_matrix.transform_point2(view_right_after_clip.into());
 
                     Some((
-                        Pixel::from_absolute(absolute_left),
-                        Pixel::from_absolute(absolute_right),
-                        Pixel::from_absolute(absolute_left_after_clip),
-                        Pixel::from_absolute(absolute_right_after_clip),
+                        Pixel::from_abs(abs_left),
+                        Pixel::from_abs(abs_right),
+                        Pixel::from_abs(abs_left_after_clip),
+                        Pixel::from_abs(abs_right_after_clip),
                     ))
                 }
             } {
@@ -746,25 +799,25 @@ fn draw_minimap_system(
     if let Some((player, near_left, near_right, far_left, far_right)) = match state.minimap {
         Minimap::Off => None,
         Minimap::FirstPerson => Some((
-            Pixel::from_absolute(view_player),
-            Pixel::from_absolute(view_near_left),
-            Pixel::from_absolute(view_near_right),
-            Pixel::from_absolute(view_far_left),
-            Pixel::from_absolute(view_far_right),
+            Pixel::from_abs(view_player),
+            Pixel::from_abs(view_near_left),
+            Pixel::from_abs(view_near_right),
+            Pixel::from_abs(view_far_left),
+            Pixel::from_abs(view_far_right),
         )),
         Minimap::Absolute => {
-            let absolute_player = vec2(state.position.0.x, state.position.0.z);
-            let absolute_near_left = reverse_view_matrix.transform_point2(view_near_left);
-            let absolute_near_right = reverse_view_matrix.transform_point2(view_near_right);
-            let absolute_far_left = reverse_view_matrix.transform_point2(view_far_left);
-            let absolute_far_right = reverse_view_matrix.transform_point2(view_far_right);
+            let abs_player = vec2(state.position.0.x, state.position.0.z);
+            let abs_near_left = reverse_view_matrix.transform_point2(view_near_left);
+            let abs_near_right = reverse_view_matrix.transform_point2(view_near_right);
+            let abs_far_left = reverse_view_matrix.transform_point2(view_far_left);
+            let abs_far_right = reverse_view_matrix.transform_point2(view_far_right);
 
             Some((
-                Pixel::from_absolute(absolute_player),
-                Pixel::from_absolute(absolute_near_left),
-                Pixel::from_absolute(absolute_near_right),
-                Pixel::from_absolute(absolute_far_left),
-                Pixel::from_absolute(absolute_far_right),
+                Pixel::from_abs(abs_player),
+                Pixel::from_abs(abs_near_left),
+                Pixel::from_abs(abs_near_right),
+                Pixel::from_abs(abs_far_left),
+                Pixel::from_abs(abs_far_right),
             ))
         }
     } {

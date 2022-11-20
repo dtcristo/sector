@@ -11,17 +11,19 @@ impl Pixel {
         Self { x, y }
     }
 
-    pub fn from_absolute(v: Vec2) -> Self {
+    // From absolute
+    pub fn from_abs(v: Vec2) -> Self {
         Self {
             x: (MINIMAP_SCALE * v.x).round() as isize + FRAC_WIDTH_2 as isize,
             y: (MINIMAP_SCALE * v.y).round() as isize + FRAC_HEIGHT_2 as isize,
         }
     }
 
-    pub fn from_normalized(v: Vec3) -> Self {
+    // From normalized
+    pub fn from_norm(v: Vec3) -> Self {
         Self {
             x: FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * v.x).round() as isize,
-            y: FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * v.y).round() as isize,
+            y: FRAC_HEIGHT_2 as isize + (FRAC_HEIGHT_2 as f32 * -v.y).round() as isize,
         }
     }
 
