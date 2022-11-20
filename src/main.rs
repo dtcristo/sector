@@ -47,7 +47,7 @@ const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
     static ref PERSPECTIVE_MATRIX: Mat4 =
-        Mat4::perspective_infinite_reverse_rh(*FOV_Y_RADIANS, ASPECT_RATIO, Z_NEAR);
+        Mat4::perspective_infinite_rh(*FOV_Y_RADIANS, ASPECT_RATIO, -Z_NEAR);
     static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
     static ref X_NEAR: f32 = -Z_NEAR * *TAN_FAC_FOV_X_2;
     static ref X_FAR: f32 = -Z_FAR * *TAN_FAC_FOV_X_2;
@@ -458,10 +458,10 @@ fn draw_wall_system(
             let norm_right_top = project(vec3(view_right.x, view_ceil.0, view_right.y));
             let norm_right_bottom = project(vec3(view_right.x, view_floor.0, view_right.y));
 
-            let left_top = Pixel::from_norm(norm_left_top);
-            let left_bottom = Pixel::from_norm(norm_left_bottom);
-            let right_top = Pixel::from_norm(norm_right_top);
-            let right_bottom = Pixel::from_norm(norm_right_bottom);
+            let left_top = Pixel::from_norm(norm_left_top.truncate());
+            let left_bottom = Pixel::from_norm(norm_left_bottom.truncate());
+            let right_top = Pixel::from_norm(norm_right_top.truncate());
+            let right_bottom = Pixel::from_norm(norm_right_bottom.truncate());
 
             let dx = right_top.x - left_top.x;
 

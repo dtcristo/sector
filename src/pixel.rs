@@ -20,10 +20,10 @@ impl Pixel {
     }
 
     // From normalized
-    pub fn from_norm(v: Vec3) -> Self {
+    pub fn from_norm(v: Vec2) -> Self {
         Self {
             x: FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * v.x).round() as isize,
-            y: FRAC_HEIGHT_2 as isize + (FRAC_HEIGHT_2 as f32 * -v.y).round() as isize,
+            y: FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * v.y).round() as isize,
         }
     }
 
