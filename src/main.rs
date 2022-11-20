@@ -188,7 +188,7 @@ fn main() {
         .register_type::<Color>()
         .insert_resource(AppState {
             minimap: Minimap::Off,
-            position: Position(vec3(0.0, 2.0, 0.0)),
+            position: Position(vec3(0.0, 0.0, 2.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
             update_title_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
@@ -392,30 +392,30 @@ fn player_movement_system(
     }
 
     state.velocity.0.x = 0.0;
-    state.velocity.0.z = 0.0;
     state.velocity.0.y = 0.0;
+    state.velocity.0.z = 0.0;
 
     if key.pressed(KeyCode::Up) || key.pressed(KeyCode::W) {
         state.velocity.0.x -= state.direction.0.sin();
-        state.velocity.0.z -= state.direction.0.cos();
+        state.velocity.0.y -= state.direction.0.cos();
     }
     if key.pressed(KeyCode::Down) || key.pressed(KeyCode::S) {
         state.velocity.0.x += state.direction.0.sin();
-        state.velocity.0.z += state.direction.0.cos();
+        state.velocity.0.y += state.direction.0.cos();
     }
     if key.pressed(KeyCode::A) {
         state.velocity.0.x -= state.direction.0.cos();
-        state.velocity.0.z += state.direction.0.sin();
+        state.velocity.0.y += state.direction.0.sin();
     }
     if key.pressed(KeyCode::D) {
         state.velocity.0.x += state.direction.0.cos();
-        state.velocity.0.z -= state.direction.0.sin();
+        state.velocity.0.y -= state.direction.0.sin();
     }
     if key.pressed(KeyCode::Space) {
-        state.velocity.0.y += 1.0;
+        state.velocity.0.z += 1.0;
     }
     if key.pressed(KeyCode::LControl) {
-        state.velocity.0.y -= 1.0;
+        state.velocity.0.z -= 1.0;
     }
 
     state.position.0.x += 0.05 * state.velocity.0.x;
@@ -442,11 +442,11 @@ fn draw_wall_system(
 
     let Ok(sector) = sector_query.get(state.current_sector) else { return };
 
-    let view_floor = Length(sector.floor.0 - state.position.0.y);
-    let view_ceil = Length(sector.ceil.0 - state.position.0.y);
+    let view_floor = Length(sector.floor.0 - state.position.0.z);
+    let view_ceil = Length(sector.ceil.0 - state.position.0.z);
 
     let view_matrix = Mat3::from_rotation_z(state.direction.0)
-        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.z));
+        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
 
     for wall in sector.to_walls() {
         let view_left = view_matrix.transform_point2(wall.left.into()).into();
@@ -475,8 +475,8 @@ fn draw_wall_system(
                 .and_then(|adj_sector_id| sector_query.get(adj_sector_id).ok());
 
             let (adj_top_y, adj_bottom_y) = if let Some(adj_sector) = adj_sector {
-                let view_adj_ceil = Length(adj_sector.ceil.0 - state.position.0.y);
-                let view_adj_floor = Length(adj_sector.floor.0 - state.position.0.y);
+                let view_adj_ceil = Length(adj_sector.ceil.0 - state.position.0.z);
+                let view_adj_floor = Length(adj_sector.floor.0 - state.position.0.z);
 
                 let adj_top_y = if view_adj_ceil.0 < view_ceil.0 {
                     let adj_ceil_t = (view_adj_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
@@ -678,8 +678,8 @@ fn draw_minimap_system(
 
     let frame = pixels_resource.pixels.get_frame_mut();
     let view_matrix = Mat3::from_rotation_z(state.direction.0)
-        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.z));
-    let reverse_view_matrix = Mat3::from_translation(vec2(state.position.0.x, state.position.0.z))
+        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
+    let reverse_view_matrix = Mat3::from_translation(vec2(state.position.0.x, state.position.0.y))
         * Mat3::from_rotation_z(-state.direction.0);
 
     // Draw walls
@@ -753,7 +753,7 @@ fn draw_minimap_system(
             Pixel::from_abs(view_far_right),
         )),
         Minimap::Absolute => {
-            let abs_player = vec2(state.position.0.x, state.position.0.z);
+            let abs_player = vec2(state.position.0.x, state.position.0.y);
             let abs_near_left = reverse_view_matrix.transform_point2(view_near_left);
             let abs_near_right = reverse_view_matrix.transform_point2(view_near_right);
             let abs_far_left = reverse_view_matrix.transform_point2(view_far_left);
