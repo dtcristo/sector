@@ -10,11 +10,14 @@ use bevy::{
     math::vec2,
     math::vec3,
     prelude::*,
+    tasks::IoTaskPool,
     utils::Duration,
     window::{CursorGrabMode, WindowResizeConstraints},
 };
 use bevy_pixels::prelude::*;
 use bevy_render::color::Color;
+use std::fs::File;
+use std::io::Write;
 
 #[macro_use]
 extern crate lazy_static;
@@ -37,6 +40,7 @@ const DELTA_LIGHTNESS_DISTANCE: f32 = LIGHTNESS_DISTANCE_FAR - LIGHTNESS_DISTANC
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
 const MINIMAP_SCALE: f32 = 8.0;
+const DEFAULT_SCENE_FILE_PATH: &str = "scenes/default.scn.ron";
 
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
@@ -60,7 +64,8 @@ lazy_static! {
     static ref PLAYER_COLOR: Color = Color::RED;
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Debug, Default)]
+#[reflect(Component)]
 pub struct Sector {
     vertices: Vec<Vertex>,
     adjacent_sectors: Vec<Option<Entity>>,
@@ -106,7 +111,7 @@ struct Wall {
     color: Color,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Reflect, Debug, Copy, Clone, Default)]
 pub struct Length(f32);
 
 // Position (https://bevy-cheatbook.github.io/features/coords.html)
@@ -117,7 +122,7 @@ pub struct Length(f32);
 #[derive(Debug, Copy, Clone)]
 struct Position(Vec3);
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
 pub struct Vertex {
     x: f32,
     z: f32,
@@ -186,6 +191,11 @@ fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     App::new()
+        .register_type::<Sector>()
+        .register_type::<Vertex>()
+        .register_type::<Length>()
+        .register_type::<Option<Entity>>()
+        .register_type::<Color>()
         .insert_resource(AppState {
             minimap: Minimap::FirstPerson,
             position: Position(vec3(0.0, 2.0, 0.0)),
@@ -217,6 +227,7 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         // .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup_system)
+        .add_startup_system(save_scene_system.after(setup_system))
         .add_system(update_title_system)
         .add_system(mouse_capture_system)
         .add_system(escape_system)
@@ -234,7 +245,7 @@ fn main() {
         .run();
 }
 
-fn setup_system(mut commands: Commands, mut state: ResMut<AppState>) {
+fn setup_system(world: &mut World) {
     // Vertices
     let v0 = Vertex::new(-4.0, -10.0);
     let v1 = Vertex::new(-2.0, -10.0);
@@ -246,13 +257,16 @@ fn setup_system(mut commands: Commands, mut state: ResMut<AppState>) {
     let v7 = Vertex::new(4.0, -15.0);
 
     // Sectors
-    let s0 = commands.spawn_empty().id();
-    let s1 = commands.spawn_empty().id();
+    let s0 = world.spawn_empty().id();
+    let s1 = world.spawn_empty().id();
+
+    // Get mutable `AppState` resource
+    let mut state = world.resource_mut::<AppState>();
 
     // Player starts in sector 0
     state.current_sector = s0;
 
-    commands.entity(s0).insert(Sector {
+    world.entity_mut(s0).insert(Sector {
         vertices: vec![v0, v1, v2, v3, v4, v5],
         adjacent_sectors: vec![None, Some(s1), None, None, None, None],
         colors: vec![
@@ -267,13 +281,30 @@ fn setup_system(mut commands: Commands, mut state: ResMut<AppState>) {
         ceiling: Length(4.0),
     });
 
-    commands.entity(s1).insert(Sector {
+    world.entity_mut(s1).insert(Sector {
         vertices: vec![v2, v1, v6, v7],
         adjacent_sectors: vec![Some(s0), None, None, None],
         colors: vec![Color::WHITE, Color::YELLOW, Color::GREEN, Color::FUCHSIA],
         floor: Length(0.25),
         ceiling: Length(3.75),
     });
+}
+
+fn save_scene_system(world: &mut World) {
+    let type_registry = world.resource::<AppTypeRegistry>();
+    let scene = DynamicScene::from_world(&world, type_registry);
+    let serialized_scene = scene.serialize_ron(type_registry).unwrap();
+
+    info!("{}", serialized_scene);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    IoTaskPool::get()
+        .spawn(async move {
+            File::create(format!("assets/{DEFAULT_SCENE_FILE_PATH}"))
+                .and_then(|mut file| file.write(serialized_scene.as_bytes()))
+                .expect("failed to write scene to file");
+        })
+        .detach();
 }
 
 fn update_title_system(

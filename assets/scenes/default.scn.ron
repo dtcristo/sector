@@ -1,0 +1,148 @@
+(
+  entities: {
+    0: (
+      components: {
+        "sector::Sector": (
+          vertices: [
+            (
+              x: -4.0,
+              z: -10.0,
+            ),
+            (
+              x: -2.0,
+              z: -10.0,
+            ),
+            (
+              x: 2.0,
+              z: -5.0,
+            ),
+            (
+              x: 4.0,
+              z: -1.0,
+            ),
+            (
+              x: 4.0,
+              z: 8.0,
+            ),
+            (
+              x: -11.0,
+              z: 8.0,
+            ),
+          ],
+          adjacent_sectors: [
+            None,
+            Some((
+              generation: 0,
+              index: 1,
+            )),
+            None,
+            None,
+            None,
+            None,
+          ],
+          colors: [
+            Rgba(
+              red: 0.0,
+              green: 0.0,
+              blue: 1.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 1.0,
+              blue: 1.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 0.0,
+              green: 1.0,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 0.65,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 0.0,
+              blue: 1.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 1.0,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+          ],
+          floor: (0.0),
+          ceiling: (4.0),
+        ),
+      },
+    ),
+    1: (
+      components: {
+        "sector::Sector": (
+          vertices: [
+            (
+              x: 2.0,
+              z: -5.0,
+            ),
+            (
+              x: -2.0,
+              z: -10.0,
+            ),
+            (
+              x: -4.0,
+              z: -15.0,
+            ),
+            (
+              x: 4.0,
+              z: -15.0,
+            ),
+          ],
+          adjacent_sectors: [
+            Some((
+              generation: 0,
+              index: 0,
+            )),
+            None,
+            None,
+            None,
+          ],
+          colors: [
+            Rgba(
+              red: 1.0,
+              green: 1.0,
+              blue: 1.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 1.0,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 0.0,
+              green: 1.0,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 0.0,
+              blue: 1.0,
+              alpha: 1.0,
+            ),
+          ],
+          floor: (0.25),
+          ceiling: (3.75),
+        ),
+      },
+    ),
+  },
+)
