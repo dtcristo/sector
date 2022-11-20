@@ -1,7 +1,8 @@
 mod draw;
 mod pixel;
+mod utils;
 
-use crate::{draw::*, pixel::*};
+use crate::{draw::*, pixel::*, utils::*};
 
 use bevy::{
     app::AppExit,
@@ -37,7 +38,6 @@ const Z_NEAR: f32 = -0.1;
 const Z_FAR: f32 = -50.0;
 const LIGHTNESS_DISTANCE_NEAR: f32 = -Z_NEAR;
 const LIGHTNESS_DISTANCE_FAR: f32 = -Z_FAR;
-const DELTA_LIGHTNESS_DISTANCE: f32 = LIGHTNESS_DISTANCE_FAR - LIGHTNESS_DISTANCE_NEAR;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
 const MINIMAP_SCALE: f32 = 8.0;
@@ -70,10 +70,10 @@ lazy_static! {
 #[reflect(Component)]
 pub struct Sector {
     vertices: Vec<Vertex>,
-    adjacent_sectors: Vec<Option<Entity>>,
+    adj_sectors: Vec<Option<Entity>>,
     colors: Vec<Color>,
     floor: Length,
-    ceiling: Length,
+    ceil: Length,
 }
 
 impl Sector {
@@ -81,7 +81,7 @@ impl Sector {
         let mut walls = Vec::with_capacity(self.vertices.len());
 
         let mut vertex_iter = self.vertices.iter();
-        let mut adjacent_sector_iter = self.adjacent_sectors.iter();
+        let mut adj_sector_iter = self.adj_sectors.iter();
         let mut color_iter = self.colors.iter();
 
         let Some(&initial) = vertex_iter.next() else { return walls };
@@ -90,7 +90,7 @@ impl Sector {
             walls.push(Wall {
                 left,
                 right,
-                adjacent_sector: *adjacent_sector_iter.next().unwrap_or(&None),
+                adj_sector: *adj_sector_iter.next().unwrap_or(&None),
                 color: *color_iter.next().unwrap_or(&Color::RED),
             })
         };
@@ -109,7 +109,7 @@ impl Sector {
 struct Wall {
     left: Vertex,
     right: Vertex,
-    adjacent_sector: Option<Entity>,
+    adj_sector: Option<Entity>,
     color: Color,
 }
 
@@ -270,7 +270,7 @@ fn setup_system(world: &mut World) {
 
     world.entity_mut(s0).insert(Sector {
         vertices: vec![v0, v1, v2, v3, v4, v5],
-        adjacent_sectors: vec![None, Some(s1), None, None, None, None],
+        adj_sectors: vec![None, Some(s1), None, None, None, None],
         colors: vec![
             Color::BLUE,
             Color::RED,
@@ -280,15 +280,15 @@ fn setup_system(world: &mut World) {
             Color::YELLOW,
         ],
         floor: Length(0.0),
-        ceiling: Length(4.0),
+        ceil: Length(4.0),
     });
 
     world.entity_mut(s1).insert(Sector {
         vertices: vec![v2, v1, v6, v7],
-        adjacent_sectors: vec![Some(s0), None, None, None],
+        adj_sectors: vec![Some(s0), None, None, None],
         colors: vec![Color::RED, Color::YELLOW, Color::GREEN, Color::FUCHSIA],
         floor: Length(0.25),
-        ceiling: Length(3.75),
+        ceil: Length(3.75),
     });
 }
 
@@ -454,8 +454,8 @@ fn draw_wall_system(
 
     let Ok(sector) = sector_query.get(state.current_sector) else { return };
 
-    let view_ceiling = Length(sector.ceiling.0 - state.position.0.y);
     let view_floor = Length(sector.floor.0 - state.position.0.y);
+    let view_ceil = Length(sector.ceil.0 - state.position.0.y);
 
     let view_matrix = Mat3::from_rotation_z(state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.z));
@@ -465,9 +465,9 @@ fn draw_wall_system(
         let view_right = view_matrix.transform_point2(wall.right.into()).into();
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
-            let norm_left_top = project(vec3(view_left.x, view_ceiling.0, view_left.z));
+            let norm_left_top = project(vec3(view_left.x, view_ceil.0, view_left.z));
             let norm_left_bottom = project(vec3(view_left.x, view_floor.0, view_left.z));
-            let norm_right_top = project(vec3(view_right.x, view_ceiling.0, view_right.z));
+            let norm_right_top = project(vec3(view_right.x, view_ceil.0, view_right.z));
             let norm_right_bottom = project(vec3(view_right.x, view_floor.0, view_right.z));
 
             let left_top = Pixel::from_norm(norm_left_top);
@@ -475,65 +475,63 @@ fn draw_wall_system(
             let right_top = Pixel::from_norm(norm_right_top);
             let right_bottom = Pixel::from_norm(norm_right_bottom);
 
-            let adjacent_sector = wall
-                .adjacent_sector
-                .and_then(|adjacent_sector_id| sector_query.get(adjacent_sector_id).ok());
+            let dx = right_top.x - left_top.x;
 
-            let (adj_top, adj_bottom) = if let Some(adjacent_sector) = adjacent_sector {
-                let adj_view_ceiling = Length(adjacent_sector.ceiling.0 - state.position.0.y);
-                let adj_view_floor = Length(adjacent_sector.floor.0 - state.position.0.y);
+            // Skip drawing backside
+            if dx <= 0 {
+                return;
+            }
 
-                let adj_top = if adj_view_ceiling.0 < view_ceiling.0 {
-                    let adj_norm_left_top =
-                        project(vec3(view_left.x, adj_view_ceiling.0, view_left.z));
-                    let adj_norm_right_top =
-                        project(vec3(view_right.x, adj_view_ceiling.0, view_right.z));
+            let adj_sector = wall
+                .adj_sector
+                .and_then(|adj_sector_id| sector_query.get(adj_sector_id).ok());
 
+            let (adj_top_y, adj_bottom_y) = if let Some(adj_sector) = adj_sector {
+                let view_adj_ceil = Length(adj_sector.ceil.0 - state.position.0.y);
+                let view_adj_floor = Length(adj_sector.floor.0 - state.position.0.y);
+
+                let adj_top_y = if view_adj_ceil.0 < view_ceil.0 {
+                    let adj_ceil_t = (view_adj_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
                     Some((
-                        Pixel::from_norm(adj_norm_left_top),
-                        Pixel::from_norm(adj_norm_right_top),
+                        lerpi(left_top.y, left_bottom.y, adj_ceil_t),
+                        lerpi(right_top.y, right_bottom.y, adj_ceil_t),
                     ))
                 } else {
                     None
                 };
 
-                let adj_bottom = if adj_view_floor.0 > view_floor.0 {
-                    let adj_norm_left_bottom =
-                        project(vec3(view_left.x, adj_view_floor.0, view_left.z));
-                    let adj_norm_right_bottom =
-                        project(vec3(view_right.x, adj_view_floor.0, view_right.z));
-
+                let adj_bottom_y = if view_adj_floor.0 > view_floor.0 {
+                    let adj_floor_t =
+                        (view_adj_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
                     Some((
-                        Pixel::from_norm(adj_norm_left_bottom),
-                        Pixel::from_norm(adj_norm_right_bottom),
+                        lerpi(left_top.y, left_bottom.y, adj_floor_t),
+                        lerpi(right_top.y, right_bottom.y, adj_floor_t),
                     ))
                 } else {
                     None
                 };
 
-                (adj_top, adj_bottom)
+                (adj_top_y, adj_bottom_y)
             } else {
                 (None, None)
             };
 
-            let dx = right_top.x - left_top.x;
-            if dx <= 0 {
-                // Right of wall side is on the left of left of wall, looking at back of wall, skip drawing
-                return;
-            }
+            // TODO: Use `view_y_middle` in `distance` calculation below
+            // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
+
+            // TODO: Refactor colors to use HSV instead of HSL
+            let color_hsla_raw = wall.color.as_hsla_f32();
 
             // Clip x
             let x_left = x_min.max(left_top.x);
             let x_right = right_top.x.min(x_max);
 
-            // TODO: Use `view_y_middle` in `distance` calculation below
-            // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
-
-            let color_hsla_raw = wall.color.as_hsla_f32();
-
             for x in x_left..(x_right - JOIN_GAP) {
-                let progress = (x - left_top.x) as f32 / dx as f32;
-                let distance = (progress * (view_right.z - view_left.z) + view_left.z).abs();
+                let x_t = (x - left_top.x) as f32 / dx as f32;
+
+                // Interpolate z for distance
+                let view_z = lerp(view_left.z, view_right.z, x_t);
+                let distance = view_z.abs();
 
                 // Lightness for distance
                 let lightness = if distance > LIGHTNESS_DISTANCE_FAR {
@@ -541,30 +539,28 @@ fn draw_wall_system(
                 } else if distance < LIGHTNESS_DISTANCE_NEAR {
                     LIGHTNESS_NEAR
                 } else {
-                    distance * (LIGHTNESS_FAR - LIGHTNESS_NEAR) / DELTA_LIGHTNESS_DISTANCE
-                        + (LIGHTNESS_NEAR * LIGHTNESS_DISTANCE_FAR
-                            + LIGHTNESS_FAR * LIGHTNESS_DISTANCE_NEAR)
-                            / DELTA_LIGHTNESS_DISTANCE
+                    // Interpolate lightness
+                    let distance_t = (distance - LIGHTNESS_DISTANCE_NEAR)
+                        / (LIGHTNESS_DISTANCE_FAR - LIGHTNESS_DISTANCE_NEAR);
+                    lerp(LIGHTNESS_NEAR, LIGHTNESS_FAR, distance_t)
                 };
-                let lightness_rounded = (lightness * 100.0).ceil() / 100.0;
+                let lightness_rounded = (lightness * 100.0).round() / 100.0;
 
                 // Color for lightness
-                let x_color = Color::hsla(
+                let color = Color::hsla(
                     color_hsla_raw[0],
                     color_hsla_raw[1],
                     lightness_rounded,
                     color_hsla_raw[3],
                 );
 
+                // Interpolate y
+                let y_top = lerpi(left_top.y, right_top.y, x_t);
+                let y_bottom = lerpi(left_bottom.y, right_bottom.y, x_t);
+
                 // Get y bounds
                 let y_min = y_min_vec[x as usize];
                 let y_max = y_max_vec[x as usize];
-
-                // Interpolate y
-                let x_minus_x_left = x - left_top.x;
-                let y_top = (right_top.y - left_top.y) * x_minus_x_left / dx + left_top.y;
-                let y_bottom =
-                    (right_bottom.y - left_bottom.y) * x_minus_x_left / dx + left_bottom.y;
 
                 // Clip y
                 let y_top = y_min.max(y_top);
@@ -579,38 +575,34 @@ fn draw_wall_system(
                     *CEILING_COLOR,
                 );
 
-                match adjacent_sector {
-                    Some(_adjacent_sector) => {
+                match adj_sector {
+                    Some(_adj_sector) => {
                         // Draw adjacent ceiling wall
-                        if let Some((adj_left_top, adj_right_top)) = adj_top {
-                            let y_adj_top = (adj_right_top.y - adj_left_top.y) * x_minus_x_left
-                                / dx
-                                + adj_left_top.y;
+                        if let Some((adj_left_top_y, adj_right_top_y)) = adj_top_y {
+                            let y_adj_top = lerpi(adj_left_top_y, adj_right_top_y, x_t);
                             draw_vertical_line(
                                 frame,
                                 x,
                                 y_top,
                                 (y_adj_top - JOIN_GAP).min(y_bottom - JOIN_GAP),
-                                x_color,
+                                color,
                             )
                         }
 
                         // Draw adjacent floor wall
-                        if let Some((adj_left_bottom, adj_right_bottom)) = adj_bottom {
-                            let y_adj_bottom =
-                                (adj_right_bottom.y - adj_left_bottom.y) * x_minus_x_left / dx
-                                    + adj_left_bottom.y;
+                        if let Some((adj_left_bottom_y, adj_right_bottom_y)) = adj_bottom_y {
+                            let y_adj_bottom = lerpi(adj_left_bottom_y, adj_right_bottom_y, x_t);
                             draw_vertical_line(
                                 frame,
                                 x,
                                 y_top.max(y_adj_bottom),
                                 y_bottom - JOIN_GAP,
-                                x_color,
+                                color,
                             )
                         }
                     }
-                    // Draw wall
-                    None => draw_vertical_line(frame, x, y_top, y_bottom - JOIN_GAP, x_color),
+                    // Draw complete wall
+                    None => draw_vertical_line(frame, x, y_top, y_bottom - JOIN_GAP, color),
                 }
 
                 // Draw floor
@@ -618,10 +610,6 @@ fn draw_wall_system(
             }
         };
     }
-}
-
-fn project(point: Vec3) -> Vec3 {
-    PERSPECTIVE_MATRIX.project_point3(point)
 }
 
 fn clip_wall(mut view_left: Vertex, mut view_right: Vertex) -> Option<(Vertex, Vertex)> {
@@ -689,35 +677,6 @@ fn clip_wall(mut view_left: Vertex, mut view_right: Vertex) -> Option<(Vertex, V
     }
 
     Some((view_left, view_right))
-}
-
-fn intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
-    let a_perp_dot = a1.perp_dot(a2);
-    let b_perp_dot = b1.perp_dot(b2);
-
-    let divisor = vec2(a1.x - a2.x, a1.y - a2.y).perp_dot(vec2(b1.x - b2.x, b1.y - b2.y));
-    if divisor == 0.0 {
-        return None;
-    };
-
-    let result = vec2(
-        vec2(a_perp_dot, a1.x - a2.x).perp_dot(vec2(b_perp_dot, b1.x - b2.x)) / divisor,
-        vec2(a_perp_dot, a1.y - a2.y).perp_dot(vec2(b_perp_dot, b1.y - b2.y)) / divisor,
-    );
-
-    if between(result.x, a1.x, a2.x) && between(result.y, a1.y, a2.y) {
-        Some(result)
-    } else {
-        None
-    }
-}
-
-fn between(test: f32, a: f32, b: f32) -> bool {
-    test >= a.min(b) && test <= a.max(b)
-}
-
-fn point_behind(point: Vec2, a: Vec2, b: Vec2) -> bool {
-    vec2(b.x - a.x, b.y - a.y).perp_dot(vec2(point.x - a.x, point.y - a.y)) < 0.0
 }
 
 fn draw_minimap_system(
