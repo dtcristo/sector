@@ -127,12 +127,12 @@ struct Position(Vec3);
 #[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
 pub struct Vertex {
     x: f32,
-    z: f32,
+    y: f32,
 }
 
 impl Vertex {
-    fn new(x: f32, z: f32) -> Self {
-        Self { x, z }
+    fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
     }
 }
 
@@ -144,19 +144,19 @@ impl From<Vec2> for Vertex {
 
 impl From<Vertex> for Vec2 {
     fn from(v: Vertex) -> Self {
-        vec2(v.x, v.z)
+        vec2(v.x, v.y)
     }
 }
 
 impl From<Vec3> for Vertex {
     fn from(v: Vec3) -> Self {
-        Self::new(v.x, v.z)
+        Self::new(v.x, v.y)
     }
 }
 
 impl From<Vertex> for Vec3 {
     fn from(v: Vertex) -> Self {
-        vec3(v.x, 0.0, v.z)
+        vec3(v.x, 0.0, v.y)
     }
 }
 
@@ -465,10 +465,10 @@ fn draw_wall_system(
         let view_right = view_matrix.transform_point2(wall.right.into()).into();
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
-            let norm_left_top = project(vec3(view_left.x, view_ceil.0, view_left.z));
-            let norm_left_bottom = project(vec3(view_left.x, view_floor.0, view_left.z));
-            let norm_right_top = project(vec3(view_right.x, view_ceil.0, view_right.z));
-            let norm_right_bottom = project(vec3(view_right.x, view_floor.0, view_right.z));
+            let norm_left_top = project(vec3(view_left.x, view_ceil.0, view_left.y));
+            let norm_left_bottom = project(vec3(view_left.x, view_floor.0, view_left.y));
+            let norm_right_top = project(vec3(view_right.x, view_ceil.0, view_right.y));
+            let norm_right_bottom = project(vec3(view_right.x, view_floor.0, view_right.y));
 
             let left_top = Pixel::from_norm(norm_left_top);
             let left_bottom = Pixel::from_norm(norm_left_bottom);
@@ -530,7 +530,7 @@ fn draw_wall_system(
                 let x_t = (x - left_top.x) as f32 / dx as f32;
 
                 // Interpolate z for distance
-                let view_z = lerp(view_left.z, view_right.z, x_t);
+                let view_z = lerp(view_left.y, view_right.y, x_t);
                 let distance = view_z.abs();
 
                 // Lightness for distance
@@ -614,7 +614,7 @@ fn draw_wall_system(
 
 fn clip_wall(mut view_left: Vertex, mut view_right: Vertex) -> Option<(Vertex, Vertex)> {
     // Skip entirely behind back
-    if view_left.z > Z_NEAR && view_right.z > Z_NEAR {
+    if view_left.y > Z_NEAR && view_right.y > Z_NEAR {
         return None;
     }
 
@@ -651,7 +651,7 @@ fn clip_wall(mut view_left: Vertex, mut view_right: Vertex) -> Option<(Vertex, V
     }
 
     // Clip behind back
-    if view_left.z > Z_NEAR || view_right.z > Z_NEAR {
+    if view_left.y > Z_NEAR || view_right.y > Z_NEAR {
         if let Some(intersection) = intersect(
             view_left.into(),
             view_right.into(),
