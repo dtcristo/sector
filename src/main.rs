@@ -148,18 +148,6 @@ impl From<Vertex> for Vec2 {
     }
 }
 
-impl From<Vec3> for Vertex {
-    fn from(v: Vec3) -> Self {
-        Self::new(v.x, v.y)
-    }
-}
-
-impl From<Vertex> for Vec3 {
-    fn from(v: Vertex) -> Self {
-        vec3(v.x, 0.0, v.y)
-    }
-}
-
 #[derive(Debug, Copy, Clone)]
 struct Velocity(Vec3);
 
