@@ -10,6 +10,7 @@ use bevy::{
     math::vec2,
     math::vec3,
     prelude::*,
+    scene::serde::SceneSerializer,
     tasks::IoTaskPool,
     utils::Duration,
     window::{CursorGrabMode, WindowResizeConstraints},
@@ -40,7 +41,8 @@ const DELTA_LIGHTNESS_DISTANCE: f32 = LIGHTNESS_DISTANCE_FAR - LIGHTNESS_DISTANC
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
 const MINIMAP_SCALE: f32 = 8.0;
-const DEFAULT_SCENE_FILE_PATH: &str = "scenes/default.scn.ron";
+const DEFAULT_SCENE_RON_FILE_PATH: &str = "scenes/default.scn.ron";
+const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
 
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
@@ -293,16 +295,28 @@ fn setup_system(world: &mut World) {
 fn save_scene_system(world: &mut World) {
     let type_registry = world.resource::<AppTypeRegistry>();
     let scene = DynamicScene::from_world(&world, type_registry);
-    let serialized_scene = scene.serialize_ron(type_registry).unwrap();
 
-    info!("{}", serialized_scene);
+    let scene_ron = scene.serialize_ron(type_registry).unwrap();
+    info!("{}", scene_ron);
 
     #[cfg(not(target_arch = "wasm32"))]
     IoTaskPool::get()
         .spawn(async move {
-            File::create(format!("assets/{DEFAULT_SCENE_FILE_PATH}"))
-                .and_then(|mut file| file.write(serialized_scene.as_bytes()))
-                .expect("failed to write scene to file");
+            File::create(format!("assets/{DEFAULT_SCENE_RON_FILE_PATH}"))
+                .and_then(|mut file| file.write(scene_ron.as_bytes()))
+                .expect("failed to write `scene_ron` to file");
+        })
+        .detach();
+
+    let scene_serializer = SceneSerializer::new(&scene, type_registry);
+    let scene_mp: Vec<u8> = rmp_serde::to_vec(&scene_serializer).unwrap();
+
+    #[cfg(not(target_arch = "wasm32"))]
+    IoTaskPool::get()
+        .spawn(async move {
+            File::create(format!("assets/{DEFAULT_SCENE_MP_FILE_PATH}"))
+                .and_then(|mut file| file.write(&scene_mp))
+                .expect("failed to write `scene_mp` to file");
         })
         .detach();
 }
