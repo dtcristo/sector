@@ -738,10 +738,10 @@ fn draw_minimap_system(
 
     // Draw frustum and player
     let view_player = vec2(0.0, 0.0);
-    let view_near_left = vec2(-*X_NEAR, Z_NEAR);
-    let view_near_right = vec2(*X_NEAR, Z_NEAR);
-    let view_far_left = vec2(-*X_FAR, Z_FAR);
-    let view_far_right = vec2(*X_FAR, Z_FAR);
+    let view_near_left = *LEFT_CLIP_1;
+    let view_near_right = *RIGHT_CLIP_2;
+    let view_far_left = *LEFT_CLIP_2;
+    let view_far_right = *RIGHT_CLIP_1;
 
     if let Some((player, near_left, near_right, far_left, far_right)) = match state.minimap {
         Minimap::Off => None,
