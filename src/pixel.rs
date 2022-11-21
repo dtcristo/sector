@@ -14,8 +14,8 @@ impl Pixel {
     // From absolute
     pub fn from_abs(v: Vec2) -> Self {
         Self {
-            x: (MINIMAP_SCALE * v.x).round() as isize + FRAC_WIDTH_2 as isize,
-            y: (MINIMAP_SCALE * v.y).round() as isize + FRAC_HEIGHT_2 as isize,
+            x: FRAC_WIDTH_2 as isize + (MINIMAP_SCALE * v.x).round() as isize,
+            y: FRAC_HEIGHT_2 as isize + (MINIMAP_SCALE * v.y).round() as isize,
         }
     }
 
