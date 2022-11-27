@@ -1,8 +1,7 @@
 mod draw;
-mod pixel;
 mod utils;
 
-use crate::{draw::*, pixel::*, utils::*};
+use crate::{draw::*, utils::*};
 
 use bevy::{
     app::AppExit,
@@ -116,40 +115,101 @@ struct Wall {
 #[derive(Reflect, Debug, Copy, Clone, Default)]
 pub struct Length(f32);
 
-// Position3 uses right-handed coordinate system with z up.
+// World position in 3D, right-handed coordinate system with z up.
 //   +y
 //   ^
 //   |
 // +z.---> +x
 #[derive(Debug, Copy, Clone)]
-struct Position3(Vec3);
+pub struct Position3(Vec3);
 
-// ScreenNorm uses right-handed coordinate system with z out of the screen.
-//   +y
-//   ^
-//   |
-// +z.---> +x
-#[derive(Debug, Copy, Clone)]
-struct ScreenNorm(Vec3);
+impl Position3 {
+    pub fn truncate(self: Self) -> Position2 {
+        Position2(self.0.truncate())
+    }
+}
 
-// Position2
+// World position in 2D.
 //  +y
 //  ^
 //  |
 //  .---> +x
 #[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
-struct Position2(Vec2);
+pub struct Position2(Vec2);
+
+impl Position2 {
+    pub fn to_pixel(self: Self) -> Pixel {
+        Pixel {
+            x: FRAC_WIDTH_2 as isize + (MINIMAP_SCALE * self.0.x).round() as isize,
+            y: FRAC_HEIGHT_2 as isize - (MINIMAP_SCALE * self.0.y).round() as isize,
+        }
+    }
+
+    pub fn transform(self: Self, matrix: Mat3) -> Self {
+        Position2(matrix.transform_point2(self.0))
+    }
+}
+
+// Normalized screen coordinates, right-handed coordinate system with z towards.
+//   +y
+//   ^
+//   |
+// +z.---> +x
+#[derive(Debug, Copy, Clone)]
+pub struct Normalized(Vec3);
+
+impl Normalized {
+    pub fn to_pixel(self: Self) -> Pixel {
+        Pixel {
+            x: FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * self.0.x).round() as isize,
+            y: FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * self.0.y).round() as isize,
+        }
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
-struct Velocity(Vec3);
+pub struct Velocity(Vec3);
 
-// Direction
+// Direction, positive right-handed around z-axis. Zero in direction of y-axis.
 //   ^   ^
 //    \+θ|
 //     \ |
-//       .
+//     +z.
 #[derive(Debug, Copy, Clone)]
-struct Direction(f32);
+pub struct Direction(f32);
+
+// Pixel location, origin at top left.
+//  .---> +x
+//  |
+//  v
+//  +y
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Pixel {
+    pub x: isize,
+    pub y: isize,
+}
+
+impl Pixel {
+    pub fn new(x: isize, y: isize) -> Self {
+        Self { x, y }
+    }
+
+    pub fn to_tuple(self) -> (isize, isize) {
+        (self.x, self.y)
+    }
+
+    pub fn to_offset(self) -> Option<usize> {
+        if self.x >= 0 && self.x < WIDTH as isize && self.y >= 0 && self.y < HEIGHT as isize {
+            Some((self.y as u32 * WIDTH * 4 + self.x as u32 * 4) as usize)
+        } else {
+            None
+        }
+    }
+
+    pub fn to_offset_unchecked(self) -> usize {
+        (self.y as u32 * WIDTH * 4 + self.x as u32 * 4) as usize
+    }
+}
 
 #[derive(Debug, PartialEq)]
 enum Minimap {
@@ -441,19 +501,19 @@ fn draw_wall_system(
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
 
     for wall in sector.to_walls() {
-        let view_left = Position2(view_matrix.transform_point2(wall.left.0));
-        let view_right = Position2(view_matrix.transform_point2(wall.right.0));
+        let view_left = wall.left.transform(view_matrix);
+        let view_right = wall.right.transform(view_matrix);
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
-            let norm_left_top = project(vec3(view_left.0.x, view_ceil.0, -view_left.0.y));
-            let norm_left_bottom = project(vec3(view_left.0.x, view_floor.0, -view_left.0.y));
-            let norm_right_top = project(vec3(view_right.0.x, view_ceil.0, -view_right.0.y));
-            let norm_right_bottom = project(vec3(view_right.0.x, view_floor.0, -view_right.0.y));
+            let norm_left_top = project(view_left, view_ceil);
+            let norm_left_bottom = project(view_left, view_floor);
+            let norm_right_top = project(view_right, view_ceil);
+            let norm_right_bottom = project(view_right, view_floor);
 
-            let left_top = Pixel::from_norm(norm_left_top.truncate());
-            let left_bottom = Pixel::from_norm(norm_left_bottom.truncate());
-            let right_top = Pixel::from_norm(norm_right_top.truncate());
-            let right_bottom = Pixel::from_norm(norm_right_bottom.truncate());
+            let left_top = norm_left_top.to_pixel();
+            let left_bottom = norm_left_bottom.to_pixel();
+            let right_top = norm_right_top.to_pixel();
+            let right_bottom = norm_right_bottom.to_pixel();
 
             let dx = right_top.x - left_top.x;
 
@@ -666,8 +726,8 @@ fn draw_minimap_system(
     // Draw walls
     for sector in sector_query.iter() {
         for wall in sector.to_walls() {
-            let view_left = Position2(view_matrix.transform_point2(wall.left.0));
-            let view_right = Position2(view_matrix.transform_point2(wall.right.0));
+            let view_left = wall.left.transform(view_matrix);
+            let view_right = wall.right.transform(view_matrix);
 
             let mut view_left_after_clip = view_left;
             let mut view_right_after_clip = view_right;
@@ -681,25 +741,23 @@ fn draw_minimap_system(
             if let Some((left, right, left_after_clip, right_after_clip)) = match state.minimap {
                 Minimap::Off => None,
                 Minimap::FirstPerson => Some((
-                    Pixel::from_abs(view_left.0),
-                    Pixel::from_abs(view_right.0),
-                    Pixel::from_abs(view_left_after_clip.0),
-                    Pixel::from_abs(view_right_after_clip.0),
+                    view_left.to_pixel(),
+                    view_right.to_pixel(),
+                    view_left_after_clip.to_pixel(),
+                    view_right_after_clip.to_pixel(),
                 )),
                 Minimap::Absolute => {
-                    let abs_left = Position2(reverse_view_matrix.transform_point2(view_left.0));
-                    let abs_right = Position2(reverse_view_matrix.transform_point2(view_right.0));
+                    let abs_left = wall.left.transform(reverse_view_matrix);
+                    let abs_right = wall.right.transform(reverse_view_matrix);
 
-                    let abs_left_after_clip =
-                        Position2(reverse_view_matrix.transform_point2(view_left_after_clip.0));
-                    let abs_right_after_clip =
-                        Position2(reverse_view_matrix.transform_point2(view_right_after_clip.0));
+                    let abs_left_after_clip = view_left_after_clip.transform(reverse_view_matrix);
+                    let abs_right_after_clip = view_right_after_clip.transform(reverse_view_matrix);
 
                     Some((
-                        Pixel::from_abs(abs_left.0),
-                        Pixel::from_abs(abs_right.0),
-                        Pixel::from_abs(abs_left_after_clip.0),
-                        Pixel::from_abs(abs_right_after_clip.0),
+                        abs_left.to_pixel(),
+                        abs_right.to_pixel(),
+                        abs_left_after_clip.to_pixel(),
+                        abs_right_after_clip.to_pixel(),
                     ))
                 }
             } {
@@ -719,34 +777,34 @@ fn draw_minimap_system(
     }
 
     // Draw frustum and player
-    let view_player = vec2(0.0, 0.0);
-    let view_near_left = *LEFT_CLIP_1;
-    let view_near_right = *RIGHT_CLIP_2;
-    let view_far_left = *LEFT_CLIP_2;
-    let view_far_right = *RIGHT_CLIP_1;
+    let view_player = Position2(vec2(0.0, 0.0));
+    let view_near_left = Position2(*LEFT_CLIP_1);
+    let view_near_right = Position2(*RIGHT_CLIP_2);
+    let view_far_left = Position2(*LEFT_CLIP_2);
+    let view_far_right = Position2(*RIGHT_CLIP_1);
 
     if let Some((player, near_left, near_right, far_left, far_right)) = match state.minimap {
         Minimap::Off => None,
         Minimap::FirstPerson => Some((
-            Pixel::from_abs(view_player),
-            Pixel::from_abs(view_near_left),
-            Pixel::from_abs(view_near_right),
-            Pixel::from_abs(view_far_left),
-            Pixel::from_abs(view_far_right),
+            view_player.to_pixel(),
+            view_near_left.to_pixel(),
+            view_near_right.to_pixel(),
+            view_far_left.to_pixel(),
+            view_far_right.to_pixel(),
         )),
         Minimap::Absolute => {
-            let abs_player = vec2(state.position.0.x, state.position.0.y);
-            let abs_near_left = reverse_view_matrix.transform_point2(view_near_left);
-            let abs_near_right = reverse_view_matrix.transform_point2(view_near_right);
-            let abs_far_left = reverse_view_matrix.transform_point2(view_far_left);
-            let abs_far_right = reverse_view_matrix.transform_point2(view_far_right);
+            let abs_player = state.position.truncate();
+            let abs_near_left = view_near_left.transform(reverse_view_matrix);
+            let abs_near_right = view_near_right.transform(reverse_view_matrix);
+            let abs_far_left = view_far_left.transform(reverse_view_matrix);
+            let abs_far_right = view_far_right.transform(reverse_view_matrix);
 
             Some((
-                Pixel::from_abs(abs_player),
-                Pixel::from_abs(abs_near_left),
-                Pixel::from_abs(abs_near_right),
-                Pixel::from_abs(abs_far_left),
-                Pixel::from_abs(abs_far_right),
+                abs_player.to_pixel(),
+                abs_near_left.to_pixel(),
+                abs_near_right.to_pixel(),
+                abs_far_left.to_pixel(),
+                abs_far_right.to_pixel(),
             ))
         }
     } {

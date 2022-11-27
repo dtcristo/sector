@@ -1,7 +1,7 @@
 use crate::*;
 
-pub fn project(point: Vec3) -> Vec3 {
-    PERSPECTIVE_MATRIX.project_point3(point)
+pub fn project(position: Position2, height: Length) -> Normalized {
+    Normalized(PERSPECTIVE_MATRIX.project_point3(vec3(position.0.x, height.0, -position.0.y)))
 }
 
 pub fn lerp(start: f32, end: f32, t: f32) -> f32 {
