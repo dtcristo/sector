@@ -34,7 +34,7 @@ const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
-const Z_NEAR: f32 = -0.1;
+const Z_NEAR: f32 = -1.0;
 const Z_FAR: f32 = -50.0;
 const LIGHTNESS_DISTANCE_NEAR: f32 = -Z_NEAR;
 const LIGHTNESS_DISTANCE_FAR: f32 = -Z_FAR;
@@ -116,11 +116,11 @@ struct Wall {
 #[derive(Reflect, Debug, Copy, Clone, Default)]
 pub struct Length(f32);
 
-// Position (https://bevy-cheatbook.github.io/features/coords.html)
-// +y.---> +x
+// Position uses right-handed coordinate system with z up.
+//   +y
+//   ^
 //   |
-//   v
-//   +z
+// +z.---> +x
 #[derive(Debug, Copy, Clone)]
 struct Position(Vec3);
 
@@ -187,7 +187,7 @@ fn main() {
         .register_type::<Option<Entity>>()
         .register_type::<Color>()
         .insert_resource(AppState {
-            minimap: Minimap::Off,
+            minimap: Minimap::Absolute,
             position: Position(vec3(0.0, 0.0, 2.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
@@ -237,14 +237,14 @@ fn main() {
 
 fn setup_system(world: &mut World) {
     // Vertices
-    let v0 = Vertex::new(-4.0, -10.0);
-    let v1 = Vertex::new(-2.0, -10.0);
-    let v2 = Vertex::new(2.0, -5.0);
-    let v3 = Vertex::new(4.0, -1.0);
-    let v4 = Vertex::new(4.0, 8.0);
-    let v5 = Vertex::new(-11.0, 8.0);
-    let v6 = Vertex::new(-4.0, -15.0);
-    let v7 = Vertex::new(4.0, -15.0);
+    let v0 = Vertex::new(2.0, 10.0);
+    let v1 = Vertex::new(4.0, 10.0);
+    let v2 = Vertex::new(11.0, -8.0);
+    let v3 = Vertex::new(-4.0, -8.0);
+    let v4 = Vertex::new(-4.0, 1.0);
+    let v5 = Vertex::new(-2.0, 5.0);
+    let v6 = Vertex::new(-4.0, 15.0);
+    let v7 = Vertex::new(4.0, 15.0);
 
     // Sectors
     let s0 = world.spawn_empty().id();
@@ -257,27 +257,27 @@ fn setup_system(world: &mut World) {
     state.current_sector = s0;
 
     world.entity_mut(s0).insert(Sector {
-        vertices: vec![v0, v1, v2, v3, v4, v5],
-        adj_sectors: vec![None, Some(s1), None, None, None, None],
+        vertices: vec![v0, v1], //, v2, v3, v4, v5],
+        adj_sectors: vec![None, None, None, None, None, Some(s1)],
         colors: vec![
             Color::BLUE,
-            Color::RED,
             Color::GREEN,
             Color::ORANGE,
             Color::FUCHSIA,
             Color::YELLOW,
+            Color::RED,
         ],
         floor: Length(0.0),
         ceil: Length(4.0),
     });
 
-    world.entity_mut(s1).insert(Sector {
-        vertices: vec![v2, v1, v6, v7],
-        adj_sectors: vec![Some(s0), None, None, None],
-        colors: vec![Color::RED, Color::YELLOW, Color::GREEN, Color::FUCHSIA],
-        floor: Length(0.25),
-        ceil: Length(3.75),
-    });
+    // world.entity_mut(s1).insert(Sector {
+    //     vertices: vec![v0, v5, v6, v7],
+    //     adj_sectors: vec![Some(s0), None, None, None],
+    //     colors: vec![Color::RED, Color::YELLOW, Color::GREEN, Color::FUCHSIA],
+    //     floor: Length(0.25),
+    //     ceil: Length(3.75),
+    // });
 }
 
 fn save_scene_system(world: &mut World) {
@@ -445,12 +445,14 @@ fn draw_wall_system(
     let view_floor = Length(sector.floor.0 - state.position.0.z);
     let view_ceil = Length(sector.ceil.0 - state.position.0.z);
 
-    let view_matrix = Mat3::from_rotation_z(state.direction.0)
+    let view_matrix = Mat3::from_rotation_z(-state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
 
     for wall in sector.to_walls() {
         let view_left = view_matrix.transform_point2(wall.left.into()).into();
         let view_right = view_matrix.transform_point2(wall.right.into()).into();
+        // let view_left = view_matrix.transform_point2(wall.right.into()).into();
+        // let view_right = view_matrix.transform_point2(wall.left.into()).into();
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
             let norm_left_top = project(vec3(view_left.x, view_ceil.0, view_left.y));
@@ -677,14 +679,15 @@ fn draw_minimap_system(
     }
 
     let frame = pixels_resource.pixels.get_frame_mut();
-    let view_matrix = Mat3::from_rotation_z(state.direction.0)
+    let view_matrix = Mat3::from_rotation_z(-state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
     let reverse_view_matrix = Mat3::from_translation(vec2(state.position.0.x, state.position.0.y))
-        * Mat3::from_rotation_z(-state.direction.0);
+        * Mat3::from_rotation_z(state.direction.0);
 
     // Draw walls
     for sector in sector_query.iter() {
         for wall in sector.to_walls() {
+            println!("-----\nwall.left: {:?}", wall.left);
             let view_left = view_matrix.transform_point2(wall.left.into()).into();
             let view_right = view_matrix.transform_point2(wall.right.into()).into();
 
@@ -697,6 +700,8 @@ fn draw_minimap_system(
                 view_right_after_clip = r;
             }
 
+            println!("view_left: {:?}", view_left);
+
             if let Some((left, right, left_after_clip, right_after_clip)) = match state.minimap {
                 Minimap::Off => None,
                 Minimap::FirstPerson => Some((
@@ -708,6 +713,8 @@ fn draw_minimap_system(
                 Minimap::Absolute => {
                     let abs_left = reverse_view_matrix.transform_point2(view_left.into());
                     let abs_right = reverse_view_matrix.transform_point2(view_right.into());
+                    println!("abs_left: {:?}", abs_left);
+
                     let abs_left_after_clip =
                         reverse_view_matrix.transform_point2(view_left_after_clip.into());
                     let abs_right_after_clip =
@@ -721,6 +728,7 @@ fn draw_minimap_system(
                     ))
                 }
             } {
+                println!("left: {:?}", left);
                 if clipping.is_none() {
                     draw_line(frame, left, right, *WALL_CLIPPED_COLOR);
                     continue;
@@ -733,6 +741,7 @@ fn draw_minimap_system(
                 }
                 draw_line(frame, left_after_clip, right_after_clip, wall.color);
             }
+            break;
         }
     }
 
@@ -754,6 +763,9 @@ fn draw_minimap_system(
         )),
         Minimap::Absolute => {
             let abs_player = vec2(state.position.0.x, state.position.0.y);
+            println!("-----\nabs_player: {:?}", abs_player);
+            let abs_player_2 = reverse_view_matrix.transform_point2(view_player);
+            assert!(abs_player == abs_player_2);
             let abs_near_left = reverse_view_matrix.transform_point2(view_near_left);
             let abs_near_right = reverse_view_matrix.transform_point2(view_near_right);
             let abs_far_left = reverse_view_matrix.transform_point2(view_far_left);
