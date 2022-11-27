@@ -187,7 +187,7 @@ fn main() {
         .register_type::<Option<Entity>>()
         .register_type::<Color>()
         .insert_resource(AppState {
-            minimap: Minimap::Absolute,
+            minimap: Minimap::FirstPerson,
             position: Position(vec3(0.0, 0.0, 2.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
@@ -397,19 +397,19 @@ fn player_movement_system(
 
     if key.pressed(KeyCode::Up) || key.pressed(KeyCode::W) {
         state.velocity.0.x -= state.direction.0.sin();
-        state.velocity.0.y -= state.direction.0.cos();
+        state.velocity.0.y += state.direction.0.cos();
     }
     if key.pressed(KeyCode::Down) || key.pressed(KeyCode::S) {
         state.velocity.0.x += state.direction.0.sin();
-        state.velocity.0.y += state.direction.0.cos();
+        state.velocity.0.y -= state.direction.0.cos();
     }
     if key.pressed(KeyCode::A) {
         state.velocity.0.x -= state.direction.0.cos();
-        state.velocity.0.y += state.direction.0.sin();
+        state.velocity.0.y -= state.direction.0.sin();
     }
     if key.pressed(KeyCode::D) {
         state.velocity.0.x += state.direction.0.cos();
-        state.velocity.0.y -= state.direction.0.sin();
+        state.velocity.0.y += state.direction.0.sin();
     }
     if key.pressed(KeyCode::Space) {
         state.velocity.0.z += 1.0;
