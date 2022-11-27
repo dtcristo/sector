@@ -1,5 +1,10 @@
 use crate::*;
 
+// Pixel has origin at top left of screen.
+//  .---> +x
+//  |
+//  v
+//  +y
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Pixel {
     pub x: isize,

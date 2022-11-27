@@ -84,7 +84,65 @@
       },
     ),
     1: (
-      components: {},
+      components: {
+        "sector::Sector": (
+          vertices: [
+            (
+              x: 2.0,
+              y: 10.0,
+            ),
+            (
+              x: -2.0,
+              y: 5.0,
+            ),
+            (
+              x: -4.0,
+              y: 15.0,
+            ),
+            (
+              x: 4.0,
+              y: 15.0,
+            ),
+          ],
+          adj_sectors: [
+            Some((
+              generation: 0,
+              index: 0,
+            )),
+            None,
+            None,
+            None,
+          ],
+          colors: [
+            Rgba(
+              red: 1.0,
+              green: 0.0,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 0.0,
+              blue: 1.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 0.0,
+              green: 1.0,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 1.0,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+          ],
+          floor: (0.25),
+          ceil: (3.75),
+        ),
+      },
     ),
   },
 )

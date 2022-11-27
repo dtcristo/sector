@@ -47,7 +47,7 @@ const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
     static ref PERSPECTIVE_MATRIX: Mat4 =
-        Mat4::perspective_infinite_rh(*FOV_Y_RADIANS, ASPECT_RATIO, Z_NEAR);
+        Mat4::perspective_infinite_reverse_rh(*FOV_Y_RADIANS, ASPECT_RATIO, Z_NEAR);
     static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
     static ref X_NEAR: f32 = Z_NEAR * *TAN_FAC_FOV_X_2;
     static ref X_FAR: f32 = Z_FAR * *TAN_FAC_FOV_X_2;
@@ -124,6 +124,19 @@ pub struct Length(f32);
 #[derive(Debug, Copy, Clone)]
 struct Position(Vec3);
 
+// ScreenNorm uses right-handed coordinate system with z out of the screen.
+//   +y
+//   ^
+//   |
+// +z.---> +x
+#[derive(Debug, Copy, Clone)]
+struct ScreenNorm(Vec3);
+
+// Position2
+//  +y
+//  ^
+//  |
+//  .---> +x
 #[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
 pub struct Vertex {
     x: f32,
@@ -271,13 +284,13 @@ fn setup_system(world: &mut World) {
         ceil: Length(4.0),
     });
 
-    // world.entity_mut(s1).insert(Sector {
-    //     vertices: vec![v0, v5, v6, v7],
-    //     adj_sectors: vec![Some(s0), None, None, None],
-    //     colors: vec![Color::RED, Color::YELLOW, Color::GREEN, Color::FUCHSIA],
-    //     floor: Length(0.25),
-    //     ceil: Length(3.75),
-    // });
+    world.entity_mut(s1).insert(Sector {
+        vertices: vec![v0, v5, v6, v7],
+        adj_sectors: vec![Some(s0), None, None, None],
+        colors: vec![Color::RED, Color::FUCHSIA, Color::GREEN, Color::YELLOW],
+        floor: Length(0.25),
+        ceil: Length(3.75),
+    });
 }
 
 fn save_scene_system(world: &mut World) {
@@ -453,10 +466,10 @@ fn draw_wall_system(
         let view_right = view_matrix.transform_point2(wall.right.into()).into();
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
-            let norm_left_top = project(vec3(view_left.x, view_ceil.0, view_left.y));
-            let norm_left_bottom = project(vec3(view_left.x, view_floor.0, view_left.y));
-            let norm_right_top = project(vec3(view_right.x, view_ceil.0, view_right.y));
-            let norm_right_bottom = project(vec3(view_right.x, view_floor.0, view_right.y));
+            let norm_left_top = project(vec3(view_left.x, view_ceil.0, -view_left.y));
+            let norm_left_bottom = project(vec3(view_left.x, view_floor.0, -view_left.y));
+            let norm_right_top = project(vec3(view_right.x, view_ceil.0, -view_right.y));
+            let norm_right_bottom = project(vec3(view_right.x, view_floor.0, -view_right.y));
 
             let left_top = Pixel::from_norm(norm_left_top.truncate());
             let left_bottom = Pixel::from_norm(norm_left_bottom.truncate());
