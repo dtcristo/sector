@@ -34,10 +34,10 @@ const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
-const Z_NEAR: f32 = -1.0;
-const Z_FAR: f32 = -50.0;
-const LIGHTNESS_DISTANCE_NEAR: f32 = -Z_NEAR;
-const LIGHTNESS_DISTANCE_FAR: f32 = -Z_FAR;
+const Z_NEAR: f32 = 1.0;
+const Z_FAR: f32 = 50.0;
+const LIGHTNESS_DISTANCE_NEAR: f32 = Z_NEAR;
+const LIGHTNESS_DISTANCE_FAR: f32 = Z_FAR;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
 const MINIMAP_SCALE: f32 = 8.0;
@@ -47,10 +47,10 @@ const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
     static ref PERSPECTIVE_MATRIX: Mat4 =
-        Mat4::perspective_infinite_rh(*FOV_Y_RADIANS, ASPECT_RATIO, -Z_NEAR);
+        Mat4::perspective_infinite_rh(*FOV_Y_RADIANS, ASPECT_RATIO, Z_NEAR);
     static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
-    static ref X_NEAR: f32 = -Z_NEAR * *TAN_FAC_FOV_X_2;
-    static ref X_FAR: f32 = -Z_FAR * *TAN_FAC_FOV_X_2;
+    static ref X_NEAR: f32 = Z_NEAR * *TAN_FAC_FOV_X_2;
+    static ref X_FAR: f32 = Z_FAR * *TAN_FAC_FOV_X_2;
     // Clip boundaries
     static ref BACK_CLIP_1: Vec2 = vec2(*X_NEAR, Z_NEAR);
     static ref BACK_CLIP_2: Vec2 = vec2(-*X_NEAR, Z_NEAR);
@@ -257,7 +257,7 @@ fn setup_system(world: &mut World) {
     state.current_sector = s0;
 
     world.entity_mut(s0).insert(Sector {
-        vertices: vec![v0, v1], //, v2, v3, v4, v5],
+        vertices: vec![v0, v1, v2, v3, v4, v5],
         adj_sectors: vec![None, None, None, None, None, Some(s1)],
         colors: vec![
             Color::BLUE,
@@ -451,8 +451,6 @@ fn draw_wall_system(
     for wall in sector.to_walls() {
         let view_left = view_matrix.transform_point2(wall.left.into()).into();
         let view_right = view_matrix.transform_point2(wall.right.into()).into();
-        // let view_left = view_matrix.transform_point2(wall.right.into()).into();
-        // let view_right = view_matrix.transform_point2(wall.left.into()).into();
 
         if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
             let norm_left_top = project(vec3(view_left.x, view_ceil.0, view_left.y));
@@ -604,7 +602,7 @@ fn draw_wall_system(
 
 fn clip_wall(mut view_left: Vertex, mut view_right: Vertex) -> Option<(Vertex, Vertex)> {
     // Skip entirely behind back
-    if view_left.y > Z_NEAR && view_right.y > Z_NEAR {
+    if view_left.y < Z_NEAR && view_right.y < Z_NEAR {
         return None;
     }
 
@@ -641,7 +639,7 @@ fn clip_wall(mut view_left: Vertex, mut view_right: Vertex) -> Option<(Vertex, V
     }
 
     // Clip behind back
-    if view_left.y > Z_NEAR || view_right.y > Z_NEAR {
+    if view_left.y < Z_NEAR || view_right.y < Z_NEAR {
         if let Some(intersection) = intersect(
             view_left.into(),
             view_right.into(),
@@ -657,7 +655,7 @@ fn clip_wall(mut view_left: Vertex, mut view_right: Vertex) -> Option<(Vertex, V
     }
 
     // Skip entirely behind left side
-    if point_behind(view_left.into(), *LEFT_CLIP_1, *LEFT_CLIP_2) {
+    if point_behind(view_right.into(), *LEFT_CLIP_1, *LEFT_CLIP_2) {
         return None;
     }
 
@@ -741,7 +739,6 @@ fn draw_minimap_system(
                 }
                 draw_line(frame, left_after_clip, right_after_clip, wall.color);
             }
-            break;
         }
     }
 
@@ -780,8 +777,8 @@ fn draw_minimap_system(
             ))
         }
     } {
-        draw_line(frame, near_left, far_left, *FRUSTUM_COLOR);
-        draw_line(frame, near_right, far_right, *FRUSTUM_COLOR);
+        draw_line(frame, near_left, far_left, Color::BLUE);
+        draw_line(frame, near_right, far_right, Color::RED);
         draw_line(frame, near_left, near_right, *FRUSTUM_COLOR);
         draw_pixel(frame, player, *PLAYER_COLOR);
     }

@@ -38,5 +38,5 @@ pub fn between(test: f32, a: f32, b: f32) -> bool {
 }
 
 pub fn point_behind(point: Vec2, a: Vec2, b: Vec2) -> bool {
-    vec2(b.x - a.x, b.y - a.y).perp_dot(vec2(point.x - a.x, point.y - a.y)) < 0.0
+    vec2(b.x - a.x, b.y - a.y).perp_dot(vec2(point.x - a.x, point.y - a.y)) > 0.0
 }
