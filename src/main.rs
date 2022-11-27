@@ -35,8 +35,6 @@ const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
 const NEAR: f32 = 1.0;
 const FAR: f32 = 50.0;
-const LIGHTNESS_DISTANCE_NEAR: f32 = NEAR;
-const LIGHTNESS_DISTANCE_FAR: f32 = FAR;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
 const MINIMAP_SCALE: f32 = 8.0;
@@ -115,11 +113,12 @@ struct Wall {
 #[derive(Reflect, Debug, Copy, Clone, Default)]
 pub struct Length(f32);
 
-// World position in 3D, right-handed coordinate system with z up.
-//   +y
-//   ^
-//   |
-// +z.---> +x
+/// World position in 3D, right-handed coordinate system with z up.
+///
+///   +y
+///   ^
+///   |
+/// +z.---> +x
 #[derive(Debug, Copy, Clone)]
 pub struct Position3(Vec3);
 
@@ -129,11 +128,12 @@ impl Position3 {
     }
 }
 
-// World position in 2D.
-//  +y
-//  ^
-//  |
-//  .---> +x
+/// World position in 2D.
+///
+///  +y
+///  ^
+///  |
+///  .---> +x
 #[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
 pub struct Position2(Vec2);
 
@@ -150,11 +150,13 @@ impl Position2 {
     }
 }
 
-// Normalized screen coordinates, right-handed coordinate system with z towards.
-//   +y
-//   ^
-//   |
-// +z.---> +x
+/// Normalized screen coordinates, right-handed coordinate system with z towards,
+/// origin at centre.
+///
+///   +y
+///   ^
+///   |
+/// +z.---> +x
 #[derive(Debug, Copy, Clone)]
 pub struct Normalized(Vec3);
 
@@ -170,19 +172,21 @@ impl Normalized {
 #[derive(Debug, Copy, Clone)]
 pub struct Velocity(Vec3);
 
-// Direction, positive right-handed around z-axis. Zero in direction of y-axis.
-//   ^   ^
-//    \+θ|
-//     \ |
-//     +z.
+/// Direction, positive right-handed around z-axis. Zero in direction of y-axis.
+///
+///   ^   ^
+///    \+θ|
+///     \ |
+///     +z.
 #[derive(Debug, Copy, Clone)]
 pub struct Direction(f32);
 
-// Pixel location, origin at top left.
-//  .---> +x
-//  |
-//  v
-//  +y
+/// Pixel location, origin at top left.
+///
+///  .---> +x
+///  |
+///  v
+///  +y
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Pixel {
     pub x: isize,
@@ -574,14 +578,13 @@ fn draw_wall_system(
                 let distance = view_z.abs();
 
                 // Lightness for distance
-                let lightness = if distance > LIGHTNESS_DISTANCE_FAR {
+                let lightness = if distance > FAR {
                     LIGHTNESS_FAR
-                } else if distance < LIGHTNESS_DISTANCE_NEAR {
+                } else if distance < NEAR {
                     LIGHTNESS_NEAR
                 } else {
                     // Interpolate lightness
-                    let distance_t = (distance - LIGHTNESS_DISTANCE_NEAR)
-                        / (LIGHTNESS_DISTANCE_FAR - LIGHTNESS_DISTANCE_NEAR);
+                    let distance_t = (distance - NEAR) / (FAR - NEAR);
                     lerp(LIGHTNESS_NEAR, LIGHTNESS_FAR, distance_t)
                 };
                 let lightness_rounded = (lightness * 100.0).round() / 100.0;
