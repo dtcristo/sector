@@ -685,7 +685,6 @@ fn draw_minimap_system(
     // Draw walls
     for sector in sector_query.iter() {
         for wall in sector.to_walls() {
-            println!("-----\nwall.left: {:?}", wall.left);
             let view_left = view_matrix.transform_point2(wall.left.into()).into();
             let view_right = view_matrix.transform_point2(wall.right.into()).into();
 
@@ -698,8 +697,6 @@ fn draw_minimap_system(
                 view_right_after_clip = r;
             }
 
-            println!("view_left: {:?}", view_left);
-
             if let Some((left, right, left_after_clip, right_after_clip)) = match state.minimap {
                 Minimap::Off => None,
                 Minimap::FirstPerson => Some((
@@ -711,7 +708,6 @@ fn draw_minimap_system(
                 Minimap::Absolute => {
                     let abs_left = reverse_view_matrix.transform_point2(view_left.into());
                     let abs_right = reverse_view_matrix.transform_point2(view_right.into());
-                    println!("abs_left: {:?}", abs_left);
 
                     let abs_left_after_clip =
                         reverse_view_matrix.transform_point2(view_left_after_clip.into());
@@ -726,7 +722,6 @@ fn draw_minimap_system(
                     ))
                 }
             } {
-                println!("left: {:?}", left);
                 if clipping.is_none() {
                     draw_line(frame, left, right, *WALL_CLIPPED_COLOR);
                     continue;
@@ -760,9 +755,6 @@ fn draw_minimap_system(
         )),
         Minimap::Absolute => {
             let abs_player = vec2(state.position.0.x, state.position.0.y);
-            println!("-----\nabs_player: {:?}", abs_player);
-            let abs_player_2 = reverse_view_matrix.transform_point2(view_player);
-            assert!(abs_player == abs_player_2);
             let abs_near_left = reverse_view_matrix.transform_point2(view_near_left);
             let abs_near_right = reverse_view_matrix.transform_point2(view_near_right);
             let abs_far_left = reverse_view_matrix.transform_point2(view_far_left);
@@ -777,8 +769,8 @@ fn draw_minimap_system(
             ))
         }
     } {
-        draw_line(frame, near_left, far_left, Color::BLUE);
-        draw_line(frame, near_right, far_right, Color::RED);
+        draw_line(frame, near_left, far_left, *FRUSTUM_COLOR);
+        draw_line(frame, near_right, far_right, *FRUSTUM_COLOR);
         draw_line(frame, near_left, near_right, *FRUSTUM_COLOR);
         draw_pixel(frame, player, *PLAYER_COLOR);
     }
