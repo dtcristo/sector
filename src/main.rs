@@ -518,20 +518,25 @@ fn draw_wall_system(
         let portal = portal_queue.pop_front().unwrap();
         let sector = portal.sector;
 
+        // View relative floor and ceiling locations
         let view_floor = Length(sector.floor.0 - state.position.0.z);
         let view_ceil = Length(sector.ceil.0 - state.position.0.z);
 
+        // Iterate through each wall within the sector
         'walls: for wall in sector.to_walls() {
+            // Transform wall ends to view relative positions
             let view_left = wall.left.transform(view_matrix);
             let view_right = wall.right.transform(view_matrix);
 
             // Clip wall by view frustum, will be `None` if outside of frustum
             if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
+                // Project from view to normalized screen coordinates
                 let norm_left_top = project(view_left, view_ceil);
                 let norm_left_bottom = project(view_left, view_floor);
                 let norm_right_top = project(view_right, view_ceil);
                 let norm_right_bottom = project(view_right, view_floor);
 
+                // Convert to pixel locations
                 let left_top = norm_left_top.to_pixel();
                 let left_bottom = norm_left_bottom.to_pixel();
                 let right_top = norm_right_top.to_pixel();
@@ -539,21 +544,33 @@ fn draw_wall_system(
 
                 let dx = right_top.x - left_top.x;
 
-                // Skip drawing backside of wall
+                // Skip drawing wall if looking at backside
                 if dx <= 0 {
                     continue 'walls;
                 }
 
+                // TODO: Use `view_y_middle` in `distance` calculation below
+                // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
+
+                // TODO: Refactor colors to use HSV instead of HSL
+                let color_hsla_raw = wall.color.as_hsla_f32();
+
+                // Clip x by portal sides
+                let x_left = portal.x_min.max(left_top.x);
+                let x_right = right_top.x.min(portal.x_max);
+
+                // Fetch adjacent sector
                 let adj_sector = wall
                     .adj_sector
                     .and_then(|adj_sector_id| sector_query.get(adj_sector_id).ok());
 
+                // Process adjacent sector
                 let (adj_top_y, adj_bottom_y) = if let Some(adj_sector) = adj_sector {
                     // Push adjacent sector on portal queue to render later
                     portal_queue.push_back(Portal {
                         sector: adj_sector,
-                        x_min: EDGE_GAP,
-                        x_max: WIDTH_MINUS_EDGE_GAP,
+                        x_min: x_left,
+                        x_max: x_right,
                     });
 
                     let view_adj_ceil = Length(adj_sector.ceil.0 - state.position.0.z);
@@ -586,16 +603,7 @@ fn draw_wall_system(
                     (None, None)
                 };
 
-                // TODO: Use `view_y_middle` in `distance` calculation below
-                // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
-
-                // TODO: Refactor colors to use HSV instead of HSL
-                let color_hsla_raw = wall.color.as_hsla_f32();
-
-                // Clip x
-                let x_left = portal.x_min.max(left_top.x);
-                let x_right = right_top.x.min(portal.x_max);
-
+                // Iterate through pixel columns
                 for x in x_left..(x_right - JOIN_GAP) {
                     let x_t = (x - left_top.x) as f32 / dx as f32;
 
