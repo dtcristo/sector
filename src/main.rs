@@ -17,6 +17,7 @@ use bevy::{
 };
 use bevy_pixels::prelude::*;
 use bevy_render::color::Color;
+use std::collections::VecDeque;
 use std::fs::File;
 use std::io::Write;
 
@@ -101,6 +102,12 @@ impl Sector {
 
         walls
     }
+}
+
+struct Portal<'a> {
+    sector: &'a Sector,
+    x_min: isize,
+    x_max: isize,
 }
 
 struct Wall {
@@ -490,225 +497,190 @@ fn draw_wall_system(
     sector_query: Query<&Sector>,
 ) {
     let frame = pixels_resource.pixels.get_frame_mut();
-
-    let x_min = EDGE_GAP;
-    let x_max = WIDTH_MINUS_EDGE_GAP;
-    let y_min_vec = vec![EDGE_GAP; WIDTH as usize];
-    let y_max_vec = vec![HEIGHT_MINUS_EDGE_GAP as isize; WIDTH as usize];
-
-    let Ok(sector) = sector_query.get(state.current_sector) else { return };
-
-    let view_floor = Length(sector.floor.0 - state.position.0.z);
-    let view_ceil = Length(sector.ceil.0 - state.position.0.z);
-
     let view_matrix = Mat3::from_rotation_z(-state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
 
-    for wall in sector.to_walls() {
-        let view_left = wall.left.transform(view_matrix);
-        let view_right = wall.right.transform(view_matrix);
+    let Ok(current_sector) = sector_query.get(state.current_sector) else { return };
 
-        if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
-            let norm_left_top = project(view_left, view_ceil);
-            let norm_left_bottom = project(view_left, view_floor);
-            let norm_right_top = project(view_right, view_ceil);
-            let norm_right_bottom = project(view_right, view_floor);
+    let mut portal_queue = VecDeque::<Portal>::new();
+    let y_min_vec = vec![EDGE_GAP; WIDTH as usize];
+    let y_max_vec = vec![HEIGHT_MINUS_EDGE_GAP as isize; WIDTH as usize];
 
-            let left_top = norm_left_top.to_pixel();
-            let left_bottom = norm_left_bottom.to_pixel();
-            let right_top = norm_right_top.to_pixel();
-            let right_bottom = norm_right_bottom.to_pixel();
+    // Push current sector on portal queue
+    portal_queue.push_back(Portal {
+        sector: current_sector,
+        x_min: EDGE_GAP,
+        x_max: WIDTH_MINUS_EDGE_GAP,
+    });
 
-            let dx = right_top.x - left_top.x;
+    // Process all portals until queue is empty, processing a portal may enqueue more
+    while !portal_queue.is_empty() {
+        let portal = portal_queue.pop_front().unwrap();
+        let sector = portal.sector;
 
-            // Skip drawing backside
-            if dx <= 0 {
-                return;
-            }
+        let view_floor = Length(sector.floor.0 - state.position.0.z);
+        let view_ceil = Length(sector.ceil.0 - state.position.0.z);
 
-            let adj_sector = wall
-                .adj_sector
-                .and_then(|adj_sector_id| sector_query.get(adj_sector_id).ok());
+        'walls: for wall in sector.to_walls() {
+            let view_left = wall.left.transform(view_matrix);
+            let view_right = wall.right.transform(view_matrix);
 
-            let (adj_top_y, adj_bottom_y) = if let Some(adj_sector) = adj_sector {
-                let view_adj_ceil = Length(adj_sector.ceil.0 - state.position.0.z);
-                let view_adj_floor = Length(adj_sector.floor.0 - state.position.0.z);
+            // Clip wall by view frustum, will be `None` if outside of frustum
+            if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
+                let norm_left_top = project(view_left, view_ceil);
+                let norm_left_bottom = project(view_left, view_floor);
+                let norm_right_top = project(view_right, view_ceil);
+                let norm_right_bottom = project(view_right, view_floor);
 
-                let adj_top_y = if view_adj_ceil.0 < view_ceil.0 {
-                    let adj_ceil_t = (view_adj_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
-                    Some((
-                        lerpi(left_top.y, left_bottom.y, adj_ceil_t),
-                        lerpi(right_top.y, right_bottom.y, adj_ceil_t),
-                    ))
-                } else {
-                    None
-                };
+                let left_top = norm_left_top.to_pixel();
+                let left_bottom = norm_left_bottom.to_pixel();
+                let right_top = norm_right_top.to_pixel();
+                let right_bottom = norm_right_bottom.to_pixel();
 
-                let adj_bottom_y = if view_adj_floor.0 > view_floor.0 {
-                    let adj_floor_t =
-                        (view_adj_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
-                    Some((
-                        lerpi(left_top.y, left_bottom.y, adj_floor_t),
-                        lerpi(right_top.y, right_bottom.y, adj_floor_t),
-                    ))
-                } else {
-                    None
-                };
+                let dx = right_top.x - left_top.x;
 
-                (adj_top_y, adj_bottom_y)
-            } else {
-                (None, None)
-            };
-
-            // TODO: Use `view_y_middle` in `distance` calculation below
-            // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
-
-            // TODO: Refactor colors to use HSV instead of HSL
-            let color_hsla_raw = wall.color.as_hsla_f32();
-
-            // Clip x
-            let x_left = x_min.max(left_top.x);
-            let x_right = right_top.x.min(x_max);
-
-            for x in x_left..(x_right - JOIN_GAP) {
-                let x_t = (x - left_top.x) as f32 / dx as f32;
-
-                // Interpolate z for distance
-                let view_z = lerp(view_left.0.y, view_right.0.y, x_t);
-                let distance = view_z.abs();
-
-                // Lightness for distance
-                let lightness = if distance > FAR {
-                    LIGHTNESS_FAR
-                } else if distance < NEAR {
-                    LIGHTNESS_NEAR
-                } else {
-                    // Interpolate lightness
-                    let distance_t = (distance - NEAR) / (FAR - NEAR);
-                    lerp(LIGHTNESS_NEAR, LIGHTNESS_FAR, distance_t)
-                };
-                let lightness_rounded = (lightness * 100.0).round() / 100.0;
-
-                // Color for lightness
-                let color = Color::hsla(
-                    color_hsla_raw[0],
-                    color_hsla_raw[1],
-                    lightness_rounded,
-                    color_hsla_raw[3],
-                );
-
-                // Interpolate y
-                let y_top = lerpi(left_top.y, right_top.y, x_t);
-                let y_bottom = lerpi(left_bottom.y, right_bottom.y, x_t);
-
-                // Get y bounds
-                let y_min = y_min_vec[x as usize];
-                let y_max = y_max_vec[x as usize];
-
-                // Clip y
-                let y_top = y_min.max(y_top);
-                let y_bottom = y_bottom.min(y_max);
-
-                // Draw ceiling
-                draw_vertical_line(
-                    frame,
-                    x,
-                    y_min,
-                    (y_top - JOIN_GAP).min(y_max),
-                    *CEILING_COLOR,
-                );
-
-                match adj_sector {
-                    Some(_adj_sector) => {
-                        // Draw adjacent ceiling wall
-                        if let Some((adj_left_top_y, adj_right_top_y)) = adj_top_y {
-                            let y_adj_top = lerpi(adj_left_top_y, adj_right_top_y, x_t);
-                            draw_vertical_line(
-                                frame,
-                                x,
-                                y_top,
-                                (y_adj_top - JOIN_GAP).min(y_bottom - JOIN_GAP),
-                                color,
-                            )
-                        }
-
-                        // Draw adjacent floor wall
-                        if let Some((adj_left_bottom_y, adj_right_bottom_y)) = adj_bottom_y {
-                            let y_adj_bottom = lerpi(adj_left_bottom_y, adj_right_bottom_y, x_t);
-                            draw_vertical_line(
-                                frame,
-                                x,
-                                y_top.max(y_adj_bottom),
-                                y_bottom - JOIN_GAP,
-                                color,
-                            )
-                        }
-                    }
-                    // Draw complete wall
-                    None => draw_vertical_line(frame, x, y_top, y_bottom - JOIN_GAP, color),
+                // Skip drawing backside of wall
+                if dx <= 0 {
+                    continue 'walls;
                 }
 
-                // Draw floor
-                draw_vertical_line(frame, x, y_min.max(y_bottom), y_max, *FLOOR_COLOR);
-            }
-        };
-    }
-}
+                let adj_sector = wall
+                    .adj_sector
+                    .and_then(|adj_sector_id| sector_query.get(adj_sector_id).ok());
 
-fn clip_wall(
-    mut view_left: Position2,
-    mut view_right: Position2,
-) -> Option<(Position2, Position2)> {
-    // Skip entirely behind back
-    if view_left.0.y < NEAR && view_right.0.y < NEAR {
-        return None;
-    }
+                let (adj_top_y, adj_bottom_y) = if let Some(adj_sector) = adj_sector {
+                    // Push adjacent sector on portal queue to render later
+                    portal_queue.push_back(Portal {
+                        sector: adj_sector,
+                        x_min: EDGE_GAP,
+                        x_max: WIDTH_MINUS_EDGE_GAP,
+                    });
 
-    // Clip left side
-    if let Some(intersection) = intersect(view_left.0, view_right.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
-        if intersection.x < -*X_NEAR {
-            if point_behind(view_left.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
-                view_left = Position2(intersection);
-            } else {
-                view_right = Position2(intersection);
-            }
+                    let view_adj_ceil = Length(adj_sector.ceil.0 - state.position.0.z);
+                    let view_adj_floor = Length(adj_sector.floor.0 - state.position.0.z);
+
+                    let adj_top_y = if view_adj_ceil.0 < view_ceil.0 {
+                        let adj_ceil_t =
+                            (view_adj_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
+                        Some((
+                            lerpi(left_top.y, left_bottom.y, adj_ceil_t),
+                            lerpi(right_top.y, right_bottom.y, adj_ceil_t),
+                        ))
+                    } else {
+                        None
+                    };
+
+                    let adj_bottom_y = if view_adj_floor.0 > view_floor.0 {
+                        let adj_floor_t =
+                            (view_adj_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
+                        Some((
+                            lerpi(left_top.y, left_bottom.y, adj_floor_t),
+                            lerpi(right_top.y, right_bottom.y, adj_floor_t),
+                        ))
+                    } else {
+                        None
+                    };
+
+                    (adj_top_y, adj_bottom_y)
+                } else {
+                    (None, None)
+                };
+
+                // TODO: Use `view_y_middle` in `distance` calculation below
+                // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
+
+                // TODO: Refactor colors to use HSV instead of HSL
+                let color_hsla_raw = wall.color.as_hsla_f32();
+
+                // Clip x
+                let x_left = portal.x_min.max(left_top.x);
+                let x_right = right_top.x.min(portal.x_max);
+
+                for x in x_left..(x_right - JOIN_GAP) {
+                    let x_t = (x - left_top.x) as f32 / dx as f32;
+
+                    // Interpolate z for distance
+                    let view_z = lerp(view_left.0.y, view_right.0.y, x_t);
+                    let distance = view_z.abs();
+
+                    // Lightness for distance
+                    let lightness = if distance > FAR {
+                        LIGHTNESS_FAR
+                    } else if distance < NEAR {
+                        LIGHTNESS_NEAR
+                    } else {
+                        // Interpolate lightness
+                        let distance_t = (distance - NEAR) / (FAR - NEAR);
+                        lerp(LIGHTNESS_NEAR, LIGHTNESS_FAR, distance_t)
+                    };
+                    let lightness_rounded = (lightness * 100.0).round() / 100.0;
+
+                    // Color for lightness
+                    let color = Color::hsla(
+                        color_hsla_raw[0],
+                        color_hsla_raw[1],
+                        lightness_rounded,
+                        color_hsla_raw[3],
+                    );
+
+                    // Interpolate y
+                    let y_top = lerpi(left_top.y, right_top.y, x_t);
+                    let y_bottom = lerpi(left_bottom.y, right_bottom.y, x_t);
+
+                    // Get y bounds
+                    let y_min = y_min_vec[x as usize];
+                    let y_max = y_max_vec[x as usize];
+
+                    // Clip y
+                    let y_top = y_min.max(y_top);
+                    let y_bottom = y_bottom.min(y_max);
+
+                    // Draw ceiling
+                    draw_vertical_line(
+                        frame,
+                        x,
+                        y_min,
+                        (y_top - JOIN_GAP).min(y_max),
+                        *CEILING_COLOR,
+                    );
+
+                    match adj_sector {
+                        Some(_) => {
+                            // Draw adjacent ceiling wall if required
+                            if let Some((adj_left_top_y, adj_right_top_y)) = adj_top_y {
+                                let y_adj_top = lerpi(adj_left_top_y, adj_right_top_y, x_t);
+                                draw_vertical_line(
+                                    frame,
+                                    x,
+                                    y_top,
+                                    (y_adj_top - JOIN_GAP).min(y_bottom - JOIN_GAP),
+                                    color,
+                                )
+                            }
+
+                            // Draw adjacent floor wall if required
+                            if let Some((adj_left_bottom_y, adj_right_bottom_y)) = adj_bottom_y {
+                                let y_adj_bottom =
+                                    lerpi(adj_left_bottom_y, adj_right_bottom_y, x_t);
+                                draw_vertical_line(
+                                    frame,
+                                    x,
+                                    y_top.max(y_adj_bottom),
+                                    y_bottom - JOIN_GAP,
+                                    color,
+                                )
+                            }
+                        }
+                        // Draw complete wall
+                        None => draw_vertical_line(frame, x, y_top, y_bottom - JOIN_GAP, color),
+                    }
+
+                    // Draw floor
+                    draw_vertical_line(frame, x, y_min.max(y_bottom), y_max, *FLOOR_COLOR);
+                }
+            };
         }
     }
-
-    // Clip right side
-    if let Some(intersection) = intersect(view_left.0, view_right.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
-        if intersection.x > *X_NEAR {
-            if point_behind(view_left.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
-                view_left = Position2(intersection);
-            } else {
-                view_right = Position2(intersection);
-            }
-        }
-    }
-
-    // Clip behind back
-    if view_left.0.y < NEAR || view_right.0.y < NEAR {
-        if let Some(intersection) = intersect(view_left.0, view_right.0, *BACK_CLIP_1, *BACK_CLIP_2)
-        {
-            if point_behind(view_left.0, *BACK_CLIP_1, *BACK_CLIP_2) {
-                view_left = Position2(intersection);
-            } else {
-                view_right = Position2(intersection);
-            }
-        }
-    }
-
-    // Skip entirely behind left side
-    if point_behind(view_right.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
-        return None;
-    }
-
-    // Skip entirely behind right side
-    if point_behind(view_left.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
-        return None;
-    }
-
-    Some((view_left, view_right))
 }
 
 fn draw_minimap_system(

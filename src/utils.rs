@@ -1,5 +1,61 @@
 use crate::*;
 
+pub fn clip_wall(
+    mut view_left: Position2,
+    mut view_right: Position2,
+) -> Option<(Position2, Position2)> {
+    // Skip entirely behind back
+    if view_left.0.y < NEAR && view_right.0.y < NEAR {
+        return None;
+    }
+
+    // Clip left side
+    if let Some(intersection) = intersect(view_left.0, view_right.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
+        if intersection.x < -*X_NEAR {
+            if point_behind(view_left.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
+                view_left = Position2(intersection);
+            } else {
+                view_right = Position2(intersection);
+            }
+        }
+    }
+
+    // Clip right side
+    if let Some(intersection) = intersect(view_left.0, view_right.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
+        if intersection.x > *X_NEAR {
+            if point_behind(view_left.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
+                view_left = Position2(intersection);
+            } else {
+                view_right = Position2(intersection);
+            }
+        }
+    }
+
+    // Clip behind back
+    if view_left.0.y < NEAR || view_right.0.y < NEAR {
+        if let Some(intersection) = intersect(view_left.0, view_right.0, *BACK_CLIP_1, *BACK_CLIP_2)
+        {
+            if point_behind(view_left.0, *BACK_CLIP_1, *BACK_CLIP_2) {
+                view_left = Position2(intersection);
+            } else {
+                view_right = Position2(intersection);
+            }
+        }
+    }
+
+    // Skip entirely behind left side
+    if point_behind(view_right.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
+        return None;
+    }
+
+    // Skip entirely behind right side
+    if point_behind(view_left.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
+        return None;
+    }
+
+    Some((view_left, view_right))
+}
+
 pub fn project(position: Position2, height: Length) -> Normalized {
     Normalized(PERSPECTIVE_MATRIX.project_point3(vec3(position.0.x, height.0, -position.0.y)))
 }
