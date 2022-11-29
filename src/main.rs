@@ -26,8 +26,9 @@ extern crate lazy_static;
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
-const EDGE_GAP: isize = 1;
-const JOIN_GAP: isize = 0;
+const WINDOW_SCALE: u32 = 3;
+const EDGE_GAP: isize = 5;
+const JOIN_GAP: isize = 1;
 const WIDTH_MINUS_EDGE_GAP: isize = WIDTH as isize - EDGE_GAP;
 const HEIGHT_MINUS_EDGE_GAP: isize = HEIGHT as isize - EDGE_GAP;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
@@ -68,7 +69,7 @@ lazy_static! {
 #[reflect(Component)]
 pub struct Sector {
     vertices: Vec<Position2>,
-    adj_sectors: Vec<Option<Entity>>,
+    portal_sectors: Vec<Option<Entity>>,
     colors: Vec<Color>,
     floor: Length,
     ceil: Length,
@@ -79,7 +80,7 @@ impl Sector {
         let mut walls = Vec::with_capacity(self.vertices.len());
 
         let mut vertex_iter = self.vertices.iter();
-        let mut adj_sector_iter = self.adj_sectors.iter();
+        let mut portal_sector_iter = self.portal_sectors.iter();
         let mut color_iter = self.colors.iter();
 
         let Some(&initial) = vertex_iter.next() else { return walls };
@@ -88,7 +89,7 @@ impl Sector {
             walls.push(Wall {
                 left,
                 right,
-                adj_sector: *adj_sector_iter.next().unwrap_or(&None),
+                portal_sector: *portal_sector_iter.next().unwrap_or(&None),
                 color: *color_iter.next().unwrap_or(&Color::RED),
             })
         };
@@ -113,7 +114,7 @@ struct Portal<'a> {
 struct Wall {
     left: Position2,
     right: Position2,
-    adj_sector: Option<Entity>,
+    portal_sector: Option<Entity>,
     color: Color,
 }
 
@@ -250,7 +251,7 @@ fn main() {
         .register_type::<Option<Entity>>()
         .register_type::<Color>()
         .insert_resource(AppState {
-            minimap: Minimap::FirstPerson,
+            minimap: Minimap::Off,
             position: Position3(vec3(0.0, 0.0, 2.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
@@ -260,8 +261,8 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
                 title: "sector".to_string(),
-                width: (3 * WIDTH) as f32,
-                height: (3 * HEIGHT) as f32,
+                width: (WINDOW_SCALE * WIDTH) as f32,
+                height: (WINDOW_SCALE * HEIGHT) as f32,
                 resize_constraints: WindowResizeConstraints {
                     min_width: WIDTH as f32,
                     min_height: HEIGHT as f32,
@@ -308,10 +309,13 @@ fn setup_system(world: &mut World) {
     let v5 = Position2(vec2(-2.0, 5.0));
     let v6 = Position2(vec2(-4.0, 15.0));
     let v7 = Position2(vec2(4.0, 15.0));
+    let v8 = Position2(vec2(-7.0, -9.0));
+    let v9 = Position2(vec2(-10.0, -5.0));
 
     // Sectors
     let s0 = world.spawn_empty().id();
     let s1 = world.spawn_empty().id();
+    let s2 = world.spawn_empty().id();
 
     // Get mutable `AppState` resource
     let mut state = world.resource_mut::<AppState>();
@@ -321,14 +325,14 @@ fn setup_system(world: &mut World) {
 
     world.entity_mut(s0).insert(Sector {
         vertices: vec![v0, v1, v2, v3, v4, v5],
-        adj_sectors: vec![None, None, None, None, None, Some(s1)],
+        portal_sectors: vec![None, None, None, Some(s2), None, Some(s1)],
         colors: vec![
             Color::BLUE,
             Color::GREEN,
             Color::ORANGE,
             Color::FUCHSIA,
             Color::YELLOW,
-            Color::RED,
+            Color::DARK_GRAY,
         ],
         floor: Length(0.0),
         ceil: Length(4.0),
@@ -336,10 +340,28 @@ fn setup_system(world: &mut World) {
 
     world.entity_mut(s1).insert(Sector {
         vertices: vec![v0, v5, v6, v7],
-        adj_sectors: vec![Some(s0), None, None, None],
-        colors: vec![Color::RED, Color::FUCHSIA, Color::GREEN, Color::YELLOW],
+        portal_sectors: vec![Some(s0), None, None, None],
+        colors: vec![
+            Color::DARK_GRAY,
+            Color::FUCHSIA,
+            Color::GREEN,
+            Color::YELLOW,
+        ],
         floor: Length(0.25),
         ceil: Length(3.75),
+    });
+
+    world.entity_mut(s2).insert(Sector {
+        vertices: vec![v4, v3, v8, v9],
+        portal_sectors: vec![Some(s0), None, None, None],
+        colors: vec![
+            Color::DARK_GRAY,
+            Color::FUCHSIA,
+            Color::GREEN,
+            Color::ORANGE,
+        ],
+        floor: Length(-0.5),
+        ceil: Length(4.5),
     });
 }
 
@@ -448,10 +470,10 @@ fn player_movement_system(
     }
 
     if key.pressed(KeyCode::Left) || key.pressed(KeyCode::Q) {
-        state.direction.0 += 0.05;
+        state.direction.0 += 0.0001;
     }
     if key.pressed(KeyCode::Right) || key.pressed(KeyCode::E) {
-        state.direction.0 -= 0.05;
+        state.direction.0 -= 0.0001;
     }
 
     state.velocity.0.x = 0.0;
@@ -503,8 +525,8 @@ fn draw_wall_system(
     let Ok(current_sector) = sector_query.get(state.current_sector) else { return };
 
     let mut portal_queue = VecDeque::<Portal>::new();
-    let y_min_vec = vec![EDGE_GAP; WIDTH as usize];
-    let y_max_vec = vec![HEIGHT_MINUS_EDGE_GAP as isize; WIDTH as usize];
+    let mut y_min_vec = vec![EDGE_GAP; WIDTH as usize];
+    let mut y_max_vec = vec![HEIGHT_MINUS_EDGE_GAP as isize; WIDTH as usize];
 
     // Push current sector on portal queue
     portal_queue.push_back(Portal {
@@ -514,9 +536,9 @@ fn draw_wall_system(
     });
 
     // Process all portals until queue is empty, processing a portal may enqueue more
-    while !portal_queue.is_empty() {
-        let portal = portal_queue.pop_front().unwrap();
-        let sector = portal.sector;
+    '_portals: while !portal_queue.is_empty() {
+        let self_portal = portal_queue.pop_front().unwrap();
+        let sector = self_portal.sector;
 
         // View relative floor and ceiling locations
         let view_floor = Length(sector.floor.0 - state.position.0.z);
@@ -556,55 +578,55 @@ fn draw_wall_system(
                 let color_hsla_raw = wall.color.as_hsla_f32();
 
                 // Clip x by portal sides
-                let x_left = portal.x_min.max(left_top.x);
-                let x_right = right_top.x.min(portal.x_max);
+                let x_left = left_top.x.clamp(self_portal.x_min, self_portal.x_max);
+                let x_right = right_top.x.clamp(self_portal.x_min, self_portal.x_max);
 
-                // Fetch adjacent sector
-                let adj_sector = wall
-                    .adj_sector
-                    .and_then(|adj_sector_id| sector_query.get(adj_sector_id).ok());
+                // Fetch adjacent portal sector
+                let portal_sector = wall
+                    .portal_sector
+                    .and_then(|portal_sector_id| sector_query.get(portal_sector_id).ok());
 
-                // Process adjacent sector
-                let (adj_top_y, adj_bottom_y) = if let Some(adj_sector) = adj_sector {
+                // Process adjacent portal sector
+                let (y_portal_top, y_portal_bottom) = if let Some(portal_sector) = portal_sector {
                     // Push adjacent sector on portal queue to render later
                     portal_queue.push_back(Portal {
-                        sector: adj_sector,
+                        sector: portal_sector,
                         x_min: x_left,
                         x_max: x_right,
                     });
 
-                    let view_adj_ceil = Length(adj_sector.ceil.0 - state.position.0.z);
-                    let view_adj_floor = Length(adj_sector.floor.0 - state.position.0.z);
+                    let view_portal_ceil = Length(portal_sector.ceil.0 - state.position.0.z);
+                    let view_portal_floor = Length(portal_sector.floor.0 - state.position.0.z);
 
-                    let adj_top_y = if view_adj_ceil.0 < view_ceil.0 {
-                        let adj_ceil_t =
-                            (view_adj_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
+                    let y_portal_top = if view_portal_ceil.0 < view_ceil.0 {
+                        let portal_ceil_t =
+                            (view_portal_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
                         Some((
-                            lerpi(left_top.y, left_bottom.y, adj_ceil_t),
-                            lerpi(right_top.y, right_bottom.y, adj_ceil_t),
+                            lerpi(left_top.y, left_bottom.y, portal_ceil_t),
+                            lerpi(right_top.y, right_bottom.y, portal_ceil_t),
                         ))
                     } else {
                         None
                     };
 
-                    let adj_bottom_y = if view_adj_floor.0 > view_floor.0 {
-                        let adj_floor_t =
-                            (view_adj_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
+                    let y_portal_bottom = if view_portal_floor.0 > view_floor.0 {
+                        let portal_floor_t =
+                            (view_portal_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
                         Some((
-                            lerpi(left_top.y, left_bottom.y, adj_floor_t),
-                            lerpi(right_top.y, right_bottom.y, adj_floor_t),
+                            lerpi(left_top.y, left_bottom.y, portal_floor_t),
+                            lerpi(right_top.y, right_bottom.y, portal_floor_t),
                         ))
                     } else {
                         None
                     };
 
-                    (adj_top_y, adj_bottom_y)
+                    (y_portal_top, y_portal_bottom)
                 } else {
                     (None, None)
                 };
 
                 // Iterate through pixel columns
-                for x in x_left..(x_right - JOIN_GAP) {
+                '_columns: for x in x_left..x_right {
                     let x_t = (x - left_top.x) as f32 / dx as f32;
 
                     // Interpolate z for distance
@@ -640,51 +662,70 @@ fn draw_wall_system(
                     let y_max = y_max_vec[x as usize];
 
                     // Clip y
-                    let y_top = y_min.max(y_top);
-                    let y_bottom = y_bottom.min(y_max);
+                    let y_top = y_top.clamp(y_min, y_max);
+                    let y_bottom = y_bottom.clamp(y_min, y_max);
+
+                    let y_ceil_top = y_min;
+                    let y_ceil_bottom = y_top;
+                    let y_floor_top = y_bottom;
+                    let y_floor_bottom = y_max;
 
                     // Draw ceiling
                     draw_vertical_line(
                         frame,
                         x,
-                        y_min,
-                        (y_top - JOIN_GAP).min(y_max),
+                        y_ceil_top,
+                        y_ceil_bottom - y_join_gap(y_ceil_bottom),
                         *CEILING_COLOR,
                     );
 
-                    match adj_sector {
-                        Some(_) => {
-                            // Draw adjacent ceiling wall if required
-                            if let Some((adj_left_top_y, adj_right_top_y)) = adj_top_y {
-                                let y_adj_top = lerpi(adj_left_top_y, adj_right_top_y, x_t);
-                                draw_vertical_line(
-                                    frame,
-                                    x,
-                                    y_top,
-                                    (y_adj_top - JOIN_GAP).min(y_bottom - JOIN_GAP),
-                                    color,
-                                )
-                            }
-
-                            // Draw adjacent floor wall if required
-                            if let Some((adj_left_bottom_y, adj_right_bottom_y)) = adj_bottom_y {
-                                let y_adj_bottom =
-                                    lerpi(adj_left_bottom_y, adj_right_bottom_y, x_t);
-                                draw_vertical_line(
-                                    frame,
-                                    x,
-                                    y_top.max(y_adj_bottom),
-                                    y_bottom - JOIN_GAP,
-                                    color,
-                                )
-                            }
+                    if portal_sector.is_some() {
+                        // Draw wall above portal if required
+                        if let Some((y_portal_left_top, y_portal_right_top)) = y_portal_top {
+                            let y_portal_top = lerpi(y_portal_left_top, y_portal_right_top, x_t)
+                                .clamp(y_min, y_bottom);
+                            draw_vertical_line(
+                                frame,
+                                x,
+                                y_top,
+                                y_portal_top - y_join_gap(y_portal_top),
+                                color,
+                            );
+                            y_min_vec[x as usize] = y_portal_top;
+                        } else {
+                            y_min_vec[x as usize] = y_top;
                         }
+
+                        // Draw wall below portal if required
+                        if let Some((portal_left_bottom_y, portal_right_bottom_y)) = y_portal_bottom
+                        {
+                            let y_portal_bottom =
+                                lerpi(portal_left_bottom_y, portal_right_bottom_y, x_t)
+                                    .clamp(y_top, y_max);
+                            draw_vertical_line(
+                                frame,
+                                x,
+                                y_portal_bottom,
+                                y_bottom - y_join_gap(y_bottom),
+                                color,
+                            );
+                            y_max_vec[x as usize] = y_portal_bottom;
+                        } else {
+                            y_max_vec[x as usize] = y_bottom;
+                        }
+                    } else {
                         // Draw complete wall
-                        None => draw_vertical_line(frame, x, y_top, y_bottom - JOIN_GAP, color),
+                        draw_vertical_line(frame, x, y_top, y_bottom - y_join_gap(y_bottom), color);
                     }
 
                     // Draw floor
-                    draw_vertical_line(frame, x, y_min.max(y_bottom), y_max, *FLOOR_COLOR);
+                    draw_vertical_line(
+                        frame,
+                        x,
+                        y_floor_top,
+                        y_floor_bottom - y_join_gap(y_floor_bottom),
+                        *FLOOR_COLOR,
+                    );
                 }
             };
         }

@@ -1,5 +1,13 @@
 use crate::*;
 
+pub fn y_join_gap(y: isize) -> isize {
+    if y - JOIN_GAP >= HEIGHT_MINUS_EDGE_GAP + JOIN_GAP {
+        (HEIGHT_MINUS_EDGE_GAP + JOIN_GAP) - y
+    } else {
+        JOIN_GAP
+    }
+}
+
 pub fn clip_wall(
     mut view_left: Position2,
     mut view_right: Position2,

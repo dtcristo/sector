@@ -29,11 +29,14 @@
               y: 5.0,
             )),
           ],
-          adj_sectors: [
+          portal_sectors: [
             None,
             None,
             None,
-            None,
+            Some((
+              generation: 0,
+              index: 2,
+            )),
             None,
             Some((
               generation: 0,
@@ -72,9 +75,9 @@
               alpha: 1.0,
             ),
             Rgba(
-              red: 1.0,
-              green: 0.0,
-              blue: 0.0,
+              red: 0.25,
+              green: 0.25,
+              blue: 0.25,
               alpha: 1.0,
             ),
           ],
@@ -104,7 +107,7 @@
               y: 15.0,
             )),
           ],
-          adj_sectors: [
+          portal_sectors: [
             Some((
               generation: 0,
               index: 0,
@@ -115,9 +118,9 @@
           ],
           colors: [
             Rgba(
-              red: 1.0,
-              green: 0.0,
-              blue: 0.0,
+              red: 0.25,
+              green: 0.25,
+              blue: 0.25,
               alpha: 1.0,
             ),
             Rgba(
@@ -141,6 +144,67 @@
           ],
           floor: (0.25),
           ceil: (3.75),
+        ),
+      },
+    ),
+    2: (
+      components: {
+        "sector::Sector": (
+          vertices: [
+            ((
+              x: -4.0,
+              y: 1.0,
+            )),
+            ((
+              x: -4.0,
+              y: -8.0,
+            )),
+            ((
+              x: -7.0,
+              y: -9.0,
+            )),
+            ((
+              x: -10.0,
+              y: -5.0,
+            )),
+          ],
+          portal_sectors: [
+            Some((
+              generation: 0,
+              index: 0,
+            )),
+            None,
+            None,
+            None,
+          ],
+          colors: [
+            Rgba(
+              red: 0.25,
+              green: 0.25,
+              blue: 0.25,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 0.0,
+              blue: 1.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 0.0,
+              green: 1.0,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+            Rgba(
+              red: 1.0,
+              green: 0.65,
+              blue: 0.0,
+              alpha: 1.0,
+            ),
+          ],
+          floor: (-0.5),
+          ceil: (4.5),
         ),
       },
     ),
