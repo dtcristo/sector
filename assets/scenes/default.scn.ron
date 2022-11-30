@@ -75,9 +75,9 @@
               alpha: 1.0,
             ),
             Rgba(
-              red: 0.25,
-              green: 0.25,
-              blue: 0.25,
+              red: 1.0,
+              green: 0.0,
+              blue: 0.0,
               alpha: 1.0,
             ),
           ],
@@ -118,9 +118,9 @@
           ],
           colors: [
             Rgba(
-              red: 0.25,
-              green: 0.25,
-              blue: 0.25,
+              red: 1.0,
+              green: 0.0,
+              blue: 0.0,
               alpha: 1.0,
             ),
             Rgba(
@@ -179,9 +179,9 @@
           ],
           colors: [
             Rgba(
-              red: 0.25,
-              green: 0.25,
-              blue: 0.25,
+              red: 1.0,
+              green: 0.0,
+              blue: 0.0,
               alpha: 1.0,
             ),
             Rgba(
@@ -197,9 +197,9 @@
               alpha: 1.0,
             ),
             Rgba(
-              red: 1.0,
-              green: 0.65,
-              blue: 0.0,
+              red: 0.0,
+              green: 0.0,
+              blue: 1.0,
               alpha: 1.0,
             ),
           ],

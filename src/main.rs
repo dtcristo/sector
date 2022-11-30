@@ -27,7 +27,7 @@ extern crate lazy_static;
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
 const WINDOW_SCALE: u32 = 3;
-const EDGE_GAP: isize = 5;
+const EDGE_GAP: isize = 1;
 const JOIN_GAP: isize = 1;
 const WIDTH_MINUS_EDGE_GAP: isize = WIDTH as isize - EDGE_GAP;
 const HEIGHT_MINUS_EDGE_GAP: isize = HEIGHT as isize - EDGE_GAP;
@@ -332,7 +332,7 @@ fn setup_system(world: &mut World) {
             Color::ORANGE,
             Color::FUCHSIA,
             Color::YELLOW,
-            Color::DARK_GRAY,
+            Color::RED,
         ],
         floor: Length(0.0),
         ceil: Length(4.0),
@@ -341,12 +341,7 @@ fn setup_system(world: &mut World) {
     world.entity_mut(s1).insert(Sector {
         vertices: vec![v0, v5, v6, v7],
         portal_sectors: vec![Some(s0), None, None, None],
-        colors: vec![
-            Color::DARK_GRAY,
-            Color::FUCHSIA,
-            Color::GREEN,
-            Color::YELLOW,
-        ],
+        colors: vec![Color::RED, Color::FUCHSIA, Color::GREEN, Color::YELLOW],
         floor: Length(0.25),
         ceil: Length(3.75),
     });
@@ -354,12 +349,7 @@ fn setup_system(world: &mut World) {
     world.entity_mut(s2).insert(Sector {
         vertices: vec![v4, v3, v8, v9],
         portal_sectors: vec![Some(s0), None, None, None],
-        colors: vec![
-            Color::DARK_GRAY,
-            Color::FUCHSIA,
-            Color::GREEN,
-            Color::ORANGE,
-        ],
+        colors: vec![Color::RED, Color::FUCHSIA, Color::GREEN, Color::BLUE],
         floor: Length(-0.5),
         ceil: Length(4.5),
     });
