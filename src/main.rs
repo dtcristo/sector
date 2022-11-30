@@ -769,8 +769,8 @@ fn draw_minimap_system(
                     view_right_after_clip.to_pixel(),
                 )),
                 Minimap::Absolute => {
-                    let abs_left = wall.left.transform(reverse_view_matrix);
-                    let abs_right = wall.right.transform(reverse_view_matrix);
+                    let abs_left = wall.left;
+                    let abs_right = wall.right;
 
                     let abs_left_after_clip = view_left_after_clip.transform(reverse_view_matrix);
                     let abs_right_after_clip = view_right_after_clip.transform(reverse_view_matrix);
