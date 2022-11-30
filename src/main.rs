@@ -27,15 +27,12 @@ extern crate lazy_static;
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
 const WINDOW_SCALE: u32 = 3;
-const EDGE_GAP: isize = 1;
-const JOIN_GAP: isize = 1;
-const WIDTH_MINUS_EDGE_GAP: isize = WIDTH as isize - EDGE_GAP;
-const HEIGHT_MINUS_EDGE_GAP: isize = HEIGHT as isize - EDGE_GAP;
+const GAP: isize = 1;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
-const NEAR: f32 = 1.0;
+const NEAR: f32 = 0.1;
 const FAR: f32 = 50.0;
 const LIGHTNESS_NEAR: f32 = 0.5;
 const LIGHTNESS_FAR: f32 = 0.0;
@@ -515,14 +512,14 @@ fn draw_wall_system(
     let Ok(current_sector) = sector_query.get(state.current_sector) else { return };
 
     let mut portal_queue = VecDeque::<Portal>::new();
-    let mut y_min_vec = vec![EDGE_GAP; WIDTH as usize];
-    let mut y_max_vec = vec![HEIGHT_MINUS_EDGE_GAP as isize; WIDTH as usize];
+    let mut y_min_vec = vec![GAP; WIDTH as usize];
+    let mut y_max_vec = vec![HEIGHT as isize; WIDTH as usize];
 
     // Push current sector on portal queue
     portal_queue.push_back(Portal {
         sector: current_sector,
-        x_min: EDGE_GAP,
-        x_max: WIDTH_MINUS_EDGE_GAP,
+        x_min: GAP,
+        x_max: WIDTH as isize,
     });
 
     // Process all portals until queue is empty, processing a portal may enqueue more
@@ -617,6 +614,9 @@ fn draw_wall_system(
 
                 // Iterate through pixel columns
                 '_columns: for x in x_left..x_right {
+                    let skip_floor_ceil = x >= self_portal.x_max as isize - GAP;
+                    let skip_wall = x >= x_right - GAP;
+
                     let x_t = (x - left_top.x) as f32 / dx as f32;
 
                     // Interpolate z for distance
@@ -661,26 +661,28 @@ fn draw_wall_system(
                     let y_floor_bottom = y_max;
 
                     // Draw ceiling
-                    draw_vertical_line(
-                        frame,
-                        x,
-                        y_ceil_top,
-                        y_ceil_bottom - y_join_gap(y_ceil_bottom),
-                        *CEILING_COLOR,
-                    );
+                    if !skip_floor_ceil {
+                        draw_vertical_line(
+                            frame,
+                            x,
+                            y_ceil_top,
+                            y_ceil_bottom - GAP,
+                            *CEILING_COLOR,
+                        );
+                    }
+
+                    // if join_gap_column {
+                    //     continue '_columns;
+                    // }
 
                     if portal_sector.is_some() {
                         // Draw wall above portal if required
                         if let Some((y_portal_left_top, y_portal_right_top)) = y_portal_top {
                             let y_portal_top = lerpi(y_portal_left_top, y_portal_right_top, x_t)
                                 .clamp(y_min, y_bottom);
-                            draw_vertical_line(
-                                frame,
-                                x,
-                                y_top,
-                                y_portal_top - y_join_gap(y_portal_top),
-                                color,
-                            );
+                            if !skip_wall {
+                                draw_vertical_line(frame, x, y_top, y_portal_top - GAP, color);
+                            }
                             y_min_vec[x as usize] = y_portal_top;
                         } else {
                             y_min_vec[x as usize] = y_top;
@@ -692,30 +694,36 @@ fn draw_wall_system(
                             let y_portal_bottom =
                                 lerpi(portal_left_bottom_y, portal_right_bottom_y, x_t)
                                     .clamp(y_top, y_max);
-                            draw_vertical_line(
-                                frame,
-                                x,
-                                y_portal_bottom,
-                                y_bottom - y_join_gap(y_bottom),
-                                color,
-                            );
+                            if !skip_wall {
+                                draw_vertical_line(
+                                    frame,
+                                    x,
+                                    y_portal_bottom,
+                                    y_bottom - GAP,
+                                    color,
+                                );
+                            }
                             y_max_vec[x as usize] = y_portal_bottom;
                         } else {
                             y_max_vec[x as usize] = y_bottom;
                         }
                     } else {
                         // Draw complete wall
-                        draw_vertical_line(frame, x, y_top, y_bottom - y_join_gap(y_bottom), color);
+                        if !skip_wall {
+                            draw_vertical_line(frame, x, y_top, y_bottom - GAP, color);
+                        }
                     }
 
                     // Draw floor
-                    draw_vertical_line(
-                        frame,
-                        x,
-                        y_floor_top,
-                        y_floor_bottom - y_join_gap(y_floor_bottom),
-                        *FLOOR_COLOR,
-                    );
+                    if !skip_floor_ceil {
+                        draw_vertical_line(
+                            frame,
+                            x,
+                            y_floor_top,
+                            y_floor_bottom - GAP,
+                            *FLOOR_COLOR,
+                        );
+                    }
                 }
             };
         }
