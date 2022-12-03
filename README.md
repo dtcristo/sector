@@ -4,14 +4,14 @@
   </h1>
   <p>
     <strong>
-      Sector/portal rendering engine with Bevy
+      Sector/portal renderer with Bevy
     </strong>
   </p>
 </div>
 
 ## Overview
 
-_Experimental_ rendering engine with Bevy in the style of Doom and Duke Nukem 3D using sectors and portals. Built in Rust with [`bevy_pixels`](https://github.com/dtcristo/bevy_pixels) primarily for my own entertainment.
+_Experimental_ render with Bevy in the style of Doom and Duke Nukem 3D using sectors and portals. Built in Rust with [`bevy_pixels`](https://github.com/dtcristo/bevy_pixels) primarily for my own entertainment.
 
 ## License
 
@@ -32,5 +32,5 @@ additional terms or conditions.
 
 This project would not be possible without educational material and inspiration from:
 
-- [Bisqwit](https://www.youtube.com/c/Bisqwit) with [Portal Rendering Example Program](https://bisqwit.iki.fi/jutut/kuvat/programming_examples/portalrendering.html).
-- [3DSage](https://www.youtube.com/c/3DSage) with [Let's Program Doom](https://www.youtube.com/watch?v=huMO4VQEwPc).
+- [Bisqwit](https://www.youtube.com/c/Bisqwit) and [Portal Rendering Example Program](https://bisqwit.iki.fi/jutut/kuvat/programming_examples/portalrendering.html).
+- [3DSage](https://www.youtube.com/c/3DSage) and [Let's Program Doom](https://www.youtube.com/watch?v=huMO4VQEwPc).
