@@ -16,7 +16,7 @@ use bevy::{
     window::{CursorGrabMode, WindowResizeConstraints},
 };
 use bevy_pixels::prelude::*;
-use bevy_render::color::Color;
+use palette::{named, FromColor, Hsv, IntoColor, Pixel as PalettePixel, Srgb};
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::Write;
@@ -34,8 +34,8 @@ const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
 const NEAR: f32 = 0.1;
 const FAR: f32 = 50.0;
-const LIGHTNESS_NEAR: f32 = 0.5;
-const LIGHTNESS_FAR: f32 = 0.0;
+const BRIGHTNESS_NEAR: f32 = 1.0;
+const BRIGHTNESS_FAR: f32 = 0.0;
 const MINIMAP_SCALE: f32 = 8.0;
 const DEFAULT_SCENE_RON_FILE_PATH: &str = "scenes/default.scn.ron";
 const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
@@ -55,11 +55,33 @@ lazy_static! {
     static ref RIGHT_CLIP_1: Vec2 = vec2(*X_FAR, FAR);
     static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_1;
     // Colors
-    static ref CEILING_COLOR: Color = Color::SILVER;
-    static ref FLOOR_COLOR: Color = Color::GRAY;
-    static ref WALL_CLIPPED_COLOR: Color = Color::WHITE;
-    static ref FRUSTUM_COLOR: Color = Color::DARK_GRAY;
-    static ref PLAYER_COLOR: Color = Color::RED;
+    static ref MISSING_WALL_COLOR: RawColor = named::RED.into();
+    static ref CEILING_COLOR: RawColor = named::SILVER.into();
+    static ref FLOOR_COLOR: RawColor = named::GRAY.into();
+    static ref WALL_CLIPPED_COLOR: RawColor = named::WHITE.into();
+    static ref FRUSTUM_COLOR: RawColor = named::DARKGRAY.into();
+    static ref PLAYER_COLOR: RawColor = named::RED.into();
+}
+
+#[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
+pub struct RawColor([u8; 3]);
+
+impl From<Srgb<u8>> for RawColor {
+    fn from(srgb: Srgb<u8>) -> Self {
+        Self(srgb.into_raw())
+    }
+}
+
+impl From<Hsv> for RawColor {
+    fn from(hsv: Hsv) -> Self {
+        Self(Srgb::from_color(hsv).into_format().into_raw())
+    }
+}
+
+impl From<RawColor> for Srgb<u8> {
+    fn from(raw_color: RawColor) -> Self {
+        *Self::from_raw(&raw_color.0)
+    }
 }
 
 #[derive(Component, Reflect, Debug, Default)]
@@ -67,7 +89,7 @@ lazy_static! {
 pub struct Sector {
     vertices: Vec<Position2>,
     portal_sectors: Vec<Option<Entity>>,
-    colors: Vec<Color>,
+    colors: Vec<RawColor>,
     floor: Length,
     ceil: Length,
 }
@@ -83,11 +105,13 @@ impl Sector {
         let Some(&initial) = vertex_iter.next() else { return walls };
 
         let mut add_wall = |left: Position2, right: Position2| {
+            let raw_color = *color_iter.next().unwrap_or(&MISSING_WALL_COLOR);
+            let hsv_color: Hsv = Srgb::<u8>::from(raw_color).into_format().into_color();
             walls.push(Wall {
                 left,
                 right,
                 portal_sector: *portal_sector_iter.next().unwrap_or(&None),
-                color: *color_iter.next().unwrap_or(&Color::RED),
+                color: hsv_color,
             })
         };
 
@@ -112,7 +136,7 @@ struct Wall {
     left: Position2,
     right: Position2,
     portal_sector: Option<Entity>,
-    color: Color,
+    color: Hsv,
 }
 
 #[derive(Reflect, Debug, Copy, Clone, Default)]
@@ -246,7 +270,7 @@ fn main() {
         .register_type::<Position2>()
         .register_type::<Length>()
         .register_type::<Option<Entity>>()
-        .register_type::<Color>()
+        .register_type::<RawColor>()
         .insert_resource(AppState {
             minimap: Minimap::Off,
             position: Position3(vec3(0.0, 0.0, 2.0)),
@@ -324,12 +348,12 @@ fn setup_system(world: &mut World) {
         vertices: vec![v0, v1, v2, v3, v4, v5],
         portal_sectors: vec![None, None, None, Some(s2), None, Some(s1)],
         colors: vec![
-            Color::BLUE,
-            Color::GREEN,
-            Color::ORANGE,
-            Color::FUCHSIA,
-            Color::YELLOW,
-            Color::RED,
+            named::BLUE.into(),
+            named::GREEN.into(),
+            named::ORANGE.into(),
+            named::FUCHSIA.into(),
+            named::YELLOW.into(),
+            named::RED.into(),
         ],
         floor: Length(0.0),
         ceil: Length(4.0),
@@ -338,7 +362,12 @@ fn setup_system(world: &mut World) {
     world.entity_mut(s1).insert(Sector {
         vertices: vec![v0, v5, v6, v7],
         portal_sectors: vec![Some(s0), None, None, None],
-        colors: vec![Color::RED, Color::FUCHSIA, Color::GREEN, Color::YELLOW],
+        colors: vec![
+            named::RED.into(),
+            named::FUCHSIA.into(),
+            named::GREEN.into(),
+            named::YELLOW.into(),
+        ],
         floor: Length(0.25),
         ceil: Length(3.75),
     });
@@ -346,7 +375,12 @@ fn setup_system(world: &mut World) {
     world.entity_mut(s2).insert(Sector {
         vertices: vec![v4, v3, v8, v9],
         portal_sectors: vec![Some(s0), None, None, None],
-        colors: vec![Color::RED, Color::FUCHSIA, Color::GREEN, Color::BLUE],
+        colors: vec![
+            named::RED.into(),
+            named::FUCHSIA.into(),
+            named::GREEN.into(),
+            named::BLUE.into(),
+        ],
         floor: Length(-0.5),
         ceil: Length(4.5),
     });
@@ -561,9 +595,6 @@ fn draw_wall_system(
                 // TODO: Use `view_y_middle` in `distance` calculation below
                 // let view_y_middle = view_left_bottom.y + (view_y_top - view_left_bottom.y) / 2.0;
 
-                // TODO: Refactor colors to use HSV instead of HSL
-                let color_hsla_raw = wall.color.as_hsla_f32();
-
                 // Clip x by portal sides
                 let x_left = left_top.x.clamp(self_portal.x_min, self_portal.x_max);
                 let x_right = right_top.x.clamp(self_portal.x_min, self_portal.x_max);
@@ -623,25 +654,21 @@ fn draw_wall_system(
                     let view_z = lerp(view_left.0.y, view_right.0.y, x_t);
                     let distance = view_z.abs();
 
-                    // Lightness for distance
-                    let lightness = if distance > FAR {
-                        LIGHTNESS_FAR
+                    // Brightness for distance
+                    let brightness = if distance > FAR {
+                        BRIGHTNESS_FAR
                     } else if distance < NEAR {
-                        LIGHTNESS_NEAR
+                        BRIGHTNESS_NEAR
                     } else {
-                        // Interpolate lightness
+                        // Interpolate brightness
                         let distance_t = (distance - NEAR) / (FAR - NEAR);
-                        lerp(LIGHTNESS_NEAR, LIGHTNESS_FAR, distance_t)
+                        lerp(BRIGHTNESS_NEAR, BRIGHTNESS_FAR, distance_t)
                     };
-                    let lightness_rounded = (lightness * 100.0).round() / 100.0;
+                    let brightness_rounded = (brightness * 100.0).round() / 100.0;
 
-                    // Color for lightness
-                    let color = Color::hsla(
-                        color_hsla_raw[0],
-                        color_hsla_raw[1],
-                        lightness_rounded,
-                        color_hsla_raw[3],
-                    );
+                    // Color for brightness
+                    let color: RawColor =
+                        Hsv::new(wall.color.hue, wall.color.saturation, brightness_rounded).into();
 
                     // Interpolate y
                     let y_top = lerpi(left_top.y, right_top.y, x_t);
@@ -748,6 +775,7 @@ fn draw_minimap_system(
     // Draw walls
     for sector in sector_query.iter() {
         for wall in sector.to_walls() {
+            let color: RawColor = wall.color.into();
             let view_left = wall.left.transform(view_matrix);
             let view_right = wall.right.transform(view_matrix);
 
@@ -793,7 +821,7 @@ fn draw_minimap_system(
                 if right_after_clip != right {
                     draw_line(frame, right_after_clip, right, *WALL_CLIPPED_COLOR);
                 }
-                draw_line(frame, left_after_clip, right_after_clip, wall.color);
+                draw_line(frame, left_after_clip, right_after_clip, color);
             }
         }
     }
