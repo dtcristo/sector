@@ -4,10 +4,11 @@ run:
 build:
     cargo build --release
 
-serve: build_web
+serve: build-web
     miniserve --port 3000 --index index.html wasm
 
-build_web:
+build-web:
+    rm -rf wasm/target/
     cargo build --release --target wasm32-unknown-unknown
-    wasm-bindgen --target web --out-dir wasm/target \
+    wasm-bindgen --target web --no-typescript --out-dir wasm/target \
         target/wasm32-unknown-unknown/release/sector.wasm
