@@ -4,8 +4,8 @@ run:
 build:
     cargo build --release
 
-serve: build-web
-    miniserve --port 3000 --index index.html wasm
+serve-web: build-web
+    miniserve --index index.html wasm
 
 build-web:
     rm -rf wasm/target/
