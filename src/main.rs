@@ -2,6 +2,7 @@ mod draw;
 mod utils;
 
 use crate::{draw::*, utils::*};
+use sector_core::*;
 
 use bevy::{
     app::AppExit,
@@ -16,7 +17,7 @@ use bevy::{
     window::{CursorGrabMode, WindowResizeConstraints},
 };
 use bevy_pixels::prelude::*;
-use palette::{named, FromColor, Hsv, IntoColor, Pixel as PalettePixel, Srgb};
+use palette::{named::*, Hsv};
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::Write;
@@ -55,128 +56,11 @@ lazy_static! {
     static ref RIGHT_CLIP_1: Vec2 = vec2(*X_FAR, FAR);
     static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_1;
     // Colors
-    static ref MISSING_WALL_COLOR: RawColor = named::RED.into();
-    static ref CEILING_COLOR: RawColor = named::SILVER.into();
-    static ref FLOOR_COLOR: RawColor = named::GRAY.into();
-    static ref WALL_CLIPPED_COLOR: RawColor = named::WHITE.into();
-    static ref FRUSTUM_COLOR: RawColor = named::DARKGRAY.into();
-    static ref PLAYER_COLOR: RawColor = named::RED.into();
-}
-
-#[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
-pub struct RawColor([u8; 3]);
-
-impl From<Srgb<u8>> for RawColor {
-    fn from(srgb: Srgb<u8>) -> Self {
-        Self(srgb.into_raw())
-    }
-}
-
-impl From<Hsv> for RawColor {
-    fn from(hsv: Hsv) -> Self {
-        Self(Srgb::from_color(hsv).into_format().into_raw())
-    }
-}
-
-impl From<RawColor> for Srgb<u8> {
-    fn from(raw_color: RawColor) -> Self {
-        *Self::from_raw(&raw_color.0)
-    }
-}
-
-#[derive(Component, Reflect, Debug, Default)]
-#[reflect(Component)]
-pub struct Sector {
-    vertices: Vec<Position2>,
-    portal_sectors: Vec<Option<Entity>>,
-    colors: Vec<RawColor>,
-    floor: Length,
-    ceil: Length,
-}
-
-impl Sector {
-    fn to_walls(&self) -> Vec<Wall> {
-        let mut walls = Vec::with_capacity(self.vertices.len());
-
-        let mut vertex_iter = self.vertices.iter();
-        let mut portal_sector_iter = self.portal_sectors.iter();
-        let mut color_iter = self.colors.iter();
-
-        let Some(&initial) = vertex_iter.next() else { return walls };
-
-        let mut add_wall = |left: Position2, right: Position2| {
-            let raw_color = *color_iter.next().unwrap_or(&MISSING_WALL_COLOR);
-            let hsv_color: Hsv = Srgb::<u8>::from(raw_color).into_format().into_color();
-            walls.push(Wall {
-                left,
-                right,
-                portal_sector: *portal_sector_iter.next().unwrap_or(&None),
-                color: hsv_color,
-            })
-        };
-
-        let mut previous = initial;
-        for &vertex in vertex_iter {
-            add_wall(previous, vertex);
-            previous = vertex;
-        }
-        add_wall(previous, initial);
-
-        walls
-    }
-}
-
-struct Portal<'a> {
-    sector: &'a Sector,
-    x_min: isize,
-    x_max: isize,
-}
-
-struct Wall {
-    left: Position2,
-    right: Position2,
-    portal_sector: Option<Entity>,
-    color: Hsv,
-}
-
-#[derive(Reflect, Debug, Copy, Clone, Default)]
-pub struct Length(f32);
-
-/// World position in 3D, right-handed coordinate system with z up.
-///
-///   +y
-///   ^
-///   |
-/// +z.---> +x
-#[derive(Debug, Copy, Clone)]
-pub struct Position3(Vec3);
-
-impl Position3 {
-    pub fn truncate(self: Self) -> Position2 {
-        Position2(self.0.truncate())
-    }
-}
-
-/// World position in 2D.
-///
-///  +y
-///  ^
-///  |
-///  .---> +x
-#[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
-pub struct Position2(Vec2);
-
-impl Position2 {
-    pub fn to_pixel(self: Self) -> Pixel {
-        Pixel {
-            x: FRAC_WIDTH_2 as isize + (MINIMAP_SCALE * self.0.x).round() as isize,
-            y: FRAC_HEIGHT_2 as isize - (MINIMAP_SCALE * self.0.y).round() as isize,
-        }
-    }
-
-    pub fn transform(self: Self, matrix: Mat3) -> Self {
-        Position2(matrix.transform_point2(self.0))
-    }
+    static ref CEILING_COLOR: RawColor = SILVER.into();
+    static ref FLOOR_COLOR: RawColor = GRAY.into();
+    static ref WALL_CLIPPED_COLOR: RawColor = WHITE.into();
+    static ref FRUSTUM_COLOR: RawColor = DARKGRAY.into();
+    static ref PLAYER_COLOR: RawColor = RED.into();
 }
 
 /// Normalized screen coordinates, right-handed coordinate system with z towards,
@@ -189,11 +73,11 @@ impl Position2 {
 #[derive(Debug, Copy, Clone)]
 pub struct Normalized(Vec3);
 
-impl Normalized {
-    pub fn to_pixel(self: Self) -> Pixel {
-        Pixel {
-            x: FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * self.0.x).round() as isize,
-            y: FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * self.0.y).round() as isize,
+impl From<Normalized> for Pixel {
+    fn from(norm: Normalized) -> Self {
+        Self {
+            x: FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * norm.0.x).round() as isize,
+            y: FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * norm.0.y).round() as isize,
         }
     }
 }
@@ -220,6 +104,15 @@ pub struct Direction(f32);
 pub struct Pixel {
     pub x: isize,
     pub y: isize,
+}
+
+impl From<Position2> for Pixel {
+    fn from(position: Position2) -> Self {
+        Self {
+            x: FRAC_WIDTH_2 as isize + (MINIMAP_SCALE * position.0.x).round() as isize,
+            y: FRAC_HEIGHT_2 as isize - (MINIMAP_SCALE * position.0.y).round() as isize,
+        }
+    }
 }
 
 impl Pixel {
@@ -348,12 +241,12 @@ fn setup_system(world: &mut World) {
         vertices: vec![v0, v1, v2, v3, v4, v5],
         portal_sectors: vec![None, None, None, Some(s2), None, Some(s1)],
         colors: vec![
-            named::BLUE.into(),
-            named::GREEN.into(),
-            named::ORANGE.into(),
-            named::FUCHSIA.into(),
-            named::YELLOW.into(),
-            named::RED.into(),
+            BLUE.into(),
+            GREEN.into(),
+            ORANGE.into(),
+            FUCHSIA.into(),
+            YELLOW.into(),
+            RED.into(),
         ],
         floor: Length(0.0),
         ceil: Length(4.0),
@@ -362,12 +255,7 @@ fn setup_system(world: &mut World) {
     world.entity_mut(s1).insert(Sector {
         vertices: vec![v0, v5, v6, v7],
         portal_sectors: vec![Some(s0), None, None, None],
-        colors: vec![
-            named::RED.into(),
-            named::FUCHSIA.into(),
-            named::GREEN.into(),
-            named::YELLOW.into(),
-        ],
+        colors: vec![RED.into(), FUCHSIA.into(), GREEN.into(), YELLOW.into()],
         floor: Length(0.25),
         ceil: Length(3.75),
     });
@@ -375,12 +263,7 @@ fn setup_system(world: &mut World) {
     world.entity_mut(s2).insert(Sector {
         vertices: vec![v4, v3, v8, v9],
         portal_sectors: vec![Some(s0), None, None, None],
-        colors: vec![
-            named::RED.into(),
-            named::FUCHSIA.into(),
-            named::GREEN.into(),
-            named::BLUE.into(),
-        ],
+        colors: vec![RED.into(), FUCHSIA.into(), GREEN.into(), BLUE.into()],
         floor: Length(-0.5),
         ceil: Length(4.5),
     });
@@ -580,10 +463,10 @@ fn draw_wall_system(
                 let norm_right_bottom = project(view_right, view_floor);
 
                 // Convert to pixel locations
-                let left_top = norm_left_top.to_pixel();
-                let left_bottom = norm_left_bottom.to_pixel();
-                let right_top = norm_right_top.to_pixel();
-                let right_bottom = norm_right_bottom.to_pixel();
+                let left_top: Pixel = norm_left_top.into();
+                let left_bottom: Pixel = norm_left_bottom.into();
+                let right_top: Pixel = norm_right_top.into();
+                let right_bottom: Pixel = norm_right_bottom.into();
 
                 let dx = right_top.x - left_top.x;
 
@@ -791,10 +674,10 @@ fn draw_minimap_system(
             if let Some((left, right, left_after_clip, right_after_clip)) = match state.minimap {
                 Minimap::Off => None,
                 Minimap::FirstPerson => Some((
-                    view_left.to_pixel(),
-                    view_right.to_pixel(),
-                    view_left_after_clip.to_pixel(),
-                    view_right_after_clip.to_pixel(),
+                    view_left.into(),
+                    view_right.into(),
+                    view_left_after_clip.into(),
+                    view_right_after_clip.into(),
                 )),
                 Minimap::Absolute => {
                     let abs_left = wall.left;
@@ -804,10 +687,10 @@ fn draw_minimap_system(
                     let abs_right_after_clip = view_right_after_clip.transform(reverse_view_matrix);
 
                     Some((
-                        abs_left.to_pixel(),
-                        abs_right.to_pixel(),
-                        abs_left_after_clip.to_pixel(),
-                        abs_right_after_clip.to_pixel(),
+                        abs_left.into(),
+                        abs_right.into(),
+                        abs_left_after_clip.into(),
+                        abs_right_after_clip.into(),
                     ))
                 }
             } {
@@ -836,11 +719,11 @@ fn draw_minimap_system(
     if let Some((player, near_left, near_right, far_left, far_right)) = match state.minimap {
         Minimap::Off => None,
         Minimap::FirstPerson => Some((
-            view_player.to_pixel(),
-            view_near_left.to_pixel(),
-            view_near_right.to_pixel(),
-            view_far_left.to_pixel(),
-            view_far_right.to_pixel(),
+            view_player.into(),
+            view_near_left.into(),
+            view_near_right.into(),
+            view_far_left.into(),
+            view_far_right.into(),
         )),
         Minimap::Absolute => {
             let abs_player = state.position.truncate();
@@ -850,11 +733,11 @@ fn draw_minimap_system(
             let abs_far_right = view_far_right.transform(reverse_view_matrix);
 
             Some((
-                abs_player.to_pixel(),
-                abs_near_left.to_pixel(),
-                abs_near_right.to_pixel(),
-                abs_far_left.to_pixel(),
-                abs_far_right.to_pixel(),
+                abs_player.into(),
+                abs_near_left.into(),
+                abs_near_right.into(),
+                abs_far_left.into(),
+                abs_far_right.into(),
             ))
         }
     } {

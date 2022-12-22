@@ -1,8 +1,20 @@
 run:
     cargo run --release
 
+dev:
+    cargo run --features bevy/dynamic
+
 build:
     cargo build --release
+
+edit:
+    cargo run --release --package sector_edit
+
+dev-edit:
+    cargo run --package sector_edit --features bevy/dynamic
+
+build-edit:
+    cargo build --release --package sector_edit
 
 serve-web: build-web
     miniserve --index index.html wasm

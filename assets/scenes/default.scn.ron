@@ -2,7 +2,7 @@
   entities: {
     0: (
       components: {
-        "sector::Sector": (
+        "sector_core::Sector": (
           vertices: [
             ((
               x: 2.0,
@@ -58,7 +58,7 @@
     ),
     1: (
       components: {
-        "sector::Sector": (
+        "sector_core::Sector": (
           vertices: [
             ((
               x: 2.0,
@@ -99,7 +99,7 @@
     ),
     2: (
       components: {
-        "sector::Sector": (
+        "sector_core::Sector": (
           vertices: [
             ((
               x: -4.0,
