@@ -1,6 +1,6 @@
 (
   entities: {
-    0: (
+    1: (
       components: {
         "sector_core::Sector": (
           vertices: [
@@ -35,12 +35,12 @@
             None,
             Some((
               generation: 0,
-              index: 2,
+              index: 3,
             )),
             None,
             Some((
               generation: 0,
-              index: 1,
+              index: 2,
             )),
           ],
           colors: [
@@ -56,7 +56,7 @@
         ),
       },
     ),
-    1: (
+    2: (
       components: {
         "sector_core::Sector": (
           vertices: [
@@ -80,7 +80,7 @@
           portal_sectors: [
             Some((
               generation: 0,
-              index: 0,
+              index: 1,
             )),
             None,
             None,
@@ -97,7 +97,7 @@
         ),
       },
     ),
-    2: (
+    3: (
       components: {
         "sector_core::Sector": (
           vertices: [
@@ -121,7 +121,7 @@
           portal_sectors: [
             Some((
               generation: 0,
-              index: 0,
+              index: 1,
             )),
             None,
             None,
@@ -136,6 +136,14 @@
           floor: (-0.5),
           ceil: (4.5),
         ),
+      },
+    ),
+    4: (
+      components: {
+        "sector_core::InitialSector": ((
+          generation: 0,
+          index: 1,
+        )),
       },
     ),
   },

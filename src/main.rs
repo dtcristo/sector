@@ -11,16 +11,12 @@ use bevy::{
     math::vec2,
     math::vec3,
     prelude::*,
-    scene::serde::SceneSerializer,
-    tasks::IoTaskPool,
     utils::Duration,
     window::{CursorGrabMode, WindowResizeConstraints},
 };
 use bevy_pixels::prelude::*;
 use palette::{named::*, Hsv};
 use std::collections::VecDeque;
-use std::fs::File;
-use std::io::Write;
 
 #[macro_use]
 extern crate lazy_static;
@@ -39,7 +35,7 @@ const BRIGHTNESS_NEAR: f32 = 1.0;
 const BRIGHTNESS_FAR: f32 = 0.0;
 const MINIMAP_SCALE: f32 = 8.0;
 const DEFAULT_SCENE_RON_FILE_PATH: &str = "scenes/default.scn.ron";
-const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
+const _DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
 
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
@@ -151,7 +147,7 @@ struct AppState {
     velocity: Velocity,
     direction: Direction,
     update_title_timer: Timer,
-    current_sector: Entity,
+    current_sector: Option<Entity>,
 }
 
 fn main() {
@@ -159,34 +155,46 @@ fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     App::new()
+        .register_type::<InitialSector>()
         .register_type::<Sector>()
         .register_type::<Position2>()
+        .register_type::<Vec<Position2>>()
         .register_type::<Length>()
         .register_type::<Option<Entity>>()
+        .register_type::<Vec<Option<Entity>>>()
         .register_type::<RawColor>()
+        .register_type::<Vec<RawColor>>()
+        .register_type::<[u8; 3]>()
         .insert_resource(AppState {
             minimap: Minimap::Off,
             position: Position3(vec3(0.0, 0.0, 2.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
             direction: Direction(0.0),
             update_title_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
-            current_sector: Entity::from_raw(u32::MAX), // Initial invalid Entity, correctly set within setup
+            current_sector: None,
         })
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "sector".to_string(),
-                width: (WINDOW_SCALE * WIDTH) as f32,
-                height: (WINDOW_SCALE * HEIGHT) as f32,
-                resize_constraints: WindowResizeConstraints {
-                    min_width: WIDTH as f32,
-                    min_height: HEIGHT as f32,
+        .add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    watch_for_changes: true,
                     ..default()
-                },
-                fit_canvas_to_parent: true,
-                ..default()
-            },
-            ..default()
-        }))
+                })
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        title: "sector".to_string(),
+                        width: (WINDOW_SCALE * WIDTH) as f32,
+                        height: (WINDOW_SCALE * HEIGHT) as f32,
+                        resize_constraints: WindowResizeConstraints {
+                            min_width: WIDTH as f32,
+                            min_height: HEIGHT as f32,
+                            ..default()
+                        },
+                        fit_canvas_to_parent: true,
+                        ..default()
+                    },
+                    ..default()
+                }),
+        )
         .add_plugin(PixelsPlugin {
             width: WIDTH,
             height: HEIGHT,
@@ -194,8 +202,8 @@ fn main() {
         })
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         // .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup_system)
-        .add_startup_system(save_scene_system.after(setup_system))
+        .add_startup_system(load_scene_system)
+        .add_system(initial_sector_system)
         .add_system(update_title_system)
         .add_system(mouse_capture_system)
         .add_system(escape_system)
@@ -213,89 +221,16 @@ fn main() {
         .run();
 }
 
-fn setup_system(world: &mut World) {
-    // Vertices
-    let v0 = Position2(vec2(2.0, 10.0));
-    let v1 = Position2(vec2(4.0, 10.0));
-    let v2 = Position2(vec2(11.0, -8.0));
-    let v3 = Position2(vec2(-4.0, -8.0));
-    let v4 = Position2(vec2(-4.0, 1.0));
-    let v5 = Position2(vec2(-2.0, 5.0));
-    let v6 = Position2(vec2(-4.0, 15.0));
-    let v7 = Position2(vec2(4.0, 15.0));
-    let v8 = Position2(vec2(-7.0, -9.0));
-    let v9 = Position2(vec2(-10.0, -5.0));
-
-    // Sectors
-    let s0 = world.spawn_empty().id();
-    let s1 = world.spawn_empty().id();
-    let s2 = world.spawn_empty().id();
-
-    // Get mutable `AppState` resource
-    let mut state = world.resource_mut::<AppState>();
-
-    // Player starts in sector 0
-    state.current_sector = s0;
-
-    world.entity_mut(s0).insert(Sector {
-        vertices: vec![v0, v1, v2, v3, v4, v5],
-        portal_sectors: vec![None, None, None, Some(s2), None, Some(s1)],
-        colors: vec![
-            BLUE.into(),
-            GREEN.into(),
-            ORANGE.into(),
-            FUCHSIA.into(),
-            YELLOW.into(),
-            RED.into(),
-        ],
-        floor: Length(0.0),
-        ceil: Length(4.0),
-    });
-
-    world.entity_mut(s1).insert(Sector {
-        vertices: vec![v0, v5, v6, v7],
-        portal_sectors: vec![Some(s0), None, None, None],
-        colors: vec![RED.into(), FUCHSIA.into(), GREEN.into(), YELLOW.into()],
-        floor: Length(0.25),
-        ceil: Length(3.75),
-    });
-
-    world.entity_mut(s2).insert(Sector {
-        vertices: vec![v4, v3, v8, v9],
-        portal_sectors: vec![Some(s0), None, None, None],
-        colors: vec![RED.into(), FUCHSIA.into(), GREEN.into(), BLUE.into()],
-        floor: Length(-0.5),
-        ceil: Length(4.5),
-    });
+fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(asset_server.load::<DynamicScene, _>(DEFAULT_SCENE_RON_FILE_PATH));
 }
 
-fn save_scene_system(world: &mut World) {
-    let type_registry = world.resource::<AppTypeRegistry>();
-    let scene = DynamicScene::from_world(&world, type_registry);
-
-    let scene_ron = scene.serialize_ron(type_registry).unwrap();
-    info!("{}", scene_ron);
-
-    #[cfg(not(target_arch = "wasm32"))]
-    IoTaskPool::get()
-        .spawn(async move {
-            File::create(format!("assets/{DEFAULT_SCENE_RON_FILE_PATH}"))
-                .and_then(|mut file| file.write(scene_ron.as_bytes()))
-                .expect("failed to write `scene_ron` to file");
-        })
-        .detach();
-
-    let scene_serializer = SceneSerializer::new(&scene, type_registry);
-    let scene_mp: Vec<u8> = rmp_serde::to_vec(&scene_serializer).unwrap();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    IoTaskPool::get()
-        .spawn(async move {
-            File::create(format!("assets/{DEFAULT_SCENE_MP_FILE_PATH}"))
-                .and_then(|mut file| file.write(&scene_mp))
-                .expect("failed to write `scene_mp` to file");
-        })
-        .detach();
+fn initial_sector_system(mut app_state: ResMut<AppState>, query: Query<&InitialSector>) {
+    if app_state.current_sector.is_none() {
+        if let Ok(initial_sector) = query.get_single() {
+            app_state.current_sector = Some(initial_sector.0);
+        }
+    }
 }
 
 fn update_title_system(
@@ -422,11 +357,13 @@ fn draw_wall_system(
     state: Res<AppState>,
     sector_query: Query<&Sector>,
 ) {
+    // Return early if current sector is not available
+    let Some(current_sector_entity) = state.current_sector else { return };
+    let Ok(current_sector) = sector_query.get(current_sector_entity) else { return };
+
     let frame = pixels_resource.pixels.get_frame_mut();
     let view_matrix = Mat3::from_rotation_z(-state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
-
-    let Ok(current_sector) = sector_query.get(state.current_sector) else { return };
 
     let mut portal_queue = VecDeque::<Portal>::new();
     let mut y_min_vec = vec![GAP; WIDTH as usize];

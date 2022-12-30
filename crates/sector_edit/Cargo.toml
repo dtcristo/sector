@@ -7,3 +7,5 @@ edition = "2021"
 sector_core = { path = "../sector_core" }
 bevy = "0.9"
 bevy_egui = "0.18"
+palette = "0.6"
+rmp-serde = "1.1"

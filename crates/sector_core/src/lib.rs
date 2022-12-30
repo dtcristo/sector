@@ -29,6 +29,16 @@ impl From<RawColor> for Srgb<u8> {
     }
 }
 
+#[derive(Component, Reflect, Debug)]
+#[reflect(Component)]
+pub struct InitialSector(pub Entity);
+
+impl Default for InitialSector {
+    fn default() -> Self {
+        InitialSector(Entity::from_raw(u32::MAX))
+    }
+}
+
 #[derive(Component, Reflect, Debug, Default)]
 #[reflect(Component)]
 pub struct Sector {

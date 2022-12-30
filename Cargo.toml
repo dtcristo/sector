@@ -10,7 +10,7 @@ repository = "https://github.com/dtcristo/sector"
 
 [dependencies]
 sector_core = { path = "crates/sector_core" }
-bevy = { version = "0.9", default_features = false, features = ["bevy_asset", "bevy_scene"] }
+bevy = { version = "0.9", default_features = false, features = ["bevy_asset", "bevy_scene", "filesystem_watcher"] }
 bevy_pixels = { path = "../bevy_pixels", version = "0.8" }
 image = "0.24"
 lazy_static = "1.4"
