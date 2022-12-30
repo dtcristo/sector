@@ -24,11 +24,12 @@ struct AppState {
 
 fn main() {
     App::new()
-        .register_type::<InitialSector>()
+        .register_type::<SectorId>()
+        .register_type::<Option<SectorId>>()
         .register_type::<Sector>()
+        .register_type::<InitialSector>()
         .register_type::<Position2>()
         .register_type::<Length>()
-        .register_type::<Option<Entity>>()
         .register_type::<RawColor>()
         .insert_resource(AppState {
             update_title_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
@@ -52,9 +53,6 @@ fn main() {
 }
 
 fn init_scene_system(world: &mut World) {
-    // Dummy entity to occupy zero entity index
-    let dummy = world.spawn_empty().id();
-
     // Vertices
     let v0 = Position2(vec2(2.0, 10.0));
     let v1 = Position2(vec2(4.0, 10.0));
@@ -67,14 +65,13 @@ fn init_scene_system(world: &mut World) {
     let v8 = Position2(vec2(-7.0, -9.0));
     let v9 = Position2(vec2(-10.0, -5.0));
 
-    // Sectors
-    let s0 = world.spawn_empty().id();
-    let s1 = world.spawn_empty().id();
-    let s2 = world.spawn_empty().id();
+    // Spawn singleton component entity
+    world.spawn(InitialSector(SectorId(0)));
 
-    world.entity_mut(s0).insert(Sector {
+    world.spawn(Sector {
+        id: SectorId(0),
         vertices: vec![v0, v1, v2, v3, v4, v5],
-        portal_sectors: vec![None, None, None, Some(s2), None, Some(s1)],
+        portal_sectors: vec![None, None, None, Some(SectorId(2)), None, Some(SectorId(1))],
         colors: vec![
             BLUE.into(),
             GREEN.into(),
@@ -87,27 +84,23 @@ fn init_scene_system(world: &mut World) {
         ceil: Length(4.0),
     });
 
-    world.entity_mut(s1).insert(Sector {
+    world.spawn(Sector {
+        id: SectorId(1),
         vertices: vec![v0, v5, v6, v7],
-        portal_sectors: vec![Some(s0), None, None, None],
+        portal_sectors: vec![Some(SectorId(0)), None, None, None],
         colors: vec![RED.into(), FUCHSIA.into(), GREEN.into(), YELLOW.into()],
         floor: Length(0.25),
         ceil: Length(3.75),
     });
 
-    world.entity_mut(s2).insert(Sector {
+    world.spawn(Sector {
+        id: SectorId(2),
         vertices: vec![v4, v3, v8, v9],
-        portal_sectors: vec![Some(s0), None, None, None],
+        portal_sectors: vec![Some(SectorId(0)), None, None, None],
         colors: vec![RED.into(), FUCHSIA.into(), GREEN.into(), BLUE.into()],
         floor: Length(-0.5),
         ceil: Length(4.5),
     });
-
-    // Spawn singleton component entity
-    world.spawn(InitialSector(s0));
-
-    // Despawn dummy entity so it is not serialized
-    world.despawn(dummy);
 }
 
 fn save_scene_system(world: &mut World) {

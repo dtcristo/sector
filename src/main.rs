@@ -147,7 +147,7 @@ struct AppState {
     velocity: Velocity,
     direction: Direction,
     update_title_timer: Timer,
-    current_sector: Option<Entity>,
+    current_sector: Option<SectorId>,
 }
 
 fn main() {
@@ -155,13 +155,15 @@ fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     App::new()
+        .register_type::<SectorId>()
+        .register_type::<Option<SectorId>>()
+        .register_type::<Vec<Option<SectorId>>>()
+        .register_type::<Sector>()
         .register_type::<InitialSector>()
         .register_type::<Sector>()
         .register_type::<Position2>()
         .register_type::<Vec<Position2>>()
         .register_type::<Length>()
-        .register_type::<Option<Entity>>()
-        .register_type::<Vec<Option<Entity>>>()
         .register_type::<RawColor>()
         .register_type::<Vec<RawColor>>()
         .register_type::<[u8; 3]>()
@@ -225,21 +227,21 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(asset_server.load::<DynamicScene, _>(DEFAULT_SCENE_RON_FILE_PATH));
 }
 
-fn initial_sector_system(mut app_state: ResMut<AppState>, query: Query<&InitialSector>) {
-    if app_state.current_sector.is_none() {
+fn initial_sector_system(mut state: ResMut<AppState>, query: Query<&InitialSector>) {
+    if state.current_sector.is_none() {
         if let Ok(initial_sector) = query.get_single() {
-            app_state.current_sector = Some(initial_sector.0);
+            state.current_sector = Some(initial_sector.0);
         }
     }
 }
 
 fn update_title_system(
-    mut app_state: ResMut<AppState>,
+    mut state: ResMut<AppState>,
     mut windows: ResMut<Windows>,
     time: Res<Time>,
     diagnostics: Res<Diagnostics>,
 ) {
-    if app_state.update_title_timer.tick(time.delta()).finished() {
+    if state.update_title_timer.tick(time.delta()).finished() {
         let window = windows.primary_mut();
 
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
@@ -358,8 +360,9 @@ fn draw_wall_system(
     sector_query: Query<&Sector>,
 ) {
     // Return early if current sector is not available
-    let Some(current_sector_entity) = state.current_sector else { return };
-    let Ok(current_sector) = sector_query.get(current_sector_entity) else { return };
+    let Some(current_sector) = state.current_sector.and_then(|id| {
+        sector_query.iter().find(|&s| s.id == id)
+    }) else { return };
 
     let frame = pixels_resource.pixels.get_frame_mut();
     let view_matrix = Mat3::from_rotation_z(-state.direction.0)
@@ -422,7 +425,7 @@ fn draw_wall_system(
                 // Fetch adjacent portal sector
                 let portal_sector = wall
                     .portal_sector
-                    .and_then(|portal_sector_id| sector_query.get(portal_sector_id).ok());
+                    .and_then(|id| sector_query.iter().find(|&s| s.id == id));
 
                 // Process adjacent portal sector
                 let (y_portal_top, y_portal_bottom) = if let Some(portal_sector) = portal_sector {

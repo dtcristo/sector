@@ -29,21 +29,19 @@ impl From<RawColor> for Srgb<u8> {
     }
 }
 
-#[derive(Component, Reflect, Debug)]
+#[derive(Component, Reflect, Debug, Default, Clone, Copy)]
 #[reflect(Component)]
-pub struct InitialSector(pub Entity);
+pub struct InitialSector(pub SectorId);
 
-impl Default for InitialSector {
-    fn default() -> Self {
-        InitialSector(Entity::from_raw(u32::MAX))
-    }
-}
+#[derive(Reflect, FromReflect, Debug, Default, Copy, Clone, PartialEq, Eq)]
+pub struct SectorId(pub u32);
 
 #[derive(Component, Reflect, Debug, Default)]
 #[reflect(Component)]
 pub struct Sector {
+    pub id: SectorId,
     pub vertices: Vec<Position2>,
-    pub portal_sectors: Vec<Option<Entity>>,
+    pub portal_sectors: Vec<Option<SectorId>>,
     pub colors: Vec<RawColor>,
     pub floor: Length,
     pub ceil: Length,
@@ -90,7 +88,7 @@ pub struct Portal<'a> {
 pub struct Wall {
     pub left: Position2,
     pub right: Position2,
-    pub portal_sector: Option<Entity>,
+    pub portal_sector: Option<SectorId>,
     pub color: Hsv,
 }
 
