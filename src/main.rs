@@ -141,7 +141,7 @@ enum Minimap {
 }
 
 #[derive(Resource, Debug)]
-struct AppState {
+struct State {
     minimap: Minimap,
     position: Position3,
     velocity: Velocity,
@@ -167,7 +167,7 @@ fn main() {
         .register_type::<RawColor>()
         .register_type::<Vec<RawColor>>()
         .register_type::<[u8; 3]>()
-        .insert_resource(AppState {
+        .insert_resource(State {
             minimap: Minimap::Off,
             position: Position3(vec3(0.0, 0.0, 2.0)),
             velocity: Velocity(vec3(0.0, 0.0, 0.0)),
@@ -227,7 +227,7 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(asset_server.load::<DynamicScene, _>(DEFAULT_SCENE_RON_FILE_PATH));
 }
 
-fn initial_sector_system(mut state: ResMut<AppState>, query: Query<&InitialSector>) {
+fn initial_sector_system(mut state: ResMut<State>, query: Query<&InitialSector>) {
     if state.current_sector.is_none() {
         if let Ok(initial_sector) = query.get_single() {
             state.current_sector = Some(initial_sector.0);
@@ -236,7 +236,7 @@ fn initial_sector_system(mut state: ResMut<AppState>, query: Query<&InitialSecto
 }
 
 fn update_title_system(
-    mut state: ResMut<AppState>,
+    mut state: ResMut<State>,
     mut windows: ResMut<Windows>,
     time: Res<Time>,
     diagnostics: Res<Diagnostics>,
@@ -286,7 +286,7 @@ fn escape_system(
     }
 }
 
-fn switch_minimap_system(mut state: ResMut<AppState>, key: Res<Input<KeyCode>>) {
+fn switch_minimap_system(mut state: ResMut<State>, key: Res<Input<KeyCode>>) {
     if key.just_pressed(KeyCode::Tab) {
         state.minimap = match state.minimap {
             Minimap::Off => Minimap::FirstPerson,
@@ -297,7 +297,7 @@ fn switch_minimap_system(mut state: ResMut<AppState>, key: Res<Input<KeyCode>>) 
 }
 
 fn player_movement_system(
-    mut state: ResMut<AppState>,
+    mut state: ResMut<State>,
     mut mouse_motion_events: EventReader<MouseMotion>,
     key: Res<Input<KeyCode>>,
     windows: Res<Windows>,
@@ -356,7 +356,7 @@ fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
 
 fn draw_wall_system(
     mut pixels_resource: ResMut<PixelsResource>,
-    state: Res<AppState>,
+    state: Res<State>,
     sector_query: Query<&Sector>,
 ) {
     // Return early if current sector is not available
@@ -582,7 +582,7 @@ fn draw_wall_system(
 
 fn draw_minimap_system(
     mut pixels_resource: ResMut<PixelsResource>,
-    state: Res<AppState>,
+    state: Res<State>,
     sector_query: Query<&Sector>,
 ) {
     if state.minimap == Minimap::Off {

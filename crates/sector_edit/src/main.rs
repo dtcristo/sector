@@ -18,7 +18,7 @@ const DEFAULT_SCENE_RON_FILE_PATH: &str = "scenes/default.scn.ron";
 const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
 
 #[derive(Resource, Debug)]
-struct AppState {
+struct State {
     update_title_timer: Timer,
 }
 
@@ -31,7 +31,7 @@ fn main() {
         .register_type::<Position2>()
         .register_type::<Length>()
         .register_type::<RawColor>()
-        .insert_resource(AppState {
+        .insert_resource(State {
             update_title_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -133,12 +133,12 @@ fn save_scene_system(world: &mut World) {
 }
 
 fn update_title_system(
-    mut app_state: ResMut<AppState>,
+    mut state: ResMut<State>,
     mut windows: ResMut<Windows>,
     time: Res<Time>,
     diagnostics: Res<Diagnostics>,
 ) {
-    if app_state.update_title_timer.tick(time.delta()).finished() {
+    if state.update_title_timer.tick(time.delta()).finished() {
         let window = windows.primary_mut();
 
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
