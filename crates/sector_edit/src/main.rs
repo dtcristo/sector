@@ -155,8 +155,14 @@ fn escape_system(mut app_exit_events: EventWriter<AppExit>, key: Res<Input<KeyCo
     }
 }
 
-fn egui_system(mut egui_ctx: ResMut<EguiContext>) {
+fn egui_system(
+    mut egui_ctx: ResMut<EguiContext>,
+    mut state: ResMut<State>,
+    sector_query: Query<&Sector>,
+) {
     egui_ctx.ctx_mut().set_visuals(egui::Visuals::light());
+
+    let mut highligted_sector: Option<SectorId> = None;
 
     // egui::TopBottomPanel::top("top_panel").show(egui_ctx.ctx_mut(), |ui| {
     //     egui::menu::bar(ui, |ui| {
@@ -168,17 +174,59 @@ fn egui_system(mut egui_ctx: ResMut<EguiContext>) {
     //     });
     // });
 
-    let polygon_1 = egui::plot::Polygon::new(egui::plot::PlotPoints::new(vec![
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [1.0, 1.0],
-    ]));
+    egui::SidePanel::left("left_panel")
+        .default_width(250.0)
+        .show(egui_ctx.ctx_mut(), |ui| {
+            ui.vertical_centered(|ui| {
+                ui.heading("🔷 sector_edit");
+            });
 
-    let polygon_2 = egui::plot::Polygon::new(egui::plot::PlotPoints::new(vec![
-        [0.0, 0.0],
-        [-1.0, 0.0],
-        [-1.0, -1.0],
-    ]));
+            ui.separator();
+
+            for sector in sector_query.iter() {
+                let id = ui.make_persistent_id(format!("sector: {}", sector.id.0));
+                let (response, _, _) =
+                    egui::collapsing_header::CollapsingState::load_with_default_open(
+                        ui.ctx(),
+                        id,
+                        false,
+                    )
+                    .show_header(ui, |ui| {
+                        let response = ui.checkbox(&mut true, format!("sector: {}", sector.id.0));
+                        if response.hovered() {
+                            highligted_sector = Some(sector.id);
+                        }
+                    })
+                    .body(|ui| {
+                        ui.label(format!("floor: {}", sector.floor.0));
+                        ui.label(format!("ceil: {}", sector.ceil.0));
+                        for vertex in sector.vertices.iter() {
+                            ui.label(format!("vertex: [{}, {}]", vertex.0.x, vertex.0.y));
+                        }
+                    });
+
+                if response.hovered() {
+                    highligted_sector = Some(sector.id);
+                }
+            }
+        });
+
+    let polygons: Vec<egui::plot::Polygon> = sector_query
+        .iter()
+        .map(|sector| {
+            let highlighted =
+                highligted_sector.is_some() && highligted_sector.unwrap() == sector.id;
+
+            egui::plot::Polygon::new(egui::plot::PlotPoints::new(
+                sector
+                    .vertices
+                    .iter()
+                    .map(|v| [v.0.x as f64, v.0.y as f64])
+                    .collect(),
+            ))
+            .highlight(highlighted)
+        })
+        .collect();
 
     egui::CentralPanel::default()
         .frame(egui::Frame::none())
@@ -186,16 +234,20 @@ fn egui_system(mut egui_ctx: ResMut<EguiContext>) {
             egui::plot::Plot::new("plot")
                 .data_aspect(1.0)
                 .show_axes([true, true])
-                // .auto_bounds_x()
+                .auto_bounds_x()
                 .show(ui, |plot_ui| {
-                    plot_ui.polygon(polygon_1);
-                    plot_ui.polygon(polygon_2);
-
-                    if plot_ui.plot_clicked() {
-                        println!("{:?}", plot_ui.pointer_coordinate().unwrap());
-
-                        println!("{:?}", plot_ui.pointer_coordinate_drag_delta());
+                    for polygon in polygons {
+                        plot_ui.polygon(polygon);
                     }
+
+                    // if plot_ui.plot_clicked() {
+                    //     println!("Clicked {:?}", plot_ui.pointer_coordinate().unwrap());
+                    // }
+
+                    // if plot_ui.plot_hovered() {
+                    //     println!("Bounds {:?}", plot_ui.plot_bounds());
+                    //     println!("Drag delta {:?}", plot_ui.pointer_coordinate_drag_delta());
+                    // }
                 });
         });
 }
