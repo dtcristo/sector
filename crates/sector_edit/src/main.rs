@@ -37,6 +37,8 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
                 title: "sector_edit".to_string(),
+                width: 1280.0,
+                height: 960.0,
                 fit_canvas_to_parent: true,
                 ..default()
             },
@@ -163,6 +165,8 @@ fn egui_system(
     egui_ctx.ctx_mut().set_visuals(egui::Visuals::light());
 
     let mut highligted_sector: Option<SectorId> = None;
+    let mut highligted_wall: Option<Wall> = None;
+    let mut highligted_vertex: Option<Position2> = None;
 
     // egui::TopBottomPanel::top("top_panel").show(egui_ctx.ctx_mut(), |ui| {
     //     egui::menu::bar(ui, |ui| {
@@ -183,32 +187,158 @@ fn egui_system(
 
             ui.separator();
 
-            for sector in sector_query.iter() {
-                let id = ui.make_persistent_id(format!("sector: {}", sector.id.0));
-                let (response, _, _) =
-                    egui::collapsing_header::CollapsingState::load_with_default_open(
-                        ui.ctx(),
-                        id,
-                        false,
-                    )
-                    .show_header(ui, |ui| {
-                        let response = ui.checkbox(&mut true, format!("sector: {}", sector.id.0));
-                        if response.hovered() {
+            egui::ScrollArea::vertical()
+                .auto_shrink([false; 2])
+                .show(ui, |ui| {
+                    for sector in sector_query.iter() {
+                        let sector_frame_response = egui::Frame::none()
+                            .show(ui, |ui| {
+                                egui::collapsing_header::CollapsingState::load_with_default_open(
+                                    ui.ctx(),
+                                    ui.make_persistent_id(format!("sector: {}", sector.id.0)),
+                                    false,
+                                )
+                                .show_header(ui, |ui| {
+                                    ui.checkbox(&mut true, format!("sector: {}", sector.id.0));
+                                })
+                                .body(|ui| {
+                                    let mut floor = sector.floor.0;
+                                    ui.add(
+                                        egui::DragValue::new(&mut floor)
+                                            .speed(0.1)
+                                            .clamp_range(-10.0..=(10.0 - 0.1))
+                                            .prefix("floor: "),
+                                    );
+                                    let mut ceil = sector.ceil.0;
+                                    ui.add(
+                                        egui::DragValue::new(&mut ceil)
+                                            .speed(0.1)
+                                            .clamp_range((floor + 0.1)..=10.0)
+                                            .prefix("ceil: "),
+                                    );
+
+                                    egui::CollapsingHeader::new("walls")
+                                        .default_open(true)
+                                        .show(ui, |ui| {
+                                            for (i, wall) in sector.to_walls().iter().enumerate() {
+                                                let wall_frame_response = egui::Frame::none()
+                                                    .show(ui, |ui| {
+                                                        egui::CollapsingHeader::new(format!(
+                                                            "wall {}",
+                                                            i
+                                                        ))
+                                                        .default_open(true)
+                                                        .show(ui, |ui| {
+                                                            let vertex_frame_response = ui
+                                                                .horizontal(|ui| {
+                                                                    ui.label(format!("left:"));
+                                                                    let mut x = wall.left.0.x;
+                                                                    let mut y = wall.left.0.y;
+                                                                    ui.add(
+                                                                        egui::DragValue::new(
+                                                                            &mut x,
+                                                                        )
+                                                                        .speed(0.1)
+                                                                        .clamp_range(-100.0..=100.0)
+                                                                        .prefix("x: "),
+                                                                    );
+                                                                    ui.add(
+                                                                        egui::DragValue::new(
+                                                                            &mut y,
+                                                                        )
+                                                                        .speed(0.1)
+                                                                        .clamp_range(-100.0..=100.0)
+                                                                        .prefix("y: "),
+                                                                    );
+                                                                })
+                                                                .response;
+
+                                                            if vertex_frame_response.hovered() {
+                                                                highligted_vertex = Some(wall.left);
+                                                            }
+
+                                                            let vertex_frame_response = ui
+                                                                .horizontal(|ui| {
+                                                                    ui.label(format!("right:"));
+                                                                    let mut x = wall.right.0.x;
+                                                                    let mut y = wall.right.0.y;
+                                                                    ui.add(
+                                                                        egui::DragValue::new(
+                                                                            &mut x,
+                                                                        )
+                                                                        .speed(0.1)
+                                                                        .clamp_range(-100.0..=100.0)
+                                                                        .prefix("x: "),
+                                                                    );
+                                                                    ui.add(
+                                                                        egui::DragValue::new(
+                                                                            &mut y,
+                                                                        )
+                                                                        .speed(0.1)
+                                                                        .clamp_range(-100.0..=100.0)
+                                                                        .prefix("y: "),
+                                                                    );
+                                                                })
+                                                                .response;
+
+                                                            if vertex_frame_response.hovered() {
+                                                                highligted_vertex =
+                                                                    Some(wall.right);
+                                                            }
+
+                                                            let mut color32 =
+                                                                egui::Color32::from_rgb(
+                                                                    wall.raw_color.0[0],
+                                                                    wall.raw_color.0[1],
+                                                                    wall.raw_color.0[2],
+                                                                );
+                                                            ui.horizontal(|ui| {
+                                                                ui.label("color:");
+                                                                ui.color_edit_button_srgba(
+                                                                    &mut color32,
+                                                                );
+                                                            })
+                                                        });
+                                                    })
+                                                    .response;
+
+                                                if wall_frame_response.hovered() {
+                                                    highligted_wall = Some(*wall);
+                                                }
+                                            }
+                                        });
+
+                                    egui::CollapsingHeader::new("vertices")
+                                        .default_open(true)
+                                        .show(ui, |ui| {
+                                            for (i, vertex) in sector.vertices.iter().enumerate() {
+                                                ui.horizontal(|ui| {
+                                                    let mut x = vertex.0.x;
+                                                    let mut y = vertex.0.y;
+                                                    ui.add(
+                                                        egui::DragValue::new(&mut x)
+                                                            .speed(0.1)
+                                                            .clamp_range(-100.0..=100.0)
+                                                            .prefix("x: "),
+                                                    );
+                                                    ui.add(
+                                                        egui::DragValue::new(&mut y)
+                                                            .speed(0.1)
+                                                            .clamp_range(-100.0..=100.0)
+                                                            .prefix("y: "),
+                                                    );
+                                                });
+                                            }
+                                        });
+                                });
+                            })
+                            .response;
+
+                        if sector_frame_response.hovered() {
                             highligted_sector = Some(sector.id);
                         }
-                    })
-                    .body(|ui| {
-                        ui.label(format!("floor: {}", sector.floor.0));
-                        ui.label(format!("ceil: {}", sector.ceil.0));
-                        for vertex in sector.vertices.iter() {
-                            ui.label(format!("vertex: [{}, {}]", vertex.0.x, vertex.0.y));
-                        }
-                    });
-
-                if response.hovered() {
-                    highligted_sector = Some(sector.id);
-                }
-            }
+                    }
+                });
         });
 
     let polygons: Vec<egui::plot::Polygon> = sector_query
@@ -238,6 +368,24 @@ fn egui_system(
                 .show(ui, |plot_ui| {
                     for polygon in polygons {
                         plot_ui.polygon(polygon);
+                    }
+
+                    if highligted_wall.is_some() {
+                        let wall = highligted_wall.unwrap();
+                        let wall_points = egui::plot::PlotPoints::new(vec![
+                            [wall.left.0.x as f64, wall.left.0.y as f64],
+                            [wall.right.0.x as f64, wall.right.0.y as f64],
+                        ]);
+                        let wall_color32 = egui::Color32::from_rgb(
+                            wall.raw_color.0[0],
+                            wall.raw_color.0[1],
+                            wall.raw_color.0[2],
+                        );
+                        plot_ui.line(
+                            egui::plot::Line::new(wall_points)
+                                .color(wall_color32)
+                                .width(5.0),
+                        );
                     }
 
                     // if plot_ui.plot_clicked() {

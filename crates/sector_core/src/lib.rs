@@ -64,6 +64,7 @@ impl Sector {
                 left,
                 right,
                 portal_sector: *portal_sector_iter.next().unwrap_or(&None),
+                raw_color,
                 color: hsv_color,
             })
         };
@@ -85,10 +86,13 @@ pub struct Portal<'a> {
     pub x_max: isize,
 }
 
+#[derive(Copy, Clone)]
+
 pub struct Wall {
     pub left: Position2,
     pub right: Position2,
     pub portal_sector: Option<SectorId>,
+    pub raw_color: RawColor,
     pub color: Hsv,
 }
 
