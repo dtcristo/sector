@@ -1,25 +1,20 @@
-[package]
-name = "sector"
-description = "Sector/portal renderer with Bevy"
-version = "0.1.0"
-authors = ["David Cristofaro <david@dtcristo.com>"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
-readme = "README.md"
-repository = "https://github.com/dtcristo/sector"
-
-[dependencies]
-sector_core = { path = "crates/sector_core" }
-bevy = { version = "0.9", default_features = false, features = ["bevy_asset", "bevy_scene", "filesystem_watcher"] }
-bevy_pixels = { path = "../bevy_pixels", version = "0.8" }
-image = "0.24"
-lazy_static = "1.4"
-palette = "0.6"
-rmp-serde = "1.1"
-rust_bresenham = "0.1"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = "0.1"
-
 [workspace]
-members = ["crates/*"]
+resolver = "2"
+members = ["packages/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace.dependencies]
+bevy = { version = "0.9", default_features = false }
+bevy_egui = "0.18"
+bevy_pixels = "0.8"
+console_error_panic_hook = "0.1"
+image = "0.24"
+lazy_static = "1"
+palette = "0.6"
+rmp-serde = "1"
+rust_bresenham = "0.1"
+sector_core = { path = "packages/sector_core" }

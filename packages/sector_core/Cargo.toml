@@ -1,0 +1,10 @@
+[package]
+name = "sector_core"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy = { workspace = true, features = ["bevy_scene"] }
+lazy_static.workspace = true
+palette.workspace = true

@@ -1,9 +1,0 @@
-[package]
-name = "sector_core"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-bevy = { version = "0.9", default_features = false, features = ["bevy_scene"] }
-palette = "0.6"
-lazy_static = "1.4"
