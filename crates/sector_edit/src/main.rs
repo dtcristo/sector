@@ -221,7 +221,7 @@ fn egui_system(
                                         .default_open(true)
                                         .show(ui, |ui| {
                                             for (i, wall) in sector.to_walls().iter().enumerate() {
-                                                let wall_frame_response = egui::Frame::none()
+                                                let wall_response = egui::Frame::none()
                                                     .show(ui, |ui| {
                                                         egui::CollapsingHeader::new(format!(
                                                             "wall {}",
@@ -229,7 +229,7 @@ fn egui_system(
                                                         ))
                                                         .default_open(true)
                                                         .show(ui, |ui| {
-                                                            let vertex_frame_response = ui
+                                                            let vertex_response = ui
                                                                 .horizontal(|ui| {
                                                                     ui.label(format!("left:"));
                                                                     let mut x = wall.left.0.x;
@@ -253,11 +253,11 @@ fn egui_system(
                                                                 })
                                                                 .response;
 
-                                                            if vertex_frame_response.hovered() {
+                                                            if vertex_response.hovered() {
                                                                 highligted_vertex = Some(wall.left);
                                                             }
 
-                                                            let vertex_frame_response = ui
+                                                            let vertex_response = ui
                                                                 .horizontal(|ui| {
                                                                     ui.label(format!("right:"));
                                                                     let mut x = wall.right.0.x;
@@ -281,7 +281,7 @@ fn egui_system(
                                                                 })
                                                                 .response;
 
-                                                            if vertex_frame_response.hovered() {
+                                                            if vertex_response.hovered() {
                                                                 highligted_vertex =
                                                                     Some(wall.right);
                                                             }
@@ -302,7 +302,7 @@ fn egui_system(
                                                     })
                                                     .response;
 
-                                                if wall_frame_response.hovered() {
+                                                if wall_response.hovered() {
                                                     highligted_wall = Some(*wall);
                                                 }
                                             }
@@ -312,22 +312,28 @@ fn egui_system(
                                         .default_open(true)
                                         .show(ui, |ui| {
                                             for (i, vertex) in sector.vertices.iter().enumerate() {
-                                                ui.horizontal(|ui| {
-                                                    let mut x = vertex.0.x;
-                                                    let mut y = vertex.0.y;
-                                                    ui.add(
-                                                        egui::DragValue::new(&mut x)
-                                                            .speed(0.1)
-                                                            .clamp_range(-100.0..=100.0)
-                                                            .prefix("x: "),
-                                                    );
-                                                    ui.add(
-                                                        egui::DragValue::new(&mut y)
-                                                            .speed(0.1)
-                                                            .clamp_range(-100.0..=100.0)
-                                                            .prefix("y: "),
-                                                    );
-                                                });
+                                                let vertex_response = ui
+                                                    .horizontal(|ui| {
+                                                        let mut x = vertex.0.x;
+                                                        let mut y = vertex.0.y;
+                                                        ui.add(
+                                                            egui::DragValue::new(&mut x)
+                                                                .speed(0.1)
+                                                                .clamp_range(-100.0..=100.0)
+                                                                .prefix("x: "),
+                                                        );
+                                                        ui.add(
+                                                            egui::DragValue::new(&mut y)
+                                                                .speed(0.1)
+                                                                .clamp_range(-100.0..=100.0)
+                                                                .prefix("y: "),
+                                                        );
+                                                    })
+                                                    .response;
+
+                                                if vertex_response.hovered() {
+                                                    highligted_vertex = Some(*vertex);
+                                                }
                                             }
                                         });
                                 });
@@ -384,7 +390,20 @@ fn egui_system(
                         plot_ui.line(
                             egui::plot::Line::new(wall_points)
                                 .color(wall_color32)
-                                .width(5.0),
+                                .highlight(true)
+                                .width(2.0),
+                        );
+                    }
+
+                    if highligted_vertex.is_some() {
+                        let vertex = highligted_vertex.unwrap();
+                        plot_ui.points(
+                            egui::plot::Points::new(vec![[vertex.0.x as f64, vertex.0.y as f64]])
+                                .color(egui::Color32::BLUE)
+                                .filled(true)
+                                .radius(6.0)
+                                .highlight(true)
+                                .shape(egui::widgets::plot::MarkerShape::Diamond),
                         );
                     }
 
