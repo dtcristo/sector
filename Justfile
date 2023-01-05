@@ -1,4 +1,7 @@
 build:
+    cargo build
+
+release:
     cargo build --release
 
 run:
@@ -7,7 +10,7 @@ run:
 dev:
     cargo run --package sector --features bevy/dynamic
 
-edit:
+run-edit:
     cargo run --package sector_edit --release
 
 dev-edit:
