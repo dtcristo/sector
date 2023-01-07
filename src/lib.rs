@@ -8,7 +8,13 @@ pub const DEFAULT_SCENE_RON_FILE_PATH: &str = "scenes/default.scn.ron";
 pub const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
 
 lazy_static! {
-    static ref MISSING_WALL_COLOR: RawColor = RED.into();
+    // Colors
+    pub static ref CEILING_COLOR: RawColor = SILVER.into();
+    pub static ref FLOOR_COLOR: RawColor = GRAY.into();
+    pub static ref WALL_CLIPPED_COLOR: RawColor = WHITE.into();
+    pub static ref FRUSTUM_COLOR: RawColor = DARKGRAY.into();
+    pub static ref PLAYER_COLOR: RawColor = RED.into();
+    pub static ref MISSING_WALL_COLOR: RawColor = RED.into();
 }
 
 #[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
@@ -112,7 +118,7 @@ pub struct Length(pub f32);
 pub struct Position3(pub Vec3);
 
 impl Position3 {
-    pub fn truncate(self: Self) -> Position2 {
+    pub fn truncate(self) -> Position2 {
         Position2(self.0.truncate())
     }
 }
@@ -127,7 +133,7 @@ impl Position3 {
 pub struct Position2(pub Vec2);
 
 impl Position2 {
-    pub fn transform(self: Self, matrix: Mat3) -> Self {
+    pub fn transform(self, matrix: Mat3) -> Self {
         Position2(matrix.transform_point2(self.0))
     }
 }

@@ -14,6 +14,9 @@ use palette::named::*;
 use std::fs::File;
 use std::io::Write;
 
+const WIDTH: f32 = 1280.0;
+const HEIGHT: f32 = 960.0;
+
 #[derive(Resource, Debug)]
 struct State {
     update_title_timer: Timer,
@@ -34,8 +37,8 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
                 title: "sector_edit".to_string(),
-                width: 1280.0,
-                height: 960.0,
+                width: WIDTH,
+                height: HEIGHT,
                 fit_canvas_to_parent: true,
                 ..default()
             },

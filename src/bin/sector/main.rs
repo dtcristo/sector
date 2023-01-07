@@ -15,7 +15,7 @@ use bevy::{
     window::{CursorGrabMode, WindowResizeConstraints},
 };
 use bevy_pixels::prelude::*;
-use palette::{named::*, Hsv};
+use palette::Hsv;
 use std::collections::VecDeque;
 
 #[macro_use]
@@ -23,7 +23,7 @@ extern crate lazy_static;
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
-const WINDOW_SCALE: u32 = 3;
+const WINDOW_SCALE: u32 = 4;
 const GAP: isize = 1;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
@@ -49,12 +49,6 @@ lazy_static! {
     static ref LEFT_CLIP_2: Vec2 = vec2(-*X_FAR, FAR);
     static ref RIGHT_CLIP_1: Vec2 = vec2(*X_FAR, FAR);
     static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_1;
-    // Colors
-    static ref CEILING_COLOR: RawColor = SILVER.into();
-    static ref FLOOR_COLOR: RawColor = GRAY.into();
-    static ref WALL_CLIPPED_COLOR: RawColor = WHITE.into();
-    static ref FRUSTUM_COLOR: RawColor = DARKGRAY.into();
-    static ref PLAYER_COLOR: RawColor = RED.into();
 }
 
 /// Normalized screen coordinates, right-handed coordinate system with z towards,
