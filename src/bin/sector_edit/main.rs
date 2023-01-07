@@ -1,4 +1,4 @@
-use sector_core::*;
+use sector::*;
 
 use bevy::{
     app::AppExit,
@@ -13,9 +13,6 @@ use bevy_egui::{egui, EguiContext, EguiPlugin};
 use palette::named::*;
 use std::fs::File;
 use std::io::Write;
-
-const DEFAULT_SCENE_RON_FILE_PATH: &str = "scenes/default.scn.ron";
-const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
 
 #[derive(Resource, Debug)]
 struct State {
@@ -47,7 +44,7 @@ fn main() {
         .add_plugin(EguiPlugin)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(init_scene_system)
-        .add_startup_system(save_scene_system.after(init_scene_system))
+        .add_system(save_scene_system)
         .add_system(update_title_system)
         .add_system(escape_system)
         .add_system(egui_system)
@@ -110,7 +107,6 @@ fn save_scene_system(world: &mut World) {
     let scene = DynamicScene::from_world(&world, type_registry);
 
     let scene_ron = scene.serialize_ron(type_registry).unwrap();
-    info!("{}", scene_ron);
 
     #[cfg(not(target_arch = "wasm32"))]
     IoTaskPool::get()
@@ -159,8 +155,8 @@ fn escape_system(mut app_exit_events: EventWriter<AppExit>, key: Res<Input<KeyCo
 
 fn egui_system(
     mut egui_ctx: ResMut<EguiContext>,
-    mut state: ResMut<State>,
-    sector_query: Query<&Sector>,
+    mut _state: ResMut<State>,
+    mut sector_query: Query<&mut Sector>,
 ) {
     egui_ctx.ctx_mut().set_visuals(egui::Visuals::light());
 
@@ -190,7 +186,7 @@ fn egui_system(
             egui::ScrollArea::vertical()
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
-                    for sector in sector_query.iter() {
+                    for mut sector in &mut sector_query {
                         let sector_frame_response = egui::Frame::none()
                             .show(ui, |ui| {
                                 egui::collapsing_header::CollapsingState::load_with_default_open(
@@ -202,16 +198,15 @@ fn egui_system(
                                     ui.checkbox(&mut true, format!("sector: {}", sector.id.0));
                                 })
                                 .body(|ui| {
-                                    let mut floor = sector.floor.0;
                                     ui.add(
-                                        egui::DragValue::new(&mut floor)
+                                        egui::DragValue::new(&mut sector.floor.0)
                                             .speed(0.1)
                                             .clamp_range(-10.0..=(10.0 - 0.1))
                                             .prefix("floor: "),
                                     );
-                                    let mut ceil = sector.ceil.0;
+                                    let floor = sector.floor.0;
                                     ui.add(
-                                        egui::DragValue::new(&mut ceil)
+                                        egui::DragValue::new(&mut sector.ceil.0)
                                             .speed(0.1)
                                             .clamp_range((floor + 0.1)..=10.0)
                                             .prefix("ceil: "),
@@ -311,19 +306,17 @@ fn egui_system(
                                     egui::CollapsingHeader::new("vertices")
                                         .default_open(true)
                                         .show(ui, |ui| {
-                                            for (i, vertex) in sector.vertices.iter().enumerate() {
+                                            for vertex in &mut sector.vertices {
                                                 let vertex_response = ui
                                                     .horizontal(|ui| {
-                                                        let mut x = vertex.0.x;
-                                                        let mut y = vertex.0.y;
                                                         ui.add(
-                                                            egui::DragValue::new(&mut x)
+                                                            egui::DragValue::new(&mut vertex.0.x)
                                                                 .speed(0.1)
                                                                 .clamp_range(-100.0..=100.0)
                                                                 .prefix("x: "),
                                                         );
                                                         ui.add(
-                                                            egui::DragValue::new(&mut y)
+                                                            egui::DragValue::new(&mut vertex.0.y)
                                                                 .speed(0.1)
                                                                 .clamp_range(-100.0..=100.0)
                                                                 .prefix("y: "),

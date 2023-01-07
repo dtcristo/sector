@@ -1,20 +1,20 @@
-build:
-    cargo build
+play:
+    @just dev sector
 
-release:
-    cargo build --release
+edit:
+    @just dev sector_edit
 
-run:
-    cargo run --package sector --release
+build BIN_NAME:
+    cargo build --bin {{BIN_NAME}} --features="{{BIN_NAME}}"
 
-dev:
-    cargo run --package sector --features bevy/dynamic
+release BIN_NAME:
+    cargo build --bin {{BIN_NAME}} --features="{{BIN_NAME}}" --release
 
-run-edit:
-    cargo run --package sector_edit --release
+dev BIN_NAME:
+    cargo run --bin {{BIN_NAME}} --features="{{BIN_NAME}} bevy/dynamic"
 
-dev-edit:
-    cargo run --package sector_edit --features bevy/dynamic
+run BIN_NAME:
+    cargo run --bin {{BIN_NAME}} --features="{{BIN_NAME}}" --release
 
 serve-web: build-web
     miniserve --index index.html wasm

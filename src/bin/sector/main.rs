@@ -2,7 +2,7 @@ mod draw;
 mod utils;
 
 use crate::{draw::*, utils::*};
-use sector_core::*;
+use sector::*;
 
 use bevy::{
     app::AppExit,
@@ -34,8 +34,6 @@ const FAR: f32 = 50.0;
 const BRIGHTNESS_NEAR: f32 = 1.0;
 const BRIGHTNESS_FAR: f32 = 0.0;
 const MINIMAP_SCALE: f32 = 8.0;
-const DEFAULT_SCENE_RON_FILE_PATH: &str = "scenes/default.scn.ron";
-const _DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
 
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
@@ -596,7 +594,7 @@ fn draw_minimap_system(
         * Mat3::from_rotation_z(state.direction.0);
 
     // Draw walls
-    for sector in sector_query.iter() {
+    for sector in &sector_query {
         for wall in sector.to_walls() {
             let color: RawColor = wall.color.into();
             let view_left = wall.left.transform(view_matrix);

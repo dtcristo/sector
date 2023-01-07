@@ -2,12 +2,12 @@
   entities: {
     0: (
       components: {
-        "sector_core::InitialSector": ((0)),
+        "sector::InitialSector": ((0)),
       },
     ),
     1: (
       components: {
-        "sector_core::Sector": (
+        "sector::Sector": (
           id: (0),
           vertices: [
             ((
@@ -58,7 +58,7 @@
     ),
     2: (
       components: {
-        "sector_core::Sector": (
+        "sector::Sector": (
           id: (1),
           vertices: [
             ((
@@ -97,7 +97,7 @@
     ),
     3: (
       components: {
-        "sector_core::Sector": (
+        "sector::Sector": (
           id: (2),
           vertices: [
             ((

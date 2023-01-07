@@ -4,6 +4,9 @@ use palette::{named::*, FromColor, Hsv, IntoColor, Pixel, Srgb};
 #[macro_use]
 extern crate lazy_static;
 
+pub const DEFAULT_SCENE_RON_FILE_PATH: &str = "scenes/default.scn.ron";
+pub const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
+
 lazy_static! {
     static ref MISSING_WALL_COLOR: RawColor = RED.into();
 }

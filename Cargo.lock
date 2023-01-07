@@ -2548,6 +2548,7 @@ name = "sector"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_egui",
  "bevy_pixels",
  "console_error_panic_hook",
  "image 0.24.5",
@@ -2555,28 +2556,6 @@ dependencies = [
  "palette",
  "rmp-serde",
  "rust_bresenham",
- "sector_core",
-]
-
-[[package]]
-name = "sector_core"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "lazy_static",
- "palette",
-]
-
-[[package]]
-name = "sector_edit"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_egui",
- "console_error_panic_hook",
- "palette",
- "rmp-serde",
- "sector_core",
 ]
 
 [[package]]

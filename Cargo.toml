@@ -1,20 +1,49 @@
-[workspace]
-resolver = "2"
-members = ["packages/*"]
-
-[workspace.package]
+[package]
+name = "sector"
+description = "Sector/portal renderer with Bevy"
 version = "0.1.0"
+authors = ["David Cristofaro <david@dtcristo.com>"]
 edition = "2021"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/dtcristo/sector"
 publish = false
 
-[workspace.dependencies]
-bevy = { version = "0.9", default_features = false }
-bevy_egui = "0.18"
-bevy_pixels = "0.8"
-console_error_panic_hook = "0.1"
-image = "0.24"
+[dependencies]
+bevy = { version = "0.9", default_features = false, features = ["bevy_scene"] }
 lazy_static = "1"
 palette = "0.6"
 rmp-serde = "1"
-rust_bresenham = "0.1"
-sector_core = { path = "packages/sector_core" }
+
+# sector(bin) deps
+bevy_pixels = { version = "0.8", optional = true }
+image = { version = "0.24", optional = true }
+rust_bresenham = { version = "0.1", optional = true }
+
+# sector_edit(bin) deps
+bevy_egui = { version = "0.18", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1"
+
+[features]
+sector = [
+    "bevy/bevy_asset",
+    "bevy/filesystem_watcher",
+    "bevy_pixels",
+    "image",
+    "rust_bresenham"
+]
+sector_edit = [
+    "bevy/bevy_asset",
+    "bevy/bevy_winit",
+    "bevy_egui"
+]
+
+[[bin]]
+name = "sector"
+required-features = ["sector"]
+
+[[bin]]
+name = "sector_edit"
+required-features = ["sector_edit"]
