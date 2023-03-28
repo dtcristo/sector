@@ -4,14 +4,14 @@
   </h1>
   <p>
     <strong>
-      Sector/portal renderer with Bevy
+      Sector/portal renderer for Bevy
     </strong>
   </p>
 </div>
 
 ## Overview
 
-_Experimental_ render with Bevy in the style of Doom and Duke Nukem 3D using sectors and portals. Built in Rust with [`bevy_pixels`](https://github.com/dtcristo/bevy_pixels) primarily for my own entertainment.
+_Experimental_ renderer for Bevy in the style of Doom and Duke Nukem 3D using sectors and portals. Built in Rust with [`bevy_pixels`](https://github.com/dtcristo/bevy_pixels) primarily for my own entertainment.
 
 ## License
 
