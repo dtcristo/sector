@@ -10,13 +10,13 @@ repository = "https://github.com/dtcristo/sector"
 publish = false
 
 [dependencies]
-bevy = { version = "0.9", default_features = false, features = ["bevy_scene"] }
+bevy = { version = "0.10", default_features = false, features = ["bevy_scene"] }
 lazy_static = "1"
 palette = "0.6"
 rmp-serde = "1"
 
 # sector(bin) deps
-bevy_pixels = { version = "0.8", optional = true }
+bevy_pixels = { path = "../bevy_pixels", version = "0.8", optional = true }
 image = { version = "0.24", optional = true }
 rust_bresenham = { version = "0.1", optional = true }
 

@@ -12,7 +12,7 @@ use bevy::{
     math::vec3,
     prelude::*,
     utils::Duration,
-    window::{CursorGrabMode, WindowResizeConstraints},
+    window::{CursorGrabMode, WindowResizeConstraints, WindowResolution},
 };
 use bevy_pixels::prelude::*;
 use palette::Hsv;
@@ -174,10 +174,12 @@ fn main() {
                     ..default()
                 })
                 .set(WindowPlugin {
-                    window: WindowDescriptor {
+                    primary_window: Some(Window {
                         title: "sector".to_string(),
-                        width: (WINDOW_SCALE * WIDTH) as f32,
-                        height: (WINDOW_SCALE * HEIGHT) as f32,
+                        resolution: WindowResolution::new(
+                            (WINDOW_SCALE * WIDTH) as f32,
+                            (WINDOW_SCALE * HEIGHT) as f32,
+                        ),
                         resize_constraints: WindowResizeConstraints {
                             min_width: WIDTH as f32,
                             min_height: HEIGHT as f32,
@@ -185,14 +187,17 @@ fn main() {
                         },
                         fit_canvas_to_parent: true,
                         ..default()
-                    },
+                    }),
                     ..default()
                 }),
         )
         .add_plugin(PixelsPlugin {
-            width: WIDTH,
-            height: HEIGHT,
-            ..default()
+            primary_window: Some(PixelsOptions {
+                width: WIDTH,
+                height: HEIGHT,
+                auto_resize_buffer: false,
+                ..default()
+            }),
         })
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         // .add_plugin(LogDiagnosticsPlugin::default())
@@ -203,14 +208,14 @@ fn main() {
         .add_system(escape_system)
         .add_system(switch_minimap_system)
         .add_system(player_movement_system)
-        .add_system_to_stage(PixelsStage::Draw, draw_background_system)
-        .add_system_to_stage(
-            PixelsStage::Draw,
-            draw_wall_system.after(draw_background_system),
-        )
-        .add_system_to_stage(
-            PixelsStage::Draw,
-            draw_minimap_system.after(draw_wall_system),
+        .add_systems(
+            (
+                draw_background_system,
+                draw_wall_system,
+                draw_minimap_system,
+            )
+                .chain()
+                .in_set(PixelsSet::Draw),
         )
         .run();
 }
@@ -229,51 +234,54 @@ fn initial_sector_system(mut state: ResMut<State>, query: Query<&InitialSector>)
 
 fn update_title_system(
     mut state: ResMut<State>,
-    mut windows: ResMut<Windows>,
     time: Res<Time>,
     diagnostics: Res<Diagnostics>,
+    mut window_query: Query<&mut Window>,
 ) {
     if state.update_title_timer.tick(time.delta()).finished() {
-        let window = windows.primary_mut();
+        let Ok(mut window) = window_query.get_single_mut() else { return };
 
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.value() {
-                window.set_title(format!("sector: {value:.0} fps"));
+                window.title = format!("sector: {value:.0} fps");
             }
         }
     }
 }
 
-fn mouse_capture_system(mut windows: ResMut<Windows>, mouse_button: Res<Input<MouseButton>>) {
-    let window = windows.get_primary_mut().unwrap();
+fn mouse_capture_system(
+    mouse_button: Res<Input<MouseButton>>,
+    mut window_query: Query<&mut Window>,
+) {
+    let Ok(mut window) = window_query.get_single_mut() else { return };
 
-    if window.cursor_grab_mode() == CursorGrabMode::None {
+    if window.cursor.grab_mode == CursorGrabMode::None {
         if mouse_button.just_pressed(MouseButton::Left) {
-            window.set_cursor_grab_mode(CursorGrabMode::Locked);
-            window.set_cursor_visibility(false);
+            window.cursor.grab_mode = CursorGrabMode::Locked;
+            window.cursor.visible = false;
         }
     } else {
         if mouse_button.just_pressed(MouseButton::Right) {
-            window.set_cursor_grab_mode(CursorGrabMode::None);
-            window.set_cursor_visibility(true);
+            window.cursor.grab_mode = CursorGrabMode::None;
+            window.cursor.visible = true;
         }
     }
 }
 
 fn escape_system(
     mut app_exit_events: EventWriter<AppExit>,
-    mut windows: ResMut<Windows>,
     key: Res<Input<KeyCode>>,
+    mut window_query: Query<&mut Window>,
 ) {
     if key.just_pressed(KeyCode::Escape) {
-        let window = windows.get_primary_mut().unwrap();
+        let Ok(mut window) = window_query.get_single_mut() else { return };
 
-        if window.cursor_grab_mode() == CursorGrabMode::None {
+        if window.cursor.grab_mode == CursorGrabMode::None {
             #[cfg(not(target_arch = "wasm32"))]
             app_exit_events.send(AppExit);
         } else {
-            window.set_cursor_grab_mode(CursorGrabMode::None);
-            window.set_cursor_visibility(true);
+            window.cursor.grab_mode = CursorGrabMode::None;
+            window.cursor.visible = true;
         }
     }
 }
@@ -292,11 +300,11 @@ fn player_movement_system(
     mut state: ResMut<State>,
     mut mouse_motion_events: EventReader<MouseMotion>,
     key: Res<Input<KeyCode>>,
-    windows: Res<Windows>,
+    window_query: Query<&mut Window>,
 ) {
-    let window = windows.get_primary().unwrap();
+    let Ok(window) = window_query.get_single() else { return };
 
-    if window.cursor_grab_mode() == CursorGrabMode::Locked {
+    if window.cursor.grab_mode == CursorGrabMode::Locked {
         for mouse_motion in mouse_motion_events.iter() {
             state.direction.0 += -mouse_motion.delta.x * 0.005;
         }
@@ -341,22 +349,26 @@ fn player_movement_system(
     state.position.0.z += 0.05 * state.velocity.0.z;
 }
 
-fn draw_background_system(mut pixels_resource: ResMut<PixelsResource>) {
-    let frame = pixels_resource.pixels.get_frame_mut();
+fn draw_background_system(mut wrapper_query: Query<&mut PixelsWrapper>) {
+    let Ok(mut wrapper) = wrapper_query.get_single_mut() else { return };
+    let frame = wrapper.pixels.frame_mut();
+
     frame.copy_from_slice(&[0x00, 0x00, 0x00, 0xff].repeat(frame.len() / 4));
 }
 
 fn draw_wall_system(
-    mut pixels_resource: ResMut<PixelsResource>,
     state: Res<State>,
+    mut wrapper_query: Query<&mut PixelsWrapper>,
     sector_query: Query<&Sector>,
 ) {
     // Return early if current sector is not available
     let Some(current_sector) = state.current_sector.and_then(|id| {
+        // TODO: Improve this query, might be slow with lots of sectors
         sector_query.iter().find(|&s| s.id == id)
     }) else { return };
 
-    let frame = pixels_resource.pixels.get_frame_mut();
+    let Ok(mut wrapper) = wrapper_query.get_single_mut() else { return };
+    let frame = wrapper.pixels.frame_mut();
     let view_matrix = Mat3::from_rotation_z(-state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
 
@@ -573,15 +585,16 @@ fn draw_wall_system(
 }
 
 fn draw_minimap_system(
-    mut pixels_resource: ResMut<PixelsResource>,
     state: Res<State>,
+    mut wrapper_query: Query<&mut PixelsWrapper>,
     sector_query: Query<&Sector>,
 ) {
     if state.minimap == Minimap::Off {
         return;
     }
 
-    let frame = pixels_resource.pixels.get_frame_mut();
+    let Ok(mut wrapper) = wrapper_query.get_single_mut() else { return };
+    let frame = wrapper.pixels.frame_mut();
     let view_matrix = Mat3::from_rotation_z(-state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
     let reverse_view_matrix = Mat3::from_translation(vec2(state.position.0.x, state.position.0.y))
