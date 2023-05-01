@@ -11,7 +11,7 @@ release BIN_NAME:
     cargo build --bin {{BIN_NAME}} --features {{BIN_NAME}} --release
 
 dev BIN_NAME:
-    cargo run --bin {{BIN_NAME}} --features "{{BIN_NAME}} bevy/dynamic"
+    cargo run --bin {{BIN_NAME}} --features "{{BIN_NAME}} bevy/dynamic_linking"
 
 run BIN_NAME:
     cargo run --bin {{BIN_NAME}} --features {{BIN_NAME}} --release

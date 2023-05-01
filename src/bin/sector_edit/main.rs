@@ -8,8 +8,9 @@ use bevy::{
     scene::serde::SceneSerializer,
     tasks::IoTaskPool,
     utils::Duration,
+    window::WindowResolution,
 };
-use bevy_egui::{egui, EguiContext, EguiPlugin};
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use palette::named::*;
 use std::fs::File;
 use std::io::Write;
@@ -35,13 +36,12 @@ fn main() {
             update_title_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 title: "sector_edit".to_string(),
-                width: WIDTH,
-                height: HEIGHT,
+                resolution: WindowResolution::new(WIDTH, HEIGHT),
                 fit_canvas_to_parent: true,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(EguiPlugin)
@@ -135,16 +135,16 @@ fn save_scene_system(world: &mut World) {
 
 fn update_title_system(
     mut state: ResMut<State>,
-    mut windows: ResMut<Windows>,
     time: Res<Time>,
     diagnostics: Res<Diagnostics>,
+    mut window_query: Query<&mut Window>,
 ) {
     if state.update_title_timer.tick(time.delta()).finished() {
-        let window = windows.primary_mut();
+        let Ok(mut window) = window_query.get_single_mut() else { return };
 
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.value() {
-                window.set_title(format!("sector_edit: {value:.0} fps"));
+                window.title = format!("sector_edit: {value:.0} fps");
             }
         }
     }
@@ -157,17 +157,19 @@ fn escape_system(mut app_exit_events: EventWriter<AppExit>, key: Res<Input<KeyCo
 }
 
 fn egui_system(
-    mut egui_ctx: ResMut<EguiContext>,
+    mut contexts: EguiContexts,
     mut _state: ResMut<State>,
     mut sector_query: Query<&mut Sector>,
 ) {
-    egui_ctx.ctx_mut().set_visuals(egui::Visuals::light());
+    let ctx = contexts.ctx_mut();
+
+    ctx.set_visuals(egui::Visuals::light());
 
     let mut highligted_sector: Option<SectorId> = None;
     let mut highligted_wall: Option<Wall> = None;
     let mut highligted_vertex: Option<Position2> = None;
 
-    // egui::TopBottomPanel::top("top_panel").show(egui_ctx.ctx_mut(), |ui| {
+    // egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
     //     egui::menu::bar(ui, |ui| {
     //         ui.menu_button("File", |ui| {
     //             if ui.button("About...").clicked() {
@@ -179,7 +181,7 @@ fn egui_system(
 
     egui::SidePanel::left("left_panel")
         .default_width(250.0)
-        .show(egui_ctx.ctx_mut(), |ui| {
+        .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.heading("🔷 sector_edit");
             });
@@ -362,7 +364,7 @@ fn egui_system(
 
     egui::CentralPanel::default()
         .frame(egui::Frame::none())
-        .show(egui_ctx.ctx_mut(), |ui| {
+        .show(ctx, |ui| {
             egui::plot::Plot::new("plot")
                 .data_aspect(1.0)
                 .show_axes([true, true])
