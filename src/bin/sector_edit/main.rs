@@ -2,7 +2,7 @@ use sector::*;
 
 use bevy::{
     app::AppExit,
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     math::vec2,
     prelude::*,
     scene::serde::SceneSerializer,
@@ -35,18 +35,20 @@ fn main() {
         .insert_resource(State {
             update_title_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
         })
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "sector_edit".to_string(),
-                resolution: WindowResolution::new(WIDTH, HEIGHT),
-                fit_canvas_to_parent: true,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "sector_edit".to_string(),
+                    resolution: WindowResolution::new(WIDTH, HEIGHT),
+                    fit_canvas_to_parent: true,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(EguiPlugin)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_startup_system(init_scene_system)
+            EguiPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
+        ))
+        .add_systems(Startup, init_scene_system)
         .add_system(save_scene_system)
         .add_system(update_title_system)
         .add_system(escape_system)
@@ -136,13 +138,15 @@ fn save_scene_system(world: &mut World) {
 fn update_title_system(
     mut state: ResMut<State>,
     time: Res<Time>,
-    diagnostics: Res<Diagnostics>,
+    diagnostics: Res<DiagnosticsStore>,
     mut window_query: Query<&mut Window>,
 ) {
     if state.update_title_timer.tick(time.delta()).finished() {
-        let Ok(mut window) = window_query.get_single_mut() else { return };
+        let Ok(mut window) = window_query.get_single_mut() else {
+            return;
+        };
 
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.value() {
                 window.title = format!("sector_edit: {value:.0} fps");
             }
@@ -150,7 +154,7 @@ fn update_title_system(
     }
 }
 
-fn escape_system(mut app_exit_events: EventWriter<AppExit>, key: Res<Input<KeyCode>>) {
+fn escape_system(mut app_exit_events: EventWriter<AppExit>, key: Res<ButtonInput<KeyCode>>) {
     if key.just_pressed(KeyCode::Escape) {
         app_exit_events.send(AppExit);
     }

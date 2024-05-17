@@ -10,14 +10,18 @@ repository = "https://github.com/dtcristo/sector"
 publish = false
 
 [dependencies]
-bevy = { version = "0.10", default_features = false, features = ["bevy_scene"] }
+bevy = { version = "0.13", default_features = false, features = [
+    "bevy_scene",
+    "file_watcher",
+    "multi-threaded",
+] }
 lazy_static = "1"
 palette = "0.6"
 rmp-serde = "1"
 
 # sector(bin) deps
-bevy_pixels = { path = "../bevy_pixels", version = "0.10", optional = true }
-image = { version = "0.24", optional = true }
+bevy_pixels = { path = "../bevy_pixels", version = "0.13", optional = true }
+image = { version = "0.25", optional = true }
 rust_bresenham = { version = "0.1", optional = true }
 
 # sector_edit(bin) deps
@@ -27,18 +31,8 @@ bevy_egui = { version = "0.20", optional = true }
 console_error_panic_hook = "0.1"
 
 [features]
-sector = [
-    "bevy/bevy_asset",
-    "bevy/filesystem_watcher",
-    "bevy_pixels",
-    "image",
-    "rust_bresenham"
-]
-sector_edit = [
-    "bevy/bevy_asset",
-    "bevy/bevy_winit",
-    "bevy_egui"
-]
+sector = ["bevy/bevy_asset", "bevy_pixels", "image", "rust_bresenham"]
+sector_edit = ["bevy/bevy_asset", "bevy/bevy_winit", "bevy_egui"]
 
 [[bin]]
 name = "sector"
