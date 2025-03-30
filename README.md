@@ -4,14 +4,14 @@
   </h1>
   <p>
     <strong>
-      Sector/portal renderer for Bevy
+      Engine for retro 2.5D environments
     </strong>
   </p>
 </div>
 
 ## Overview
 
-_Experimental_ renderer for Bevy in the style of Doom and Duke Nukem 3D using sectors and portals. Built in Rust with [`bevy_pixels`](https://github.com/dtcristo/bevy_pixels) primarily for my own entertainment.
+_Experimental_ engine for retro 2.5D environments in the style of Doom and Duke Nukem 3D. Built with Rust and Bevy.
 
 ## License
 
