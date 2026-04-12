@@ -13,13 +13,15 @@ use bevy::{
     math::vec2,
     math::vec3,
     prelude::*,
-    scene::DynamicSceneRoot,
     window::{CursorGrabMode, CursorOptions, WindowResizeConstraints, WindowResolution},
 };
 use bevy_pixels::prelude::*;
 use palette::Hsv;
-use std::collections::VecDeque;
-use std::time::Duration;
+use sector::map::{map_to_sectors, SectorMap, SectorMapLoader};
+use std::{
+    collections::{HashMap, VecDeque},
+    time::Duration,
+};
 
 #[macro_use]
 extern crate lazy_static;
@@ -135,14 +137,68 @@ enum Minimap {
     Absolute,
 }
 
+#[derive(Resource, Debug, PartialEq)]
+struct MinimapMode(Minimap);
+
 #[derive(Resource, Debug)]
-struct State {
-    minimap: Minimap,
+struct WindowTitleTimer(Timer);
+
+#[derive(Resource, Debug)]
+struct MapHandle(Handle<SectorMap>);
+
+#[derive(Resource, Debug, Default)]
+struct MapSpawnState {
+    spawned: bool,
+}
+
+#[derive(Component, Debug)]
+struct Player {
     position: Position3,
     velocity: Velocity,
     direction: Direction,
-    update_title_timer: Timer,
     current_sector: Option<SectorId>,
+}
+
+struct SectorRuntimePlugin;
+
+impl Plugin for SectorRuntimePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<SectorMap>()
+            .init_asset_loader::<SectorMapLoader>()
+            .insert_resource(MinimapMode(Minimap::Off))
+            .insert_resource(WindowTitleTimer(Timer::new(
+                Duration::from_millis(500),
+                TimerMode::Repeating,
+            )))
+            .insert_resource(MapSpawnState::default())
+            .add_systems(Startup, (setup_player_system, queue_map_load_system))
+            .add_systems(
+                Update,
+                (
+                    spawn_loaded_map_system,
+                    update_title_system,
+                    mouse_capture_system,
+                    escape_system,
+                    switch_minimap_system,
+                    (
+                        player_look_system,
+                        player_translation_input_system,
+                        move_player_system,
+                        update_current_sector_system,
+                    )
+                        .chain(),
+                ),
+            )
+            .add_systems(
+                Draw,
+                (
+                    draw_background_system,
+                    draw_wall_system,
+                    draw_minimap_system,
+                )
+                    .chain(),
+            );
+    }
 }
 
 fn main() {
@@ -162,14 +218,6 @@ fn main() {
         .register_type::<RawColor>()
         .register_type::<Vec<RawColor>>()
         .register_type::<[u8; 3]>()
-        .insert_resource(State {
-            minimap: Minimap::Off,
-            position: Position3(vec3(0.0, 0.0, 2.0)),
-            velocity: Velocity(vec3(0.0, 0.0, 0.0)),
-            direction: Direction(0.0),
-            update_title_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
-            current_sector: None,
-        })
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
@@ -203,52 +251,60 @@ fn main() {
             }),
         })
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
-        // .add_plugin(LogDiagnosticsPlugin::default())
-        .add_systems(Startup, load_scene_system)
-        .add_systems(
-            Update,
-            (
-                initial_sector_system,
-                update_title_system,
-                mouse_capture_system,
-                escape_system,
-                switch_minimap_system,
-                player_movement_system,
-            ),
-        )
-        .add_systems(
-            Draw,
-            (
-                draw_background_system,
-                draw_wall_system,
-                draw_minimap_system,
-            )
-                .chain(),
-        )
+        .add_plugins(SectorRuntimePlugin)
         .run();
 }
 
-fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(DynamicSceneRoot(
-        asset_server.load(DEFAULT_SCENE_RON_FILE_PATH),
-    ));
+fn setup_player_system(mut commands: Commands) {
+    commands.spawn(Player {
+        position: Position3(vec3(0.0, 0.0, 2.0)),
+        velocity: Velocity(vec3(0.0, 0.0, 0.0)),
+        direction: Direction(0.0),
+        current_sector: None,
+    });
 }
 
-fn initial_sector_system(mut state: ResMut<State>, query: Query<&InitialSector>) {
-    if state.current_sector.is_none() {
-        if let Ok(initial_sector) = query.single() {
-            state.current_sector = Some(initial_sector.0);
-        }
+fn queue_map_load_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(MapHandle(asset_server.load(DEFAULT_MAP_FILE_PATH)));
+}
+
+fn spawn_loaded_map_system(
+    mut commands: Commands,
+    map_handle: Res<MapHandle>,
+    maps: Res<Assets<SectorMap>>,
+    mut map_spawn_state: ResMut<MapSpawnState>,
+    mut player_query: Query<&mut Player>,
+) {
+    if map_spawn_state.spawned {
+        return;
     }
+
+    let Some(map) = maps.get(&map_handle.0) else {
+        return;
+    };
+
+    let (initial_sector, sectors) =
+        map_to_sectors(map).expect("loaded map asset should be structurally valid");
+
+    if let Ok(mut player) = player_query.single_mut() {
+        player.current_sector = Some(initial_sector.0);
+    }
+
+    commands.spawn(initial_sector);
+    for sector in sectors {
+        commands.spawn(sector);
+    }
+
+    map_spawn_state.spawned = true;
 }
 
 fn update_title_system(
-    mut state: ResMut<State>,
+    mut title_timer: ResMut<WindowTitleTimer>,
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
     mut window_query: Query<&mut Window>,
 ) {
-    if state.update_title_timer.tick(time.delta()).is_finished() {
+    if title_timer.0.tick(time.delta()).is_finished() {
         let Ok(mut window) = window_query.single_mut() else {
             return;
         };
@@ -302,9 +358,9 @@ fn escape_system(
     }
 }
 
-fn switch_minimap_system(mut state: ResMut<State>, key: Res<ButtonInput<KeyCode>>) {
+fn switch_minimap_system(mut minimap: ResMut<MinimapMode>, key: Res<ButtonInput<KeyCode>>) {
     if key.just_pressed(KeyCode::Tab) {
-        state.minimap = match state.minimap {
+        minimap.0 = match minimap.0 {
             Minimap::Off => Minimap::FirstPerson,
             Minimap::FirstPerson => Minimap::Absolute,
             Minimap::Absolute => Minimap::Off,
@@ -312,8 +368,8 @@ fn switch_minimap_system(mut state: ResMut<State>, key: Res<ButtonInput<KeyCode>
     }
 }
 
-fn player_movement_system(
-    mut state: ResMut<State>,
+fn player_look_system(
+    mut player_query: Query<&mut Player>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
     key: Res<ButtonInput<KeyCode>>,
     cursor_options_query: Query<&CursorOptions>,
@@ -321,50 +377,109 @@ fn player_movement_system(
     let Ok(cursor_options) = cursor_options_query.single() else {
         return;
     };
+    let Ok(mut player) = player_query.single_mut() else {
+        return;
+    };
 
     if cursor_options.grab_mode == CursorGrabMode::Locked {
         for mouse_motion in mouse_motion_events.read() {
-            state.direction.0 += -mouse_motion.delta.x * 0.005;
+            player.direction.0 += -mouse_motion.delta.x * 0.005;
         }
     }
 
     if key.pressed(KeyCode::ArrowLeft) || key.pressed(KeyCode::KeyQ) {
-        state.direction.0 += 0.0001;
+        player.direction.0 += 0.0001;
     }
     if key.pressed(KeyCode::ArrowRight) || key.pressed(KeyCode::KeyE) {
-        state.direction.0 -= 0.0001;
+        player.direction.0 -= 0.0001;
     }
+}
 
-    state.velocity.0.x = 0.0;
-    state.velocity.0.y = 0.0;
-    state.velocity.0.z = 0.0;
+fn player_translation_input_system(
+    mut player_query: Query<&mut Player>,
+    key: Res<ButtonInput<KeyCode>>,
+) {
+    let Ok(mut player) = player_query.single_mut() else {
+        return;
+    };
+
+    player.velocity.0 = Vec3::ZERO;
 
     if key.pressed(KeyCode::ArrowUp) || key.pressed(KeyCode::KeyW) {
-        state.velocity.0.x -= state.direction.0.sin();
-        state.velocity.0.y += state.direction.0.cos();
+        player.velocity.0.x -= player.direction.0.sin();
+        player.velocity.0.y += player.direction.0.cos();
     }
     if key.pressed(KeyCode::ArrowDown) || key.pressed(KeyCode::KeyS) {
-        state.velocity.0.x += state.direction.0.sin();
-        state.velocity.0.y -= state.direction.0.cos();
+        player.velocity.0.x += player.direction.0.sin();
+        player.velocity.0.y -= player.direction.0.cos();
     }
     if key.pressed(KeyCode::KeyA) {
-        state.velocity.0.x -= state.direction.0.cos();
-        state.velocity.0.y -= state.direction.0.sin();
+        player.velocity.0.x -= player.direction.0.cos();
+        player.velocity.0.y -= player.direction.0.sin();
     }
     if key.pressed(KeyCode::KeyD) {
-        state.velocity.0.x += state.direction.0.cos();
-        state.velocity.0.y += state.direction.0.sin();
+        player.velocity.0.x += player.direction.0.cos();
+        player.velocity.0.y += player.direction.0.sin();
     }
     if key.pressed(KeyCode::Space) {
-        state.velocity.0.z += 1.0;
+        player.velocity.0.z += 1.0;
     }
     if key.pressed(KeyCode::ControlLeft) {
-        state.velocity.0.z -= 1.0;
+        player.velocity.0.z -= 1.0;
+    }
+}
+
+fn move_player_system(mut player_query: Query<&mut Player>) {
+    let Ok(mut player) = player_query.single_mut() else {
+        return;
+    };
+
+    let velocity = player.velocity.0;
+    player.position.0 += 0.05 * velocity;
+}
+
+fn update_current_sector_system(
+    mut player_query: Query<&mut Player>,
+    sector_query: Query<&Sector>,
+) {
+    let Ok(mut player) = player_query.single_mut() else {
+        return;
+    };
+
+    if let Some(sector_id) = sector_query
+        .iter()
+        .find(|sector| sector_contains_position(sector, player.position))
+        .map(|sector| sector.id)
+    {
+        player.current_sector = Some(sector_id);
+    }
+}
+
+fn sector_contains_position(sector: &Sector, position: Position3) -> bool {
+    if position.0.z < sector.floor.0 || position.0.z > sector.ceil.0 {
+        return false;
     }
 
-    state.position.0.x += 0.05 * state.velocity.0.x;
-    state.position.0.y += 0.05 * state.velocity.0.y;
-    state.position.0.z += 0.05 * state.velocity.0.z;
+    let point = position.truncate().0;
+    let mut inside = false;
+
+    for index in 0..sector.vertices.len() {
+        let current = sector.vertices[index].0;
+        let next = sector.vertices[(index + 1) % sector.vertices.len()].0;
+
+        let crosses_scanline = (current.y > point.y) != (next.y > point.y);
+        if !crosses_scanline {
+            continue;
+        }
+
+        let intersect_x =
+            ((next.x - current.x) * (point.y - current.y) / (next.y - current.y)) + current.x;
+        if point.x < intersect_x {
+            inside = !inside;
+        }
+    }
+
+    inside
 }
 
 fn draw_background_system(mut wrapper_query: Query<&mut PixelsWrapper>) {
@@ -377,15 +492,21 @@ fn draw_background_system(mut wrapper_query: Query<&mut PixelsWrapper>) {
 }
 
 fn draw_wall_system(
-    state: Res<State>,
+    player_query: Query<&Player>,
     mut wrapper_query: Query<&mut PixelsWrapper>,
     sector_query: Query<&Sector>,
 ) {
-    // Return early if current sector is not available
-    let Some(current_sector) = state.current_sector.and_then(|id| {
-        // TODO: Improve this query, might be slow with lots of sectors
-        sector_query.iter().find(|&s| s.id == id)
-    }) else {
+    let Ok(player) = player_query.single() else {
+        return;
+    };
+    let sectors_by_id: HashMap<_, _> = sector_query
+        .iter()
+        .map(|sector| (sector.id, sector))
+        .collect();
+    let Some(current_sector) = player
+        .current_sector
+        .and_then(|id| sectors_by_id.get(&id).copied())
+    else {
         return;
     };
 
@@ -393,8 +514,8 @@ fn draw_wall_system(
         return;
     };
     let frame = wrapper.pixels.frame_mut();
-    let view_matrix = Mat3::from_rotation_z(-state.direction.0)
-        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
+    let view_matrix = Mat3::from_rotation_z(-player.direction.0)
+        * Mat3::from_translation(-vec2(player.position.0.x, player.position.0.y));
 
     let mut portal_queue = VecDeque::<Portal>::new();
     let mut y_min_vec = vec![GAP; WIDTH as usize];
@@ -413,8 +534,8 @@ fn draw_wall_system(
         let sector = self_portal.sector;
 
         // View relative floor and ceiling locations
-        let view_floor = Length(sector.floor.0 - state.position.0.z);
-        let view_ceil = Length(sector.ceil.0 - state.position.0.z);
+        let view_floor = Length(sector.floor.0 - player.position.0.z);
+        let view_ceil = Length(sector.ceil.0 - player.position.0.z);
 
         // Iterate through each wall within the sector
         'walls: for wall in sector.to_walls() {
@@ -453,7 +574,7 @@ fn draw_wall_system(
                 // Fetch adjacent portal sector
                 let portal_sector = wall
                     .portal_sector
-                    .and_then(|id| sector_query.iter().find(|&s| s.id == id));
+                    .and_then(|id| sectors_by_id.get(&id).copied());
 
                 // Process adjacent portal sector
                 let (y_portal_top, y_portal_bottom) = if let Some(portal_sector) = portal_sector {
@@ -464,8 +585,8 @@ fn draw_wall_system(
                         x_max: x_right,
                     });
 
-                    let view_portal_ceil = Length(portal_sector.ceil.0 - state.position.0.z);
-                    let view_portal_floor = Length(portal_sector.floor.0 - state.position.0.z);
+                    let view_portal_ceil = Length(portal_sector.ceil.0 - player.position.0.z);
+                    let view_portal_floor = Length(portal_sector.floor.0 - player.position.0.z);
 
                     let y_portal_top = if view_portal_ceil.0 < view_ceil.0 {
                         let portal_ceil_t =
@@ -609,22 +730,28 @@ fn draw_wall_system(
 }
 
 fn draw_minimap_system(
-    state: Res<State>,
+    minimap: Res<MinimapMode>,
+    player_query: Query<&Player>,
     mut wrapper_query: Query<&mut PixelsWrapper>,
     sector_query: Query<&Sector>,
 ) {
-    if state.minimap == Minimap::Off {
+    if minimap.0 == Minimap::Off {
         return;
     }
+
+    let Ok(player) = player_query.single() else {
+        return;
+    };
 
     let Ok(mut wrapper) = wrapper_query.single_mut() else {
         return;
     };
     let frame = wrapper.pixels.frame_mut();
-    let view_matrix = Mat3::from_rotation_z(-state.direction.0)
-        * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
-    let reverse_view_matrix = Mat3::from_translation(vec2(state.position.0.x, state.position.0.y))
-        * Mat3::from_rotation_z(state.direction.0);
+    let view_matrix = Mat3::from_rotation_z(-player.direction.0)
+        * Mat3::from_translation(-vec2(player.position.0.x, player.position.0.y));
+    let reverse_view_matrix =
+        Mat3::from_translation(vec2(player.position.0.x, player.position.0.y))
+            * Mat3::from_rotation_z(player.direction.0);
 
     // Draw walls
     for sector in &sector_query {
@@ -642,7 +769,7 @@ fn draw_minimap_system(
                 view_right_after_clip = r;
             }
 
-            if let Some((left, right, left_after_clip, right_after_clip)) = match state.minimap {
+            if let Some((left, right, left_after_clip, right_after_clip)) = match minimap.0 {
                 Minimap::Off => None,
                 Minimap::FirstPerson => Some((
                     view_left.into(),
@@ -687,7 +814,7 @@ fn draw_minimap_system(
     let view_far_left = Position2(*LEFT_CLIP_2);
     let view_far_right = Position2(*RIGHT_CLIP_1);
 
-    if let Some((player, near_left, near_right, far_left, far_right)) = match state.minimap {
+    if let Some((player_pixel, near_left, near_right, far_left, far_right)) = match minimap.0 {
         Minimap::Off => None,
         Minimap::FirstPerson => Some((
             view_player.into(),
@@ -697,7 +824,7 @@ fn draw_minimap_system(
             view_far_right.into(),
         )),
         Minimap::Absolute => {
-            let abs_player = state.position.truncate();
+            let abs_player = player.position.truncate();
             let abs_near_left = view_near_left.transform(reverse_view_matrix);
             let abs_near_right = view_near_right.transform(reverse_view_matrix);
             let abs_far_left = view_far_left.transform(reverse_view_matrix);
@@ -715,6 +842,6 @@ fn draw_minimap_system(
         draw_line(frame, near_left, far_left, *FRUSTUM_COLOR);
         draw_line(frame, near_right, far_right, *FRUSTUM_COLOR);
         draw_line(frame, near_left, near_right, *FRUSTUM_COLOR);
-        draw_pixel(frame, player, *PLAYER_COLOR);
+        draw_pixel(frame, player_pixel, *PLAYER_COLOR);
     }
 }

@@ -1,0 +1,99 @@
+(
+  initial_sector: 0,
+  sectors: [
+    (
+      floor: 0.0,
+      ceil: 4.0,
+      vertices: [
+        (2.0, 10.0),
+        (4.0, 10.0),
+        (11.0, -8.0),
+        (-4.0, -8.0),
+        (-4.0, 1.0),
+        (-2.0, 5.0),
+      ],
+      walls: [
+        (
+          color: (0, 0, 255),
+          portal: None,
+        ),
+        (
+          color: (0, 128, 0),
+          portal: None,
+        ),
+        (
+          color: (255, 165, 0),
+          portal: None,
+        ),
+        (
+          color: (255, 0, 255),
+          portal: Some(2),
+        ),
+        (
+          color: (255, 255, 0),
+          portal: None,
+        ),
+        (
+          color: (255, 0, 0),
+          portal: Some(1),
+        ),
+      ],
+    ),
+    (
+      floor: 0.25,
+      ceil: 3.75,
+      vertices: [
+        (2.0, 10.0),
+        (-2.0, 5.0),
+        (-4.0, 15.0),
+        (4.0, 15.0),
+      ],
+      walls: [
+        (
+          color: (255, 0, 0),
+          portal: Some(0),
+        ),
+        (
+          color: (255, 0, 255),
+          portal: None,
+        ),
+        (
+          color: (0, 128, 0),
+          portal: None,
+        ),
+        (
+          color: (255, 255, 0),
+          portal: None,
+        ),
+      ],
+    ),
+    (
+      floor: -0.5,
+      ceil: 4.5,
+      vertices: [
+        (-4.0, 1.0),
+        (-4.0, -8.0),
+        (-7.0, -9.0),
+        (-10.0, -5.0),
+      ],
+      walls: [
+        (
+          color: (255, 0, 0),
+          portal: Some(0),
+        ),
+        (
+          color: (255, 0, 255),
+          portal: None,
+        ),
+        (
+          color: (0, 128, 0),
+          portal: None,
+        ),
+        (
+          color: (0, 0, 255),
+          portal: None,
+        ),
+      ],
+    ),
+  ],
+)

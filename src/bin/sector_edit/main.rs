@@ -5,17 +5,14 @@ use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     ecs::message::MessageWriter,
     input::ButtonInput,
-    math::vec2,
     prelude::*,
-    scene::serde::SceneSerializer,
     tasks::IoTaskPool,
     window::WindowResolution,
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use egui_plot::{Line as PlotLine, MarkerShape, Plot, PlotPoints, Points, Polygon};
-use palette::named::*;
-use std::fs::File;
-use std::io::Write;
+use sector::map::{load_map_from_path, map_to_sectors, save_map_to_path, sectors_to_map};
+use std::path::PathBuf;
 use std::time::Duration;
 
 const WIDTH: u32 = 1280;
@@ -50,7 +47,10 @@ fn main() {
         .add_plugins(EguiPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_systems(Startup, init_scene_system)
-        .add_systems(Update, (save_scene_system, update_title_system, escape_system))
+        .add_systems(
+            Update,
+            (save_scene_system, update_title_system, escape_system),
+        )
         .add_systems(EguiPrimaryContextPass, egui_system)
         .run();
 }
@@ -58,87 +58,50 @@ fn main() {
 fn init_scene_system(world: &mut World) {
     world.spawn(Camera2d);
 
-    // Vertices
-    let v0 = Position2(vec2(2.0, 10.0));
-    let v1 = Position2(vec2(4.0, 10.0));
-    let v2 = Position2(vec2(11.0, -8.0));
-    let v3 = Position2(vec2(-4.0, -8.0));
-    let v4 = Position2(vec2(-4.0, 1.0));
-    let v5 = Position2(vec2(-2.0, 5.0));
-    let v6 = Position2(vec2(-4.0, 15.0));
-    let v7 = Position2(vec2(4.0, 15.0));
-    let v8 = Position2(vec2(-7.0, -9.0));
-    let v9 = Position2(vec2(-10.0, -5.0));
-
-    // Spawn singleton component entity
-    world.spawn(InitialSector(SectorId(0)));
-
-    world.spawn(Sector {
-        id: SectorId(0),
-        vertices: vec![v0, v1, v2, v3, v4, v5],
-        portal_sectors: vec![None, None, None, Some(SectorId(2)), None, Some(SectorId(1))],
-        colors: vec![
-            BLUE.into(),
-            GREEN.into(),
-            ORANGE.into(),
-            FUCHSIA.into(),
-            YELLOW.into(),
-            RED.into(),
-        ],
-        floor: Length(0.0),
-        ceil: Length(4.0),
+    let map_path = PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH);
+    let map = load_map_from_path(&map_path)
+        .unwrap_or_else(|error| panic!("failed to load map from {}: {error}", map_path.display()));
+    let (initial_sector, sectors) = map_to_sectors(&map).unwrap_or_else(|error| {
+        panic!("failed to convert map from {}: {error}", map_path.display())
     });
 
-    world.spawn(Sector {
-        id: SectorId(1),
-        vertices: vec![v0, v5, v6, v7],
-        portal_sectors: vec![Some(SectorId(0)), None, None, None],
-        colors: vec![RED.into(), FUCHSIA.into(), GREEN.into(), YELLOW.into()],
-        floor: Length(0.25),
-        ceil: Length(3.75),
-    });
-
-    world.spawn(Sector {
-        id: SectorId(2),
-        vertices: vec![v4, v3, v8, v9],
-        portal_sectors: vec![Some(SectorId(0)), None, None, None],
-        colors: vec![RED.into(), FUCHSIA.into(), GREEN.into(), BLUE.into()],
-        floor: Length(-0.5),
-        ceil: Length(4.5),
-    });
+    world.spawn(initial_sector);
+    for sector in sectors {
+        world.spawn(sector);
+    }
 }
 
 fn save_scene_system(world: &mut World) {
-    let entity_ids: Vec<_> = world
-        .query_filtered::<Entity, Or<(With<InitialSector>, With<Sector>)>>()
-        .iter(world)
+    let mut initial_sector_query = world.query::<Ref<InitialSector>>();
+    let Ok(initial_sector) = initial_sector_query.single(world) else {
+        return;
+    };
+    let initial_sector_id = initial_sector.0;
+    let initial_sector_changed = initial_sector.is_changed();
+
+    let mut sector_query = world.query::<Ref<Sector>>();
+    let sector_refs: Vec<_> = sector_query.iter(world).collect();
+    let should_save =
+        initial_sector_changed || sector_refs.iter().any(|sector| sector.is_changed());
+
+    if !should_save {
+        return;
+    }
+
+    let sectors: Vec<_> = sector_refs
+        .into_iter()
+        .map(|sector| (*sector).clone())
         .collect();
-    let scene = DynamicSceneBuilder::from_world(world)
-        .extract_entities(entity_ids.into_iter())
-        .build();
-    let type_registry = world.resource::<AppTypeRegistry>();
-    let type_registry = type_registry.read();
-
-    let scene_ron = scene.serialize(&type_registry).unwrap();
+    let map =
+        sectors_to_map(initial_sector_id, &sectors).expect("editor sectors should save cleanly");
+    let map_path = PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH);
 
     #[cfg(not(target_arch = "wasm32"))]
     IoTaskPool::get()
         .spawn(async move {
-            File::create(format!("assets/{DEFAULT_SCENE_RON_FILE_PATH}"))
-                .and_then(|mut file| file.write(scene_ron.as_bytes()))
-                .expect("failed to write `scene_ron` to file");
-        })
-        .detach();
-
-    let scene_serializer = SceneSerializer::new(&scene, &type_registry);
-    let scene_mp: Vec<u8> = rmp_serde::to_vec(&scene_serializer).unwrap();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    IoTaskPool::get()
-        .spawn(async move {
-            File::create(format!("assets/{DEFAULT_SCENE_MP_FILE_PATH}"))
-                .and_then(|mut file| file.write(&scene_mp))
-                .expect("failed to write `scene_mp` to file");
+            save_map_to_path(&map, &map_path).unwrap_or_else(|error| {
+                panic!("failed to save map to {}: {error}", map_path.display())
+            });
         })
         .detach();
 }

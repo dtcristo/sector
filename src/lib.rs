@@ -4,8 +4,9 @@ use palette::{named::*, FromColor, Hsv, IntoColor, Pixel, Srgb};
 #[macro_use]
 extern crate lazy_static;
 
-pub const DEFAULT_SCENE_RON_FILE_PATH: &str = "scenes/default.scn.ron";
-pub const DEFAULT_SCENE_MP_FILE_PATH: &str = "scenes/default.scn.mp";
+pub mod map;
+
+pub const DEFAULT_MAP_FILE_PATH: &str = "maps/default.map.ron";
 
 lazy_static! {
     // Colors
@@ -42,10 +43,10 @@ impl From<RawColor> for Srgb<u8> {
 #[reflect(Component)]
 pub struct InitialSector(pub SectorId);
 
-#[derive(Reflect, Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Reflect, Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SectorId(pub u32);
 
-#[derive(Component, Reflect, Debug, Default)]
+#[derive(Component, Reflect, Debug, Default, Clone)]
 #[reflect(Component)]
 pub struct Sector {
     pub id: SectorId,
