@@ -4,6 +4,8 @@ use palette::{named::*, FromColor, Hsv, IntoColor, Pixel, Srgb};
 #[macro_use]
 extern crate lazy_static;
 
+#[cfg(feature = "sector")]
+pub mod game;
 pub mod map;
 
 pub const DEFAULT_MAP_FILE_PATH: &str = "maps/default.map.ron";
@@ -18,7 +20,7 @@ lazy_static! {
     pub static ref MISSING_WALL_COLOR: RawColor = RED.into();
 }
 
-#[derive(Reflect, Debug, Copy, Clone, Default)]
+#[derive(Reflect, Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub struct RawColor(pub [u8; 3]);
 
 impl From<Srgb<u8>> for RawColor {
@@ -46,7 +48,7 @@ pub struct InitialSector(pub SectorId);
 #[derive(Reflect, Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SectorId(pub u32);
 
-#[derive(Component, Reflect, Debug, Default, Clone)]
+#[derive(Component, Reflect, Debug, Default, Clone, PartialEq)]
 #[reflect(Component)]
 pub struct Sector {
     pub id: SectorId,
@@ -108,7 +110,7 @@ pub struct Wall {
     pub color: Hsv,
 }
 
-#[derive(Reflect, Debug, Copy, Clone, Default)]
+#[derive(Reflect, Debug, Copy, Clone, Default, PartialEq)]
 pub struct Length(pub f32);
 
 /// World position in 3D, right-handed coordinate system with z up.
@@ -117,7 +119,7 @@ pub struct Length(pub f32);
 ///   ^
 ///   |
 /// +z.---> +x
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Position3(pub Vec3);
 
 impl Position3 {
@@ -132,7 +134,7 @@ impl Position3 {
 ///  ^
 ///  |
 ///  .---> +x
-#[derive(Reflect, Debug, Copy, Clone, Default)]
+#[derive(Reflect, Debug, Copy, Clone, Default, PartialEq)]
 pub struct Position2(pub Vec2);
 
 impl Position2 {

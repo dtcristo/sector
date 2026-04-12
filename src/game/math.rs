@@ -1,15 +1,13 @@
-use crate::*;
+use super::*;
 
 pub fn clip_wall(
     mut view_left: Position2,
     mut view_right: Position2,
 ) -> Option<(Position2, Position2)> {
-    // Skip entirely behind back
     if view_left.0.y < NEAR && view_right.0.y < NEAR {
         return None;
     }
 
-    // Clip left side
     if let Some(intersection) = intersect(view_left.0, view_right.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
         if intersection.x < -*X_NEAR {
             if point_behind(view_left.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
@@ -20,7 +18,6 @@ pub fn clip_wall(
         }
     }
 
-    // Clip right side
     if let Some(intersection) = intersect(view_left.0, view_right.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
         if intersection.x > *X_NEAR {
             if point_behind(view_left.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
@@ -31,7 +28,6 @@ pub fn clip_wall(
         }
     }
 
-    // Clip behind back
     if view_left.0.y < NEAR || view_right.0.y < NEAR {
         if let Some(intersection) = intersect(view_left.0, view_right.0, *BACK_CLIP_1, *BACK_CLIP_2)
         {
@@ -43,12 +39,10 @@ pub fn clip_wall(
         }
     }
 
-    // Skip entirely behind left side
     if point_behind(view_right.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
         return None;
     }
 
-    // Skip entirely behind right side
     if point_behind(view_left.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
         return None;
     }
@@ -95,4 +89,47 @@ pub fn between(test: f32, a: f32, b: f32) -> bool {
 
 pub fn point_behind(point: Vec2, a: Vec2, b: Vec2) -> bool {
     vec2(b.x - a.x, b.y - a.y).perp_dot(vec2(point.x - a.x, point.y - a.y)) > 0.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn intersect_finds_crossing_lines() {
+        let intersection = intersect(
+            vec2(-1.0, -1.0),
+            vec2(1.0, 1.0),
+            vec2(-1.0, 1.0),
+            vec2(1.0, -1.0),
+        )
+        .unwrap();
+        assert_eq!(intersection, Vec2::ZERO);
+    }
+
+    #[test]
+    fn clip_wall_removes_segment_behind_camera() {
+        assert!(clip_wall(Position2(vec2(-1.0, -1.0)), Position2(vec2(1.0, -2.0))).is_none());
+    }
+
+    #[test]
+    fn clip_wall_trims_segment_crossing_near_plane() {
+        let clipped = clip_wall(Position2(vec2(-0.05, 0.05)), Position2(vec2(0.05, 1.0))).unwrap();
+        assert!(clipped.0 .0.y >= NEAR);
+        assert!(clipped.1 .0.y >= NEAR);
+    }
+
+    #[test]
+    fn point_behind_uses_directed_edge() {
+        assert!(point_behind(
+            vec2(0.0, 1.0),
+            vec2(-1.0, 0.0),
+            vec2(1.0, 0.0)
+        ));
+        assert!(!point_behind(
+            vec2(0.0, -1.0),
+            vec2(-1.0, 0.0),
+            vec2(1.0, 0.0)
+        ));
+    }
 }
