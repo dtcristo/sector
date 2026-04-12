@@ -17,7 +17,7 @@ lazy_static! {
     pub static ref MISSING_WALL_COLOR: RawColor = RED.into();
 }
 
-#[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
+#[derive(Reflect, Debug, Copy, Clone, Default)]
 pub struct RawColor(pub [u8; 3]);
 
 impl From<Srgb<u8>> for RawColor {
@@ -42,7 +42,7 @@ impl From<RawColor> for Srgb<u8> {
 #[reflect(Component)]
 pub struct InitialSector(pub SectorId);
 
-#[derive(Reflect, FromReflect, Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Reflect, Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct SectorId(pub u32);
 
 #[derive(Component, Reflect, Debug, Default)]
@@ -64,7 +64,9 @@ impl Sector {
         let mut portal_sector_iter = self.portal_sectors.iter();
         let mut color_iter = self.colors.iter();
 
-        let Some(&initial) = vertex_iter.next() else { return walls };
+        let Some(&initial) = vertex_iter.next() else {
+            return walls;
+        };
 
         let mut add_wall = |left: Position2, right: Position2| {
             let raw_color = *color_iter.next().unwrap_or(&MISSING_WALL_COLOR);
@@ -129,7 +131,7 @@ impl Position3 {
 ///  ^
 ///  |
 ///  .---> +x
-#[derive(Reflect, FromReflect, Debug, Copy, Clone, Default)]
+#[derive(Reflect, Debug, Copy, Clone, Default)]
 pub struct Position2(pub Vec2);
 
 impl Position2 {

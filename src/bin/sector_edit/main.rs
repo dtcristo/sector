@@ -2,21 +2,24 @@ use sector::*;
 
 use bevy::{
     app::AppExit,
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    ecs::message::MessageWriter,
+    input::ButtonInput,
     math::vec2,
     prelude::*,
     scene::serde::SceneSerializer,
     tasks::IoTaskPool,
-    utils::Duration,
     window::WindowResolution,
 };
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
+use egui_plot::{Line as PlotLine, MarkerShape, Plot, PlotPoints, Points, Polygon};
 use palette::named::*;
 use std::fs::File;
 use std::io::Write;
+use std::time::Duration;
 
-const WIDTH: f32 = 1280.0;
-const HEIGHT: f32 = 960.0;
+const WIDTH: u32 = 1280;
+const HEIGHT: u32 = 960;
 
 #[derive(Resource, Debug)]
 struct State {
@@ -44,17 +47,17 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(EguiPlugin)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_startup_system(init_scene_system)
-        .add_system(save_scene_system)
-        .add_system(update_title_system)
-        .add_system(escape_system)
-        .add_system(egui_system)
+        .add_plugins(EguiPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_systems(Startup, init_scene_system)
+        .add_systems(Update, (save_scene_system, update_title_system, escape_system))
+        .add_systems(EguiPrimaryContextPass, egui_system)
         .run();
 }
 
 fn init_scene_system(world: &mut World) {
+    world.spawn(Camera2d);
+
     // Vertices
     let v0 = Position2(vec2(2.0, 10.0));
     let v1 = Position2(vec2(4.0, 10.0));
@@ -106,10 +109,17 @@ fn init_scene_system(world: &mut World) {
 }
 
 fn save_scene_system(world: &mut World) {
+    let entity_ids: Vec<_> = world
+        .query_filtered::<Entity, Or<(With<InitialSector>, With<Sector>)>>()
+        .iter(world)
+        .collect();
+    let scene = DynamicSceneBuilder::from_world(world)
+        .extract_entities(entity_ids.into_iter())
+        .build();
     let type_registry = world.resource::<AppTypeRegistry>();
-    let scene = DynamicScene::from_world(&world, type_registry);
+    let type_registry = type_registry.read();
 
-    let scene_ron = scene.serialize_ron(type_registry).unwrap();
+    let scene_ron = scene.serialize(&type_registry).unwrap();
 
     #[cfg(not(target_arch = "wasm32"))]
     IoTaskPool::get()
@@ -120,7 +130,7 @@ fn save_scene_system(world: &mut World) {
         })
         .detach();
 
-    let scene_serializer = SceneSerializer::new(&scene, type_registry);
+    let scene_serializer = SceneSerializer::new(&scene, &type_registry);
     let scene_mp: Vec<u8> = rmp_serde::to_vec(&scene_serializer).unwrap();
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -136,13 +146,15 @@ fn save_scene_system(world: &mut World) {
 fn update_title_system(
     mut state: ResMut<State>,
     time: Res<Time>,
-    diagnostics: Res<Diagnostics>,
+    diagnostics: Res<DiagnosticsStore>,
     mut window_query: Query<&mut Window>,
 ) {
-    if state.update_title_timer.tick(time.delta()).finished() {
-        let Ok(mut window) = window_query.get_single_mut() else { return };
+    if state.update_title_timer.tick(time.delta()).is_finished() {
+        let Ok(mut window) = window_query.single_mut() else {
+            return;
+        };
 
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.value() {
                 window.title = format!("sector_edit: {value:.0} fps");
             }
@@ -150,9 +162,9 @@ fn update_title_system(
     }
 }
 
-fn escape_system(mut app_exit_events: EventWriter<AppExit>, key: Res<Input<KeyCode>>) {
+fn escape_system(mut app_exit_events: MessageWriter<AppExit>, key: Res<ButtonInput<KeyCode>>) {
     if key.just_pressed(KeyCode::Escape) {
-        app_exit_events.send(AppExit);
+        app_exit_events.write(AppExit::Success);
     }
 }
 
@@ -161,7 +173,7 @@ fn egui_system(
     mut _state: ResMut<State>,
     mut sector_query: Query<&mut Sector>,
 ) {
-    let ctx = contexts.ctx_mut();
+    let Ok(ctx) = contexts.ctx_mut() else { return };
 
     ctx.set_visuals(egui::Visuals::light());
 
@@ -192,7 +204,7 @@ fn egui_system(
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
                     for mut sector in &mut sector_query {
-                        let sector_frame_response = egui::Frame::none()
+                        let sector_frame_response = egui::Frame::NONE
                             .show(ui, |ui| {
                                 egui::collapsing_header::CollapsingState::load_with_default_open(
                                     ui.ctx(),
@@ -206,14 +218,14 @@ fn egui_system(
                                     ui.add(
                                         egui::DragValue::new(&mut sector.floor.0)
                                             .speed(0.1)
-                                            .clamp_range(-10.0..=(10.0 - 0.1))
+                                            .range(-10.0..=(10.0 - 0.1))
                                             .prefix("floor: "),
                                     );
                                     let floor = sector.floor.0;
                                     ui.add(
                                         egui::DragValue::new(&mut sector.ceil.0)
                                             .speed(0.1)
-                                            .clamp_range((floor + 0.1)..=10.0)
+                                            .range((floor + 0.1)..=10.0)
                                             .prefix("ceil: "),
                                     );
 
@@ -221,7 +233,7 @@ fn egui_system(
                                         .default_open(true)
                                         .show(ui, |ui| {
                                             for (i, wall) in sector.to_walls().iter().enumerate() {
-                                                let wall_response = egui::Frame::none()
+                                                let wall_response = egui::Frame::NONE
                                                     .show(ui, |ui| {
                                                         egui::CollapsingHeader::new(format!(
                                                             "wall {}",
@@ -239,7 +251,7 @@ fn egui_system(
                                                                             &mut x,
                                                                         )
                                                                         .speed(0.1)
-                                                                        .clamp_range(-100.0..=100.0)
+                                                                        .range(-100.0..=100.0)
                                                                         .prefix("x: "),
                                                                     );
                                                                     ui.add(
@@ -247,7 +259,7 @@ fn egui_system(
                                                                             &mut y,
                                                                         )
                                                                         .speed(0.1)
-                                                                        .clamp_range(-100.0..=100.0)
+                                                                        .range(-100.0..=100.0)
                                                                         .prefix("y: "),
                                                                     );
                                                                 })
@@ -267,7 +279,7 @@ fn egui_system(
                                                                             &mut x,
                                                                         )
                                                                         .speed(0.1)
-                                                                        .clamp_range(-100.0..=100.0)
+                                                                        .range(-100.0..=100.0)
                                                                         .prefix("x: "),
                                                                     );
                                                                     ui.add(
@@ -275,7 +287,7 @@ fn egui_system(
                                                                             &mut y,
                                                                         )
                                                                         .speed(0.1)
-                                                                        .clamp_range(-100.0..=100.0)
+                                                                        .range(-100.0..=100.0)
                                                                         .prefix("y: "),
                                                                     );
                                                                 })
@@ -317,13 +329,13 @@ fn egui_system(
                                                         ui.add(
                                                             egui::DragValue::new(&mut vertex.0.x)
                                                                 .speed(0.1)
-                                                                .clamp_range(-100.0..=100.0)
+                                                                .range(-100.0..=100.0)
                                                                 .prefix("x: "),
                                                         );
                                                         ui.add(
                                                             egui::DragValue::new(&mut vertex.0.y)
                                                                 .speed(0.1)
-                                                                .clamp_range(-100.0..=100.0)
+                                                                .range(-100.0..=100.0)
                                                                 .prefix("y: "),
                                                         );
                                                     })
@@ -345,30 +357,33 @@ fn egui_system(
                 });
         });
 
-    let polygons: Vec<egui::plot::Polygon> = sector_query
+    let polygons: Vec<Polygon<'static>> = sector_query
         .iter()
         .map(|sector| {
             let highlighted =
                 highligted_sector.is_some() && highligted_sector.unwrap() == sector.id;
 
-            egui::plot::Polygon::new(egui::plot::PlotPoints::new(
-                sector
-                    .vertices
-                    .iter()
-                    .map(|v| [v.0.x as f64, v.0.y as f64])
-                    .collect(),
-            ))
+            Polygon::new(
+                format!("sector {}", sector.id.0),
+                PlotPoints::new(
+                    sector
+                        .vertices
+                        .iter()
+                        .map(|v| [v.0.x as f64, v.0.y as f64])
+                        .collect(),
+                ),
+            )
             .highlight(highlighted)
         })
         .collect();
 
     egui::CentralPanel::default()
-        .frame(egui::Frame::none())
+        .frame(egui::Frame::NONE)
         .show(ctx, |ui| {
-            egui::plot::Plot::new("plot")
+            Plot::new("plot")
                 .data_aspect(1.0)
                 .show_axes([true, true])
-                .auto_bounds_x()
+                .auto_bounds([true, false])
                 .show(ui, |plot_ui| {
                     for polygon in polygons {
                         plot_ui.polygon(polygon);
@@ -376,7 +391,7 @@ fn egui_system(
 
                     if highligted_wall.is_some() {
                         let wall = highligted_wall.unwrap();
-                        let wall_points = egui::plot::PlotPoints::new(vec![
+                        let wall_points = PlotPoints::new(vec![
                             [wall.left.0.x as f64, wall.left.0.y as f64],
                             [wall.right.0.x as f64, wall.right.0.y as f64],
                         ]);
@@ -386,7 +401,7 @@ fn egui_system(
                             wall.raw_color.0[2],
                         );
                         plot_ui.line(
-                            egui::plot::Line::new(wall_points)
+                            PlotLine::new("highlighted wall", wall_points)
                                 .color(wall_color32)
                                 .highlight(true)
                                 .width(2.0),
@@ -396,12 +411,15 @@ fn egui_system(
                     if highligted_vertex.is_some() {
                         let vertex = highligted_vertex.unwrap();
                         plot_ui.points(
-                            egui::plot::Points::new(vec![[vertex.0.x as f64, vertex.0.y as f64]])
-                                .color(egui::Color32::BLUE)
-                                .filled(true)
-                                .radius(6.0)
-                                .highlight(true)
-                                .shape(egui::widgets::plot::MarkerShape::Diamond),
+                            Points::new(
+                                "highlighted vertex",
+                                vec![[vertex.0.x as f64, vertex.0.y as f64]],
+                            )
+                            .color(egui::Color32::BLUE)
+                            .filled(true)
+                            .radius(6.0)
+                            .highlight(true)
+                            .shape(MarkerShape::Diamond),
                         );
                     }
 

@@ -6,17 +6,20 @@ use sector::*;
 
 use bevy::{
     app::AppExit,
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    ecs::message::{MessageReader, MessageWriter},
     input::mouse::MouseMotion,
+    input::ButtonInput,
     math::vec2,
     math::vec3,
     prelude::*,
-    utils::Duration,
-    window::{CursorGrabMode, WindowResizeConstraints, WindowResolution},
+    scene::DynamicSceneRoot,
+    window::{CursorGrabMode, CursorOptions, WindowResizeConstraints, WindowResolution},
 };
 use bevy_pixels::prelude::*;
 use palette::Hsv;
 use std::collections::VecDeque;
+use std::time::Duration;
 
 #[macro_use]
 extern crate lazy_static;
@@ -170,15 +173,15 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
-                    watch_for_changes: true,
+                    watch_for_changes_override: Some(true),
                     ..default()
                 })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "sector".to_string(),
                         resolution: WindowResolution::new(
-                            (WINDOW_SCALE * WIDTH) as f32,
-                            (WINDOW_SCALE * HEIGHT) as f32,
+                            WINDOW_SCALE * WIDTH,
+                            WINDOW_SCALE * HEIGHT,
                         ),
                         resize_constraints: WindowResizeConstraints {
                             min_width: WIDTH as f32,
@@ -191,7 +194,7 @@ fn main() {
                     ..default()
                 }),
         )
-        .add_plugin(PixelsPlugin {
+        .add_plugins(PixelsPlugin {
             primary_window: Some(PixelsOptions {
                 width: WIDTH,
                 height: HEIGHT,
@@ -199,34 +202,41 @@ fn main() {
                 ..default()
             }),
         })
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         // .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(load_scene_system)
-        .add_system(initial_sector_system)
-        .add_system(update_title_system)
-        .add_system(mouse_capture_system)
-        .add_system(escape_system)
-        .add_system(switch_minimap_system)
-        .add_system(player_movement_system)
+        .add_systems(Startup, load_scene_system)
         .add_systems(
+            Update,
+            (
+                initial_sector_system,
+                update_title_system,
+                mouse_capture_system,
+                escape_system,
+                switch_minimap_system,
+                player_movement_system,
+            ),
+        )
+        .add_systems(
+            Draw,
             (
                 draw_background_system,
                 draw_wall_system,
                 draw_minimap_system,
             )
-                .chain()
-                .in_set(PixelsSet::Draw),
+                .chain(),
         )
         .run();
 }
 
 fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(asset_server.load::<DynamicScene, _>(DEFAULT_SCENE_RON_FILE_PATH));
+    commands.spawn(DynamicSceneRoot(
+        asset_server.load(DEFAULT_SCENE_RON_FILE_PATH),
+    ));
 }
 
 fn initial_sector_system(mut state: ResMut<State>, query: Query<&InitialSector>) {
     if state.current_sector.is_none() {
-        if let Ok(initial_sector) = query.get_single() {
+        if let Ok(initial_sector) = query.single() {
             state.current_sector = Some(initial_sector.0);
         }
     }
@@ -235,13 +245,15 @@ fn initial_sector_system(mut state: ResMut<State>, query: Query<&InitialSector>)
 fn update_title_system(
     mut state: ResMut<State>,
     time: Res<Time>,
-    diagnostics: Res<Diagnostics>,
+    diagnostics: Res<DiagnosticsStore>,
     mut window_query: Query<&mut Window>,
 ) {
-    if state.update_title_timer.tick(time.delta()).finished() {
-        let Ok(mut window) = window_query.get_single_mut() else { return };
+    if state.update_title_timer.tick(time.delta()).is_finished() {
+        let Ok(mut window) = window_query.single_mut() else {
+            return;
+        };
 
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.value() {
                 window.title = format!("sector: {value:.0} fps");
             }
@@ -250,43 +262,47 @@ fn update_title_system(
 }
 
 fn mouse_capture_system(
-    mouse_button: Res<Input<MouseButton>>,
-    mut window_query: Query<&mut Window>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    mut cursor_options_query: Query<&mut CursorOptions>,
 ) {
-    let Ok(mut window) = window_query.get_single_mut() else { return };
+    let Ok(mut cursor_options) = cursor_options_query.single_mut() else {
+        return;
+    };
 
-    if window.cursor.grab_mode == CursorGrabMode::None {
+    if cursor_options.grab_mode == CursorGrabMode::None {
         if mouse_button.just_pressed(MouseButton::Left) {
-            window.cursor.grab_mode = CursorGrabMode::Locked;
-            window.cursor.visible = false;
+            cursor_options.grab_mode = CursorGrabMode::Locked;
+            cursor_options.visible = false;
         }
     } else {
         if mouse_button.just_pressed(MouseButton::Right) {
-            window.cursor.grab_mode = CursorGrabMode::None;
-            window.cursor.visible = true;
+            cursor_options.grab_mode = CursorGrabMode::None;
+            cursor_options.visible = true;
         }
     }
 }
 
 fn escape_system(
-    mut app_exit_events: EventWriter<AppExit>,
-    key: Res<Input<KeyCode>>,
-    mut window_query: Query<&mut Window>,
+    mut app_exit_events: MessageWriter<AppExit>,
+    key: Res<ButtonInput<KeyCode>>,
+    mut cursor_options_query: Query<&mut CursorOptions>,
 ) {
     if key.just_pressed(KeyCode::Escape) {
-        let Ok(mut window) = window_query.get_single_mut() else { return };
+        let Ok(mut cursor_options) = cursor_options_query.single_mut() else {
+            return;
+        };
 
-        if window.cursor.grab_mode == CursorGrabMode::None {
+        if cursor_options.grab_mode == CursorGrabMode::None {
             #[cfg(not(target_arch = "wasm32"))]
-            app_exit_events.send(AppExit);
+            app_exit_events.write(AppExit::Success);
         } else {
-            window.cursor.grab_mode = CursorGrabMode::None;
-            window.cursor.visible = true;
+            cursor_options.grab_mode = CursorGrabMode::None;
+            cursor_options.visible = true;
         }
     }
 }
 
-fn switch_minimap_system(mut state: ResMut<State>, key: Res<Input<KeyCode>>) {
+fn switch_minimap_system(mut state: ResMut<State>, key: Res<ButtonInput<KeyCode>>) {
     if key.just_pressed(KeyCode::Tab) {
         state.minimap = match state.minimap {
             Minimap::Off => Minimap::FirstPerson,
@@ -298,22 +314,24 @@ fn switch_minimap_system(mut state: ResMut<State>, key: Res<Input<KeyCode>>) {
 
 fn player_movement_system(
     mut state: ResMut<State>,
-    mut mouse_motion_events: EventReader<MouseMotion>,
-    key: Res<Input<KeyCode>>,
-    window_query: Query<&mut Window>,
+    mut mouse_motion_events: MessageReader<MouseMotion>,
+    key: Res<ButtonInput<KeyCode>>,
+    cursor_options_query: Query<&CursorOptions>,
 ) {
-    let Ok(window) = window_query.get_single() else { return };
+    let Ok(cursor_options) = cursor_options_query.single() else {
+        return;
+    };
 
-    if window.cursor.grab_mode == CursorGrabMode::Locked {
-        for mouse_motion in mouse_motion_events.iter() {
+    if cursor_options.grab_mode == CursorGrabMode::Locked {
+        for mouse_motion in mouse_motion_events.read() {
             state.direction.0 += -mouse_motion.delta.x * 0.005;
         }
     }
 
-    if key.pressed(KeyCode::Left) || key.pressed(KeyCode::Q) {
+    if key.pressed(KeyCode::ArrowLeft) || key.pressed(KeyCode::KeyQ) {
         state.direction.0 += 0.0001;
     }
-    if key.pressed(KeyCode::Right) || key.pressed(KeyCode::E) {
+    if key.pressed(KeyCode::ArrowRight) || key.pressed(KeyCode::KeyE) {
         state.direction.0 -= 0.0001;
     }
 
@@ -321,26 +339,26 @@ fn player_movement_system(
     state.velocity.0.y = 0.0;
     state.velocity.0.z = 0.0;
 
-    if key.pressed(KeyCode::Up) || key.pressed(KeyCode::W) {
+    if key.pressed(KeyCode::ArrowUp) || key.pressed(KeyCode::KeyW) {
         state.velocity.0.x -= state.direction.0.sin();
         state.velocity.0.y += state.direction.0.cos();
     }
-    if key.pressed(KeyCode::Down) || key.pressed(KeyCode::S) {
+    if key.pressed(KeyCode::ArrowDown) || key.pressed(KeyCode::KeyS) {
         state.velocity.0.x += state.direction.0.sin();
         state.velocity.0.y -= state.direction.0.cos();
     }
-    if key.pressed(KeyCode::A) {
+    if key.pressed(KeyCode::KeyA) {
         state.velocity.0.x -= state.direction.0.cos();
         state.velocity.0.y -= state.direction.0.sin();
     }
-    if key.pressed(KeyCode::D) {
+    if key.pressed(KeyCode::KeyD) {
         state.velocity.0.x += state.direction.0.cos();
         state.velocity.0.y += state.direction.0.sin();
     }
     if key.pressed(KeyCode::Space) {
         state.velocity.0.z += 1.0;
     }
-    if key.pressed(KeyCode::LControl) {
+    if key.pressed(KeyCode::ControlLeft) {
         state.velocity.0.z -= 1.0;
     }
 
@@ -350,7 +368,9 @@ fn player_movement_system(
 }
 
 fn draw_background_system(mut wrapper_query: Query<&mut PixelsWrapper>) {
-    let Ok(mut wrapper) = wrapper_query.get_single_mut() else { return };
+    let Ok(mut wrapper) = wrapper_query.single_mut() else {
+        return;
+    };
     let frame = wrapper.pixels.frame_mut();
 
     frame.copy_from_slice(&[0x00, 0x00, 0x00, 0xff].repeat(frame.len() / 4));
@@ -365,9 +385,13 @@ fn draw_wall_system(
     let Some(current_sector) = state.current_sector.and_then(|id| {
         // TODO: Improve this query, might be slow with lots of sectors
         sector_query.iter().find(|&s| s.id == id)
-    }) else { return };
+    }) else {
+        return;
+    };
 
-    let Ok(mut wrapper) = wrapper_query.get_single_mut() else { return };
+    let Ok(mut wrapper) = wrapper_query.single_mut() else {
+        return;
+    };
     let frame = wrapper.pixels.frame_mut();
     let view_matrix = Mat3::from_rotation_z(-state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
@@ -593,7 +617,9 @@ fn draw_minimap_system(
         return;
     }
 
-    let Ok(mut wrapper) = wrapper_query.get_single_mut() else { return };
+    let Ok(mut wrapper) = wrapper_query.single_mut() else {
+        return;
+    };
     let frame = wrapper.pixels.frame_mut();
     let view_matrix = Mat3::from_rotation_z(-state.direction.0)
         * Mat3::from_translation(-vec2(state.position.0.x, state.position.0.y));
