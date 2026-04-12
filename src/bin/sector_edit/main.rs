@@ -11,7 +11,9 @@ use bevy::{
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use egui_plot::{Line as PlotLine, MarkerShape, Plot, PlotPoints, Points, Polygon};
-use sector::map::{load_map_from_path, map_to_sectors, save_map_to_path, sectors_to_map};
+use sector::map::{
+    load_map_from_path, map_to_sectors, save_map_to_path, sectors_to_map_with_spawn, MapVertex,
+};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -21,6 +23,12 @@ const HEIGHT: u32 = 960;
 #[derive(Resource, Debug)]
 struct State {
     update_title_timer: Timer,
+}
+
+#[derive(Resource, Debug, Clone, Copy)]
+struct MapMetadata {
+    initial_position: MapVertex,
+    initial_direction_degrees: f32,
 }
 
 fn main() {
@@ -65,6 +73,11 @@ fn init_scene_system(world: &mut World) {
         panic!("failed to convert map from {}: {error}", map_path.display())
     });
 
+    world.insert_resource(MapMetadata {
+        initial_position: map.initial_position,
+        initial_direction_degrees: map.initial_direction_degrees,
+    });
+
     world.spawn(initial_sector);
     for sector in sectors {
         world.spawn(sector);
@@ -74,6 +87,9 @@ fn init_scene_system(world: &mut World) {
 fn save_scene_system(world: &mut World) {
     let mut initial_sector_query = world.query::<Ref<InitialSector>>();
     let Ok(initial_sector) = initial_sector_query.single(world) else {
+        return;
+    };
+    let Some(metadata) = world.get_resource::<MapMetadata>().copied() else {
         return;
     };
     let initial_sector_id = initial_sector.0;
@@ -92,8 +108,13 @@ fn save_scene_system(world: &mut World) {
         .into_iter()
         .map(|sector| (*sector).clone())
         .collect();
-    let map =
-        sectors_to_map(initial_sector_id, &sectors).expect("editor sectors should save cleanly");
+    let map = sectors_to_map_with_spawn(
+        initial_sector_id,
+        metadata.initial_position,
+        metadata.initial_direction_degrees,
+        &sectors,
+    )
+    .expect("editor sectors should save cleanly");
     let map_path = PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH);
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -141,7 +162,7 @@ fn egui_system(
     ctx.set_visuals(egui::Visuals::light());
 
     let mut highligted_sector: Option<SectorId> = None;
-    let mut highligted_wall: Option<Wall> = None;
+    let mut highligted_wall: Option<WallSegment> = None;
     let mut highligted_vertex: Option<Position2> = None;
 
     // egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -195,7 +216,9 @@ fn egui_system(
                                     egui::CollapsingHeader::new("walls")
                                         .default_open(true)
                                         .show(ui, |ui| {
-                                            for (i, wall) in sector.to_walls().iter().enumerate() {
+                                            for (i, wall) in
+                                                sector.wall_segments().iter().enumerate()
+                                            {
                                                 let wall_response = egui::Frame::NONE
                                                     .show(ui, |ui| {
                                                         egui::CollapsingHeader::new(format!(
@@ -263,9 +286,9 @@ fn egui_system(
 
                                                             let mut color32 =
                                                                 egui::Color32::from_rgb(
-                                                                    wall.raw_color.0[0],
-                                                                    wall.raw_color.0[1],
-                                                                    wall.raw_color.0[2],
+                                                                    wall.color.0[0],
+                                                                    wall.color.0[1],
+                                                                    wall.color.0[2],
                                                                 );
                                                             ui.horizontal(|ui| {
                                                                 ui.label("color:");
@@ -359,9 +382,9 @@ fn egui_system(
                             [wall.right.0.x as f64, wall.right.0.y as f64],
                         ]);
                         let wall_color32 = egui::Color32::from_rgb(
-                            wall.raw_color.0[0],
-                            wall.raw_color.0[1],
-                            wall.raw_color.0[2],
+                            wall.color.0[0],
+                            wall.color.0[1],
+                            wall.color.0[2],
                         );
                         plot_ui.line(
                             PlotLine::new("highlighted wall", wall_points)

@@ -2,7 +2,7 @@ use crate::{InitialSector, Length, Position2, RawColor, Sector, SectorId};
 
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
-    math::vec2,
+    math::{vec2, Vec2},
     prelude::*,
     reflect::TypePath,
 };
@@ -13,6 +13,9 @@ use thiserror::Error;
 #[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
 pub struct SectorMap {
     pub initial_sector: usize,
+    pub initial_position: MapVertex,
+    #[serde(default)]
+    pub initial_direction_degrees: f32,
     pub sectors: Vec<MapSector>,
 }
 
@@ -24,7 +27,7 @@ pub struct MapSector {
     pub walls: Vec<MapWall>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub struct MapVertex(pub f32, pub f32);
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -32,6 +35,12 @@ pub struct MapWall {
     pub color: [u8; 3],
     #[serde(default)]
     pub portal: Option<usize>,
+}
+
+impl SectorMap {
+    pub fn initial_direction_radians(&self) -> f32 {
+        self.initial_direction_degrees.to_radians()
+    }
 }
 
 #[derive(Default, TypePath)]
@@ -53,6 +62,12 @@ pub enum SectorMapError {
     },
     #[error("Sector {sector_index} must have at least one vertex")]
     EmptySector { sector_index: usize },
+    #[error("Initial position ({x}, {y}) must be inside initial sector {initial_sector}")]
+    InitialPositionOutsideInitialSector {
+        initial_sector: usize,
+        x: f32,
+        y: f32,
+    },
     #[error(
         "Sector {sector_index} has {vertex_count} vertices but {wall_count} walls; counts must match"
     )]
@@ -154,6 +169,16 @@ pub fn sectors_to_map(
     initial_sector: SectorId,
     sectors: &[Sector],
 ) -> Result<SectorMap, SectorMapError> {
+    let initial_position = sector_spawn_position(initial_sector, sectors);
+    sectors_to_map_with_spawn(initial_sector, initial_position, 0.0, sectors)
+}
+
+pub fn sectors_to_map_with_spawn(
+    initial_sector: SectorId,
+    initial_position: MapVertex,
+    initial_direction_degrees: f32,
+    sectors: &[Sector],
+) -> Result<SectorMap, SectorMapError> {
     let mut ordered = sectors.to_vec();
     ordered.sort_by_key(|sector| sector.id.0);
 
@@ -169,6 +194,8 @@ pub fn sectors_to_map(
 
     let map = SectorMap {
         initial_sector: initial_sector.0 as usize,
+        initial_position,
+        initial_direction_degrees,
         sectors: ordered
             .into_iter()
             .map(|sector| MapSector {
@@ -204,6 +231,17 @@ pub fn validate_map(map: &SectorMap) -> Result<(), SectorMapError> {
         });
     }
 
+    if !sector_contains_horizontal_point(
+        &map.sectors[map.initial_sector],
+        Vec2::new(map.initial_position.0, map.initial_position.1),
+    ) {
+        return Err(SectorMapError::InitialPositionOutsideInitialSector {
+            initial_sector: map.initial_sector,
+            x: map.initial_position.0,
+            y: map.initial_position.1,
+        });
+    }
+
     for (sector_index, sector) in map.sectors.iter().enumerate() {
         if sector.vertices.is_empty() {
             return Err(SectorMapError::EmptySector { sector_index });
@@ -234,6 +272,67 @@ pub fn validate_map(map: &SectorMap) -> Result<(), SectorMapError> {
     Ok(())
 }
 
+fn sector_spawn_position(initial_sector: SectorId, sectors: &[Sector]) -> MapVertex {
+    sectors
+        .iter()
+        .find(|sector| sector.id == initial_sector)
+        .map(|sector| {
+            let sum = sector
+                .vertices
+                .iter()
+                .fold(Vec2::ZERO, |acc, vertex| acc + vertex.0);
+            let center = sum / sector.vertices.len() as f32;
+            MapVertex(center.x, center.y)
+        })
+        .unwrap_or_default()
+}
+
+fn sector_contains_horizontal_point(sector: &MapSector, point: Vec2) -> bool {
+    for index in 0..sector.vertices.len() {
+        let current = Vec2::new(sector.vertices[index].0, sector.vertices[index].1);
+        let next = Vec2::new(
+            sector.vertices[(index + 1) % sector.vertices.len()].0,
+            sector.vertices[(index + 1) % sector.vertices.len()].1,
+        );
+        if point_on_segment(point, current, next) {
+            return true;
+        }
+    }
+
+    let mut inside = false;
+    for index in 0..sector.vertices.len() {
+        let current = Vec2::new(sector.vertices[index].0, sector.vertices[index].1);
+        let next = Vec2::new(
+            sector.vertices[(index + 1) % sector.vertices.len()].0,
+            sector.vertices[(index + 1) % sector.vertices.len()].1,
+        );
+        let crosses_scanline = (current.y > point.y) != (next.y > point.y);
+        if !crosses_scanline {
+            continue;
+        }
+
+        let intersect_x =
+            ((next.x - current.x) * (point.y - current.y) / (next.y - current.y)) + current.x;
+        if point.x <= intersect_x + f32::EPSILON {
+            inside = !inside;
+        }
+    }
+
+    inside
+}
+
+fn point_on_segment(point: Vec2, left: Vec2, right: Vec2) -> bool {
+    let segment = right - left;
+    let from_left = point - left;
+    let cross = segment.perp_dot(from_left).abs();
+    if cross > f32::EPSILON {
+        return false;
+    }
+
+    let dot = from_left.dot(segment);
+    dot >= -f32::EPSILON && dot <= segment.length_squared() + f32::EPSILON
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,6 +340,8 @@ mod tests {
     fn sample_map() -> SectorMap {
         SectorMap {
             initial_sector: 0,
+            initial_position: MapVertex(5.7, 4.0),
+            initial_direction_degrees: -20.0,
             sectors: vec![
                 MapSector {
                     floor: 0.0,
@@ -296,8 +397,19 @@ mod tests {
     fn converts_map_round_trip() {
         let map = sample_map();
         let (initial_sector, sectors) = map_to_sectors(&map).unwrap();
-        let round_tripped = sectors_to_map(initial_sector.0, &sectors).unwrap();
+        let round_tripped = sectors_to_map_with_spawn(
+            initial_sector.0,
+            map.initial_position,
+            map.initial_direction_degrees,
+            &sectors,
+        )
+        .unwrap();
         assert_eq!(round_tripped.initial_sector, map.initial_sector);
+        assert_eq!(round_tripped.initial_position, map.initial_position);
+        assert_eq!(
+            round_tripped.initial_direction_degrees,
+            map.initial_direction_degrees
+        );
         assert_eq!(round_tripped.sectors.len(), map.sectors.len());
         assert_eq!(round_tripped.sectors[0].walls[1].portal, Some(1));
     }
@@ -317,5 +429,60 @@ mod tests {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
         validate_map(&map).unwrap();
+    }
+
+    #[test]
+    fn default_map_has_walkable_steps_and_composite_rooms() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+
+        assert!(map.sectors.len() >= 7);
+
+        let has_walkable_step = map.sectors.iter().any(|sector| {
+            sector.walls.iter().filter_map(|wall| wall.portal).any(|portal_index| {
+                let target_sector = &map.sectors[portal_index];
+                let floor_delta = target_sector.floor - sector.floor;
+                floor_delta > 0.0 && floor_delta <= 0.45
+            })
+        });
+        assert!(has_walkable_step);
+
+        let has_same_height_portal_pair = map.sectors.iter().enumerate().any(|(sector_index, sector)| {
+            sector.walls.iter().filter_map(|wall| wall.portal).any(|portal_index| {
+                portal_index != sector_index
+                    && (map.sectors[portal_index].floor - sector.floor).abs() < f32::EPSILON
+                    && (map.sectors[portal_index].ceil - sector.ceil).abs() < f32::EPSILON
+            })
+        });
+        assert!(has_same_height_portal_pair);
+    }
+
+    #[test]
+    fn default_map_has_angled_walls_and_explicit_spawn() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+
+        assert_ne!(map.initial_position, MapVertex::default());
+        assert!(map.initial_direction_degrees.abs() > f32::EPSILON);
+
+        let has_angled_wall = map.sectors.iter().any(|sector| {
+            sector.vertices.iter().enumerate().any(|(index, vertex)| {
+                let next = sector.vertices[(index + 1) % sector.vertices.len()];
+                let dx = next.0 - vertex.0;
+                let dy = next.1 - vertex.1;
+                dx.abs() > f32::EPSILON && dy.abs() > f32::EPSILON
+            })
+        });
+        assert!(has_angled_wall);
+    }
+
+    #[test]
+    fn rejects_initial_position_outside_initial_sector() {
+        let mut map = sample_map();
+        map.initial_position = MapVertex(-100.0, -100.0);
+        assert!(matches!(
+            validate_map(&map),
+            Err(SectorMapError::InitialPositionOutsideInitialSector { .. })
+        ));
     }
 }

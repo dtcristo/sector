@@ -13,6 +13,8 @@
 
 _Experimental_ engine for retro 2.5D environments in the style of Doom and Duke Nukem 3D. Built with Rust and Bevy.
 
+Maps live in `assets/maps/*.map.ron`, use meter-based dimensions, and define portal-linked sectors.
+
 ## License
 
 Licensed under either of

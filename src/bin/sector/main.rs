@@ -10,13 +10,14 @@ use bevy::{
 use bevy_pixels::prelude::*;
 use sector::{
     game::{
-        apply_player_look, apply_player_translation_input, move_player, render_frame,
-        setup_player_system, update_current_sector, Minimap, Player, PlayerInput, HEIGHT, WIDTH,
-        WINDOW_SCALE,
+        apply_player_look, player_render_view, sector_contains_player, setup_player_system,
+        simulate_player, Player, PlayerInput,
     },
-    map::{map_to_sectors, SectorMap, SectorMapLoader},
+    map::{load_map_from_path, map_to_sectors},
+    render::{render_frame, Minimap, HEIGHT, WIDTH, WINDOW_SCALE},
     *,
 };
+use std::path::PathBuf;
 use std::time::Duration;
 
 #[derive(Resource, Debug, PartialEq)]
@@ -25,40 +26,26 @@ struct MinimapMode(Minimap);
 #[derive(Resource, Debug)]
 struct WindowTitleTimer(Timer);
 
-#[derive(Resource, Debug)]
-struct MapHandle(Handle<SectorMap>);
-
-#[derive(Resource, Debug, Default)]
-struct MapSpawnState {
-    spawned: bool,
-}
-
 struct SectorRuntimePlugin;
 
 impl Plugin for SectorRuntimePlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<SectorMap>()
-            .init_asset_loader::<SectorMapLoader>()
-            .insert_resource(MinimapMode(Minimap::Off))
+        app.insert_resource(MinimapMode(Minimap::Off))
             .insert_resource(WindowTitleTimer(Timer::new(
                 Duration::from_millis(500),
                 TimerMode::Repeating,
             )))
-            .insert_resource(MapSpawnState::default())
-            .add_systems(Startup, (setup_player_system, queue_map_load_system))
+            .add_systems(Startup, (setup_player_system, init_runtime_system).chain())
             .add_systems(
                 Update,
                 (
-                    spawn_loaded_map_system,
                     update_title_system,
                     mouse_capture_system,
                     escape_system,
                     switch_minimap_system,
                     (
                         player_look_system,
-                        player_translation_input_system,
-                        move_player_system,
-                        update_current_sector_system,
+                        player_simulation_system,
                     )
                         .chain(),
                 ),
@@ -120,38 +107,58 @@ fn main() {
         .run();
 }
 
-fn queue_map_load_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(MapHandle(asset_server.load(DEFAULT_MAP_FILE_PATH)));
-}
+fn init_runtime_system(world: &mut World) {
+    let map_path = PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH);
+    println!("sector: loading map from {}", map_path.display());
 
-fn spawn_loaded_map_system(
-    mut commands: Commands,
-    map_handle: Res<MapHandle>,
-    maps: Res<Assets<SectorMap>>,
-    mut map_spawn_state: ResMut<MapSpawnState>,
-    mut player_query: Query<&mut Player>,
-) {
-    if map_spawn_state.spawned {
-        return;
-    }
+    let map = load_map_from_path(&map_path)
+        .unwrap_or_else(|error| panic!("failed to load map from {}: {error}", map_path.display()));
+    let (initial_sector, sectors) = map_to_sectors(&map).unwrap_or_else(|error| {
+        panic!("failed to convert map from {}: {error}", map_path.display())
+    });
 
-    let Some(map) = maps.get(&map_handle.0) else {
-        return;
-    };
+    let initial_sector_data = sectors
+        .iter()
+        .find(|sector| sector.id == initial_sector.0)
+        .expect("initial sector must exist in converted map");
+    let spawn_position = Vec3::new(
+        map.initial_position.0,
+        map.initial_position.1,
+        initial_sector_data.floor.0,
+    );
 
-    let (initial_sector, sectors) =
-        map_to_sectors(map).expect("loaded map asset should be structurally valid");
-
-    if let Ok(mut player) = player_query.single_mut() {
+    {
+        let mut player_query = world.query::<&mut Player>();
+        let mut player = player_query
+            .single_mut(world)
+            .expect("player should exist before runtime initialization");
+        player.position = Position3(spawn_position);
+        player.direction.0 = map.initial_direction_radians();
         player.current_sector = Some(initial_sector.0);
+        player.grounded = true;
+
+        assert!(
+            sector_contains_player(initial_sector_data, player.position),
+            "initial spawn must be inside initial sector"
+        );
     }
 
-    commands.spawn(initial_sector);
+    println!(
+        "loaded {} sectors; spawn sector={} position=({:.2}, {:.2}, {:.2}) direction={:.1}deg",
+        sectors.len(),
+        initial_sector.0 .0,
+        spawn_position.x,
+        spawn_position.y,
+        spawn_position.z,
+        map.initial_direction_degrees,
+    );
+
+    world.spawn(initial_sector);
     for sector in sectors {
-        commands.spawn(sector);
+        world.spawn(sector);
     }
 
-    map_spawn_state.spawned = true;
+    println!("sector: runtime ready");
 }
 
 fn update_title_system(
@@ -240,35 +247,22 @@ fn player_look_system(
         .map(|cursor_options| cursor_options.grab_mode == CursorGrabMode::Locked)
         .unwrap_or(false);
 
-    let input = PlayerInput::from_keys(&key).with_mouse_look(mouse_delta_x, cursor_locked);
+    let input = PlayerInput::from_keys(&key, key.just_pressed(KeyCode::Space))
+        .with_mouse_look(mouse_delta_x, cursor_locked);
     apply_player_look(&mut player, input);
 }
 
-fn player_translation_input_system(
+fn player_simulation_system(
     mut player_query: Query<&mut Player>,
     key: Res<ButtonInput<KeyCode>>,
-) {
-    let Ok(mut player) = player_query.single_mut() else {
-        return;
-    };
-    apply_player_translation_input(&mut player, PlayerInput::from_keys(&key));
-}
-
-fn move_player_system(mut player_query: Query<&mut Player>) {
-    let Ok(mut player) = player_query.single_mut() else {
-        return;
-    };
-    move_player(&mut player);
-}
-
-fn update_current_sector_system(
-    mut player_query: Query<&mut Player>,
+    time: Res<Time>,
     sector_query: Query<&Sector>,
 ) {
     let Ok(mut player) = player_query.single_mut() else {
         return;
     };
-    update_current_sector(&mut player, sector_query.iter());
+    let input = PlayerInput::from_keys(&key, key.just_pressed(KeyCode::Space));
+    simulate_player(&mut player, input, time.delta_secs(), sector_query.iter());
 }
 
 fn draw_frame_system(
@@ -285,7 +279,7 @@ fn draw_frame_system(
     };
     render_frame(
         wrapper.pixels.frame_mut(),
-        player,
+        &player_render_view(player),
         sector_query.iter(),
         minimap.0,
     );

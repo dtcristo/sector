@@ -1,96 +1,210 @@
 (
   initial_sector: 0,
+  initial_position: (-1.0, 0.2),
+  initial_direction_degrees: -18.0,
   sectors: [
     (
       floor: 0.0,
-      ceil: 4.0,
+      ceil: 3.2,
       vertices: [
-        (2.0, 10.0),
-        (4.0, 10.0),
-        (11.0, -8.0),
-        (-4.0, -8.0),
-        (-4.0, 1.0),
-        (-2.0, 5.0),
+        (-4.0, 0.8),
+        (-1.2, 3.4),
+        (2.2, 2.6),
+        (3.2, -0.8),
+        (0.8, -2.4),
+        (-3.5, -2.0),
       ],
       walls: [
         (
-          color: (0, 0, 255),
+          color: (132, 160, 116),
+          portal: Some(1),
+        ),
+        (
+          color: (92, 74, 58),
           portal: None,
         ),
         (
-          color: (0, 128, 0),
-          portal: None,
-        ),
-        (
-          color: (255, 165, 0),
-          portal: None,
-        ),
-        (
-          color: (255, 0, 255),
+          color: (110, 146, 188),
           portal: Some(2),
         ),
         (
-          color: (255, 255, 0),
+          color: (164, 126, 90),
+          portal: Some(3),
+        ),
+        (
+          color: (176, 108, 72),
           portal: None,
         ),
         (
-          color: (255, 0, 0),
-          portal: Some(1),
-        ),
-      ],
-    ),
-    (
-      floor: 0.25,
-      ceil: 3.75,
-      vertices: [
-        (2.0, 10.0),
-        (-2.0, 5.0),
-        (-4.0, 15.0),
-        (4.0, 15.0),
-      ],
-      walls: [
-        (
-          color: (255, 0, 0),
-          portal: Some(0),
-        ),
-        (
-          color: (255, 0, 255),
-          portal: None,
-        ),
-        (
-          color: (0, 128, 0),
-          portal: None,
-        ),
-        (
-          color: (255, 255, 0),
+          color: (156, 92, 70),
           portal: None,
         ),
       ],
     ),
     (
-      floor: -0.5,
-      ceil: 4.5,
+      floor: 0.0,
+      ceil: 3.2,
       vertices: [
-        (-4.0, 1.0),
-        (-4.0, -8.0),
-        (-7.0, -9.0),
-        (-10.0, -5.0),
+        (-7.4, 2.0),
+        (-5.0, 6.0),
+        (-1.2, 3.4),
+        (-4.0, 0.8),
       ],
       walls: [
         (
-          color: (255, 0, 0),
+          color: (66, 92, 66),
+          portal: None,
+        ),
+        (
+          color: (92, 132, 84),
+          portal: None,
+        ),
+        (
+          color: (132, 160, 116),
           portal: Some(0),
         ),
         (
-          color: (255, 0, 255),
+          color: (108, 146, 92),
+          portal: None,
+        ),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 3.2,
+      vertices: [
+        (5.8, 4.8),
+        (7.0, 0.6),
+        (3.2, -0.8),
+        (2.2, 2.6),
+      ],
+      walls: [
+        (
+          color: (64, 92, 132),
           portal: None,
         ),
         (
-          color: (0, 128, 0),
+          color: (86, 116, 164),
           portal: None,
         ),
         (
-          color: (0, 0, 255),
+          color: (110, 146, 188),
+          portal: Some(0),
+        ),
+        (
+          color: (94, 132, 176),
+          portal: None,
+        ),
+      ],
+    ),
+    (
+      floor: 0.2,
+      ceil: 3.2,
+      vertices: [
+        (6.0, -2.0),
+        (3.2, -4.6),
+        (0.8, -2.4),
+        (3.2, -0.8),
+      ],
+      walls: [
+        (
+          color: (188, 104, 204),
+          portal: Some(4),
+        ),
+        (
+          color: (154, 88, 170),
+          portal: None,
+        ),
+        (
+          color: (164, 126, 90),
+          portal: Some(0),
+        ),
+        (
+          color: (126, 74, 142),
+          portal: None,
+        ),
+      ],
+    ),
+    (
+      floor: 0.4,
+      ceil: 3.2,
+      vertices: [
+        (8.4, -3.1),
+        (5.6, -5.8),
+        (3.2, -4.6),
+        (6.0, -2.0),
+      ],
+      walls: [
+        (
+          color: (122, 168, 220),
+          portal: Some(5),
+        ),
+        (
+          color: (104, 146, 196),
+          portal: None,
+        ),
+        (
+          color: (188, 104, 204),
+          portal: Some(3),
+        ),
+        (
+          color: (82, 112, 160),
+          portal: None,
+        ),
+      ],
+    ),
+    (
+      floor: 0.6,
+      ceil: 3.3,
+      vertices: [
+        (11.6, -4.7),
+        (8.1, -7.8),
+        (5.6, -5.8),
+        (8.4, -3.1),
+      ],
+      walls: [
+        (
+          color: (44, 96, 104),
+          portal: None,
+        ),
+        (
+          color: (62, 132, 132),
+          portal: None,
+        ),
+        (
+          color: (122, 168, 220),
+          portal: Some(4),
+        ),
+        (
+          color: (82, 176, 162),
+          portal: Some(6),
+        ),
+      ],
+    ),
+    (
+      floor: 0.6,
+      ceil: 3.3,
+      vertices: [
+        (11.6, -4.7),
+        (8.4, -3.1),
+        (10.6, -0.4),
+        (14.0, -1.8),
+      ],
+      walls: [
+        (
+          color: (82, 176, 162),
+          portal: Some(5),
+        ),
+        (
+          color: (62, 124, 118),
+          portal: None,
+        ),
+        (
+          color: (40, 82, 80),
+          portal: None,
+        ),
+        (
+          color: (58, 110, 104),
           portal: None,
         ),
       ],
