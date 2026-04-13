@@ -4361,12 +4361,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 
 [[package]]
-name = "rust_bresenham"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45268b7a36e5fb28387733076aa344b2180c3e350ff1b05bff39d5cf85571565"
-
-[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4459,7 +4453,6 @@ dependencies = [
  "lazy_static",
  "palette",
  "ron",
- "rust_bresenham",
  "serde",
  "thiserror 2.0.18",
 ]
