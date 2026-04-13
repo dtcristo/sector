@@ -14,11 +14,10 @@ pub const WIDTH: u32 = 320;
 pub const HEIGHT: u32 = 240;
 pub const WINDOW_SCALE: u32 = 4;
 
-pub(crate) const GAP: isize = 1;
 pub(crate) const NEAR: f32 = 0.1;
 pub(crate) const FAR: f32 = 50.0;
 pub(crate) const SHADE_FAR: f32 = 20.0;
-pub(crate) const SHADE_BANDS: usize = 14;
+pub(crate) const SHADE_BANDS: usize = 16;
 pub(crate) const BRIGHTNESS_NEAR: f32 = 1.0;
 pub(crate) const BRIGHTNESS_FAR: f32 = 0.35;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
@@ -139,6 +138,23 @@ mod tests {
             &[(-6.0, front_y), (6.0, front_y), (6.0, -10.0), (-6.0, -10.0)],
             &[None, None, None, None],
             &[[250, 0, 0], [0, 250, 0], [0, 0, 250], [250, 250, 0]],
+            0.0,
+            4.0,
+        )
+    }
+
+    fn room_with_split_front_wall(colors: [[u8; 3]; 5]) -> Sector {
+        sector(
+            0,
+            &[
+                (-6.0, 10.0),
+                (0.0, 10.0),
+                (6.0, 10.0),
+                (6.0, -10.0),
+                (-6.0, -10.0),
+            ],
+            &[None, None, None, None, None],
+            &colors,
             0.0,
             4.0,
         )
@@ -289,6 +305,50 @@ mod tests {
         assert_eq!(ceiling_samples[1], ceiling_samples[2]);
         assert_eq!(floor_samples[0], floor_samples[1]);
         assert_eq!(floor_samples[1], floor_samples[2]);
+    }
+
+    #[test]
+    fn render_frame_skips_vertical_outline_between_same_color_walls() {
+        let mut player = Player::default();
+        player.current_sector = Some(SectorId(0));
+        let view = player_render_view(&player);
+        let sectors = [room_with_split_front_wall([
+            [220, 80, 80],
+            [220, 80, 80],
+            [120, 120, 180],
+            [120, 120, 180],
+            [120, 120, 180],
+        ])];
+        let mut frame = FrameBuffer::new();
+
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+
+        let center_x = WIDTH as usize / 2;
+        let center_y = HEIGHT as usize / 2;
+        assert_ne!(frame.pixel(center_x, center_y), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn render_frame_keeps_vertical_outline_between_different_color_walls() {
+        let mut player = Player::default();
+        player.current_sector = Some(SectorId(0));
+        let view = player_render_view(&player);
+        let sectors = [room_with_split_front_wall([
+            [220, 80, 80],
+            [80, 220, 80],
+            [120, 120, 180],
+            [120, 120, 180],
+            [120, 120, 180],
+        ])];
+        let mut frame = FrameBuffer::new();
+
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+
+        let center_x = WIDTH as usize / 2;
+        let center_y = HEIGHT as usize / 2;
+        assert!(
+            ((center_x - 1)..=(center_x + 1)).any(|x| frame.pixel(x, center_y) == [0, 0, 0, 255])
+        );
     }
 
     #[test]

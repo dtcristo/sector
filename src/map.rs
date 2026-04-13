@@ -436,20 +436,21 @@ mod tests {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
 
-        assert!(map.sectors.len() >= 7);
+        assert!(map.sectors.len() >= 10);
 
-        let has_walkable_step = map.sectors.iter().any(|sector| {
-            sector
-                .walls
-                .iter()
-                .filter_map(|wall| wall.portal)
-                .any(|portal_index| {
+        let walkable_step_count = map
+            .sectors
+            .iter()
+            .flat_map(|sector| {
+                sector.walls.iter().filter_map(|wall| {
+                    let portal_index = wall.portal?;
                     let target_sector = &map.sectors[portal_index];
                     let floor_delta = target_sector.floor - sector.floor;
-                    floor_delta > 0.0 && floor_delta <= 0.45
+                    (floor_delta > 0.0 && floor_delta <= 0.45).then_some(())
                 })
-        });
-        assert!(has_walkable_step);
+            })
+            .count();
+        assert!(walkable_step_count >= 4);
 
         let has_same_height_portal_pair =
             map.sectors
@@ -469,6 +470,66 @@ mod tests {
                         })
                 });
         assert!(has_same_height_portal_pair);
+    }
+
+    #[test]
+    fn default_map_uses_uniform_sector_wall_colors_and_same_color_steps() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+
+        assert!(map.sectors.iter().all(|sector| {
+            sector.walls.first().is_some_and(|first_wall| {
+                sector
+                    .walls
+                    .iter()
+                    .all(|wall| wall.color == first_wall.color)
+            })
+        }));
+
+        let has_same_color_adjacent_step_pair = map.sectors.iter().any(|sector| {
+            let Some(color) = sector.walls.first().map(|wall| wall.color) else {
+                return false;
+            };
+
+            sector
+                .walls
+                .iter()
+                .filter_map(|wall| wall.portal)
+                .any(|portal_index| {
+                    let target_sector = &map.sectors[portal_index];
+                    let floor_delta = (target_sector.floor - sector.floor).abs();
+                    floor_delta > 0.0
+                        && floor_delta <= 0.45
+                        && target_sector
+                            .walls
+                            .first()
+                            .is_some_and(|wall| wall.color == color)
+                })
+        });
+        assert!(has_same_color_adjacent_step_pair);
+    }
+
+    #[test]
+    fn default_map_has_high_window_sector_between_rooms() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+
+        let has_high_window_sector = map.sectors.iter().any(|sector| {
+            let portal_targets = sector
+                .walls
+                .iter()
+                .filter_map(|wall| wall.portal)
+                .collect::<Vec<_>>();
+
+            portal_targets.len() >= 2
+                && portal_targets.iter().all(|portal_index| {
+                    let target_sector = &map.sectors[*portal_index];
+                    sector.floor > target_sector.floor + 0.45
+                        && sector.ceil < target_sector.ceil - 0.45
+                })
+        });
+
+        assert!(has_high_window_sector);
     }
 
     #[test]
