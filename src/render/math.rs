@@ -64,10 +64,6 @@ pub(crate) fn lerp(start: f32, end: f32, t: f32) -> f32 {
     start * (1.0 - t) + end * t
 }
 
-pub(crate) fn lerpi(start: isize, end: isize, t: f32) -> isize {
-    (start as f32 * (1.0 - t) + end as f32 * t).round() as isize
-}
-
 pub(crate) fn intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
     let a_perp_dot = a1.perp_dot(a2);
     let b_perp_dot = b1.perp_dot(b2);

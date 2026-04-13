@@ -1,6 +1,7 @@
 # AGENTS.md
 
 - Bevy project for a 2.5D sector/portal renderer plus a small egui map editor.
+- Maintain the retro aesthetic in rendering and editor changes: prefer obvious shading bands, crisp one-pixel seams, and avoid smoothing that softens the software-rendered look.
 - Runtime entry: `src/bin/sector/main.rs`. Editor entry: `src/bin/sector_edit/main.rs`.
 - Core library: `src/game/` (player + physics), `src/render/` (software renderer), `src/map.rs` (RON map format), `src/world.rs` (shared sector data).
 - Maps live in `assets/maps/*.map.ron`; dimensions are meters, spawn lives in the map, and sector winding should stay clockwise for stable rendering.

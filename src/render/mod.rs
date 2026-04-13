@@ -17,8 +17,10 @@ pub const WINDOW_SCALE: u32 = 4;
 pub(crate) const GAP: isize = 1;
 pub(crate) const NEAR: f32 = 0.1;
 pub(crate) const FAR: f32 = 50.0;
+pub(crate) const SHADE_FAR: f32 = 20.0;
+pub(crate) const SHADE_BANDS: usize = 14;
 pub(crate) const BRIGHTNESS_NEAR: f32 = 1.0;
-pub(crate) const BRIGHTNESS_FAR: f32 = 0.0;
+pub(crate) const BRIGHTNESS_FAR: f32 = 0.35;
 const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
@@ -29,6 +31,7 @@ lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
     pub(crate) static ref PERSPECTIVE_MATRIX: Mat4 =
         Mat4::perspective_infinite_reverse_rh(*FOV_Y_RADIANS, ASPECT_RATIO, NEAR);
+    pub(crate) static ref TAN_FAC_FOV_Y_2: f32 = (*FOV_Y_RADIANS / 2.0).tan();
     static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
     pub(crate) static ref X_NEAR: f32 = NEAR * *TAN_FAC_FOV_X_2;
     static ref X_FAR: f32 = FAR * *TAN_FAC_FOV_X_2;
@@ -259,6 +262,33 @@ mod tests {
             near_frame.pixel(center_x, HEIGHT as usize - 10)[0]
                 > far_frame.pixel(center_x, HEIGHT as usize - 10)[0]
         );
+    }
+
+    #[test]
+    fn render_frame_draws_floor_and_ceiling_in_horizontal_bands() {
+        let mut player = Player::default();
+        player.current_sector = Some(SectorId(0));
+        let view = player_render_view(&player);
+        let sectors = [room_with_front_wall(10.0)];
+        let mut frame = FrameBuffer::new();
+
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+
+        let sample_xs = [48_usize, WIDTH as usize / 2, WIDTH as usize - 48];
+        let ceiling_samples = sample_xs.map(|x| frame.pixel(x, 20));
+        let floor_samples = sample_xs.map(|x| frame.pixel(x, HEIGHT as usize - 20));
+
+        assert!(ceiling_samples
+            .into_iter()
+            .all(|pixel| pixel != [0, 0, 0, 255]));
+        assert!(floor_samples
+            .into_iter()
+            .all(|pixel| pixel != [0, 0, 0, 255]));
+
+        assert_eq!(ceiling_samples[0], ceiling_samples[1]);
+        assert_eq!(ceiling_samples[1], ceiling_samples[2]);
+        assert_eq!(floor_samples[0], floor_samples[1]);
+        assert_eq!(floor_samples[1], floor_samples[2]);
     }
 
     #[test]

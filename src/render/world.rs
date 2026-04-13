@@ -1,13 +1,14 @@
 use super::{
-    frame::{draw_line, draw_vertical_line, Pixel},
-    math::{clip_wall, lerp, lerpi, project},
-    RenderView, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, FAR, GAP, HEIGHT, NEAR, WIDTH,
+    frame::{draw_line, draw_pixel, draw_vertical_line, Pixel},
+    math::{clip_wall, lerp, project},
+    RenderView, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, GAP, HEIGHT, NEAR, SHADE_BANDS, SHADE_FAR,
+    TAN_FAC_FOV_Y_2, WIDTH,
 };
-use crate::{RawColor, Sector, CEILING_COLOR, FLOOR_COLOR};
+use crate::{Position3, RawColor, Sector, SectorId, CEILING_COLOR, FLOOR_COLOR};
 
 use bevy::{math::vec2, prelude::*};
 use palette::{Hsv, IntoColor, Srgb};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 #[derive(Debug, Copy, Clone)]
 struct PortalSpan<'a> {
@@ -17,28 +18,49 @@ struct PortalSpan<'a> {
 }
 
 const FLUSH_HEIGHT_EPSILON: f32 = 0.001;
+const CONTAINMENT_EPSILON: f32 = 0.001;
 const OUTLINE_COLOR: RawColor = RawColor([0, 0, 0]);
 
 pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sector]) {
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
-    let Some(current_sector) = view
-        .current_sector
-        .and_then(|id| sectors_by_id.get(&id).copied())
-    else {
+    let root_sectors = root_sectors(view, sectors, &sectors_by_id);
+    if root_sectors.is_empty() {
         return;
-    };
+    }
 
     let view_matrix = Mat3::from_rotation_z(-view.direction)
         * Mat3::from_translation(-vec2(view.position.0.x, view.position.0.y));
-
-    let mut portal_queue = VecDeque::<PortalSpan>::new();
-    let mut y_min_vec = vec![GAP; WIDTH as usize];
-    let mut y_max_vec = vec![HEIGHT as isize; WIDTH as usize];
     let ceiling_hsv: Hsv = Srgb::<u8>::from(*CEILING_COLOR).into_format().into_color();
     let floor_hsv: Hsv = Srgb::<u8>::from(*FLOOR_COLOR).into_format().into_color();
 
+    for root_sector in root_sectors {
+        render_sector_tree(
+            frame,
+            view,
+            &sectors_by_id,
+            root_sector,
+            view_matrix,
+            ceiling_hsv,
+            floor_hsv,
+        );
+    }
+}
+
+fn render_sector_tree<'a>(
+    frame: &mut [u8],
+    view: &RenderView,
+    sectors_by_id: &HashMap<SectorId, &'a Sector>,
+    root_sector: &'a Sector,
+    view_matrix: Mat3,
+    ceiling_hsv: Hsv,
+    floor_hsv: Hsv,
+) {
+    let mut portal_queue = VecDeque::<PortalSpan>::new();
+    let mut y_min_vec = vec![GAP; WIDTH as usize];
+    let mut y_max_vec = vec![HEIGHT as isize; WIDTH as usize];
+
     portal_queue.push_back(PortalSpan {
-        sector: current_sector,
+        sector: root_sector,
         x_min: GAP,
         x_max: WIDTH as isize,
     });
@@ -58,18 +80,25 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                 let norm_right_top = project(view_right, view_ceil);
                 let norm_right_bottom = project(view_right, view_floor);
 
-                let left_top: Pixel = norm_left_top.into();
-                let left_bottom: Pixel = norm_left_bottom.into();
-                let right_top: Pixel = norm_right_top.into();
-                let right_bottom: Pixel = norm_right_bottom.into();
+                let left_top_x = screen_x(norm_left_top.0.x);
+                let left_top_y = screen_y(norm_left_top.0.y);
+                let left_bottom_y = screen_y(norm_left_bottom.0.y);
+                let right_top_x = screen_x(norm_right_top.0.x);
+                let right_top_y = screen_y(norm_right_top.0.y);
+                let right_bottom_y = screen_y(norm_right_bottom.0.y);
 
-                let dx = right_top.x - left_top.x;
-                if dx <= 0 {
+                let dx = right_top_x - left_top_x;
+                if dx <= 0.0 {
                     continue 'walls;
                 }
 
-                let x_left = left_top.x.clamp(self_portal.x_min, self_portal.x_max);
-                let x_right = right_top.x.clamp(self_portal.x_min, self_portal.x_max);
+                let x_left =
+                    (left_top_x.floor() as isize).clamp(self_portal.x_min, self_portal.x_max);
+                let x_right =
+                    (right_top_x.ceil() as isize).clamp(self_portal.x_min, self_portal.x_max);
+                if x_left >= x_right {
+                    continue 'walls;
+                }
 
                 let portal_sector = wall
                     .portal_sector
@@ -96,8 +125,8 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                         let portal_ceil_t =
                             (view_portal_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
                         Some((
-                            lerpi(left_top.y, left_bottom.y, portal_ceil_t),
-                            lerpi(right_top.y, right_bottom.y, portal_ceil_t),
+                            lerp(left_top_y, left_bottom_y, portal_ceil_t),
+                            lerp(right_top_y, right_bottom_y, portal_ceil_t),
                         ))
                     } else {
                         None
@@ -107,8 +136,8 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                         let portal_floor_t =
                             (view_portal_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
                         Some((
-                            lerpi(left_top.y, left_bottom.y, portal_floor_t),
-                            lerpi(right_top.y, right_bottom.y, portal_floor_t),
+                            lerp(left_top_y, left_bottom_y, portal_floor_t),
+                            lerp(right_top_y, right_bottom_y, portal_floor_t),
                         ))
                     } else {
                         None
@@ -126,37 +155,29 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                 let mut bottom_edge_prev = None;
 
                 for x in x_left..x_right {
-                    let skip_floor_ceil = x >= self_portal.x_max as isize - GAP;
-                    let skip_wall = x >= x_right - GAP;
-                    let x_t = (x - left_top.x) as f32 / dx as f32;
+                    let x_t = ((x as f32 + 0.5) - left_top_x) / dx;
+                    let x_t = x_t.clamp(0.0, 1.0);
 
-                    let view_z = lerp(view_left.0.y, view_right.0.y, x_t);
-                    let distance = view_z.abs();
+                    let distance = wall_distance(view_left.0.y, view_right.0.y, x_t);
                     let color = shade_color(raw_hsv, distance);
-                    let ceiling_color = shade_color(ceiling_hsv, distance);
-                    let floor_color = shade_color(floor_hsv, distance);
-
-                    let y_top = lerpi(left_top.y, right_top.y, x_t);
-                    let y_bottom = lerpi(left_bottom.y, right_bottom.y, x_t);
+                    let y_top = lerp(left_top_y, right_top_y, x_t).round() as isize;
+                    let y_bottom = lerp(left_bottom_y, right_bottom_y, x_t).round() as isize;
                     let y_min = y_min_vec[x as usize];
                     let y_max = y_max_vec[x as usize];
                     let y_top = y_top.clamp(y_min, y_max);
                     let y_bottom = y_bottom.clamp(y_min, y_max);
 
-                    if !skip_floor_ceil {
-                        draw_vertical_line(frame, x, y_min, y_top - GAP, ceiling_color);
-                    }
+                    draw_surface_column(frame, x, y_min, y_top - GAP, ceiling_hsv, view_ceil.0);
 
                     let mut portal_top_edge = None;
                     let mut portal_bottom_edge = None;
 
                     if portal_sector.is_some() {
                         if let Some((y_portal_left_top, y_portal_right_top)) = y_portal_top {
-                            let y_portal_top = lerpi(y_portal_left_top, y_portal_right_top, x_t)
-                                .clamp(y_min, y_bottom);
-                            if !skip_wall {
-                                draw_vertical_line(frame, x, y_top, y_portal_top - GAP, color);
-                            }
+                            let y_portal_top =
+                                lerp(y_portal_left_top, y_portal_right_top, x_t).round() as isize;
+                            let y_portal_top = y_portal_top.clamp(y_min, y_bottom);
+                            draw_vertical_line(frame, x, y_top, y_portal_top - GAP, color);
                             portal_top_edge = Some(Pixel::new(x, y_portal_top - GAP));
                             y_min_vec[x as usize] = y_portal_top;
                         } else {
@@ -167,30 +188,21 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                         if let Some((portal_left_bottom_y, portal_right_bottom_y)) = y_portal_bottom
                         {
                             let y_portal_bottom =
-                                lerpi(portal_left_bottom_y, portal_right_bottom_y, x_t)
-                                    .clamp(y_top, y_max);
-                            if !skip_wall {
-                                draw_vertical_line(
-                                    frame,
-                                    x,
-                                    y_portal_bottom,
-                                    y_bottom - GAP,
-                                    color,
-                                );
-                            }
+                                lerp(portal_left_bottom_y, portal_right_bottom_y, x_t).round()
+                                    as isize;
+                            let y_portal_bottom = y_portal_bottom.clamp(y_top, y_max);
+                            draw_vertical_line(frame, x, y_portal_bottom, y_bottom - GAP, color);
                             portal_bottom_edge = Some(Pixel::new(x, y_portal_bottom - GAP));
                             y_max_vec[x as usize] = y_portal_bottom;
                         } else {
                             y_max_vec[x as usize] =
                                 portal_child_y_max(y_bottom, y_max, portal_floor_flush);
                         }
-                    } else if !skip_wall {
+                    } else {
                         draw_vertical_line(frame, x, y_top, y_bottom - GAP, color);
                     }
 
-                    if !skip_floor_ceil {
-                        draw_vertical_line(frame, x, y_bottom, y_max - GAP, floor_color);
-                    }
+                    draw_surface_column(frame, x, y_bottom, y_max - GAP, floor_hsv, view_floor.0);
 
                     connect_edge_line(
                         frame,
@@ -242,22 +254,198 @@ fn portal_child_y_max(y_bottom: isize, y_max: isize, portal_floor_flush: bool) -
     }
 }
 
-fn shade_color(base_hsv: Hsv, distance: f32) -> RawColor {
-    let brightness = if distance > FAR {
-        BRIGHTNESS_FAR
-    } else if distance < NEAR {
-        BRIGHTNESS_NEAR
-    } else {
-        let distance_t = (distance - NEAR) / (FAR - NEAR);
-        lerp(BRIGHTNESS_NEAR, BRIGHTNESS_FAR, distance_t)
+fn root_sectors<'a>(
+    view: &RenderView,
+    sectors: &[&'a Sector],
+    sectors_by_id: &HashMap<SectorId, &'a Sector>,
+) -> Vec<&'a Sector> {
+    let mut roots = Vec::new();
+    let mut seen = HashSet::new();
+
+    let Some(current_sector) = view
+        .current_sector
+        .and_then(|id| sectors_by_id.get(&id).copied())
+    else {
+        return roots;
     };
-    let brightness_rounded = (brightness * 100.0).round() / 100.0;
-    Hsv::new(base_hsv.hue, base_hsv.saturation, brightness_rounded).into()
+
+    roots.push(current_sector);
+    seen.insert(current_sector.id);
+
+    for sector in sectors {
+        if sector_contains_view(sector, view.position) && seen.insert(sector.id) {
+            roots.push(*sector);
+        }
+    }
+
+    roots
+}
+
+fn sector_contains_view(sector: &Sector, position: Position3) -> bool {
+    if position.0.z < sector.floor.0 - CONTAINMENT_EPSILON {
+        return false;
+    }
+    if position.0.z > sector.ceil.0 + CONTAINMENT_EPSILON {
+        return false;
+    }
+
+    sector_contains_horizontal_point(sector, position.truncate().0)
+}
+
+fn sector_contains_horizontal_point(sector: &Sector, point: Vec2) -> bool {
+    for index in 0..sector.vertices.len() {
+        let current = sector.vertices[index].0;
+        let next = sector.vertices[(index + 1) % sector.vertices.len()].0;
+        if point_on_segment(point, current, next) {
+            return true;
+        }
+    }
+
+    let mut inside = false;
+    for index in 0..sector.vertices.len() {
+        let current = sector.vertices[index].0;
+        let next = sector.vertices[(index + 1) % sector.vertices.len()].0;
+        let crosses_scanline = (current.y > point.y) != (next.y > point.y);
+        if !crosses_scanline {
+            continue;
+        }
+
+        let intersect_x =
+            ((next.x - current.x) * (point.y - current.y) / (next.y - current.y)) + current.x;
+        if point.x <= intersect_x + CONTAINMENT_EPSILON {
+            inside = !inside;
+        }
+    }
+
+    inside
+}
+
+fn point_on_segment(point: Vec2, start: Vec2, end: Vec2) -> bool {
+    let segment = end - start;
+    let point_delta = point - start;
+    if segment.perp_dot(point_delta).abs() > CONTAINMENT_EPSILON {
+        return false;
+    }
+
+    let dot = point_delta.dot(segment);
+    if dot < -CONTAINMENT_EPSILON {
+        return false;
+    }
+
+    dot <= segment.length_squared() + CONTAINMENT_EPSILON
+}
+
+fn screen_x(norm_x: f32) -> f32 {
+    WIDTH as f32 * 0.5 + WIDTH as f32 * 0.5 * norm_x
+}
+
+fn screen_y(norm_y: f32) -> f32 {
+    HEIGHT as f32 * 0.5 - HEIGHT as f32 * 0.5 * norm_y
+}
+
+fn wall_distance(view_left_depth: f32, view_right_depth: f32, screen_t: f32) -> f32 {
+    let inv_left = 1.0 / view_left_depth.max(NEAR);
+    let inv_right = 1.0 / view_right_depth.max(NEAR);
+    1.0 / lerp(inv_left, inv_right, screen_t).max(f32::EPSILON)
+}
+
+fn draw_surface_column(
+    frame: &mut [u8],
+    x: isize,
+    y_top: isize,
+    y_bottom: isize,
+    base_hsv: Hsv,
+    plane_height: f32,
+) {
+    for y in y_top..y_bottom {
+        let color = shade_color(
+            base_hsv,
+            surface_distance(plane_height, surface_sample_y(plane_height, y)),
+        );
+        draw_pixel(frame, Pixel::new(x, y), color);
+    }
+}
+
+fn surface_sample_y(plane_height: f32, y: isize) -> f32 {
+    if plane_height < 0.0 {
+        y as f32 + 1.0
+    } else {
+        y as f32
+    }
+}
+
+fn surface_distance(plane_height: f32, y: f32) -> f32 {
+    let screen_offset = (HEIGHT as f32 * 0.5 - y).abs();
+    if plane_height.abs() <= f32::EPSILON || screen_offset <= f32::EPSILON {
+        return f32::INFINITY;
+    }
+
+    (plane_height.abs() * HEIGHT as f32 * 0.5 / (screen_offset * *TAN_FAC_FOV_Y_2)).max(NEAR)
+}
+
+fn shade_color(base_hsv: Hsv, distance: f32) -> RawColor {
+    let brightness = lerp(BRIGHTNESS_NEAR, BRIGHTNESS_FAR, shade_band_t(distance));
+    Hsv::new(
+        base_hsv.hue,
+        base_hsv.saturation,
+        (base_hsv.value * brightness).clamp(0.0, 1.0),
+    )
+    .into()
+}
+
+fn shade_band(distance: f32) -> usize {
+    let bands = SHADE_BANDS.saturating_sub(1);
+    if bands == 0 {
+        return 0;
+    }
+
+    if distance <= NEAR {
+        0
+    } else if distance >= SHADE_FAR {
+        bands
+    } else {
+        (((distance - NEAR) / (SHADE_FAR - NEAR)) * bands as f32).round() as usize
+    }
+}
+
+fn shade_band_t(distance: f32) -> f32 {
+    let bands = SHADE_BANDS.saturating_sub(1);
+    if bands == 0 {
+        0.0
+    } else {
+        shade_band(distance) as f32 / bands as f32
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Length, Position2};
+    use bevy::math::{vec2, vec3};
+    use std::collections::BTreeSet;
+
+    fn sector(
+        id: u32,
+        vertices: &[(f32, f32)],
+        portal_sectors: &[Option<u32>],
+        floor: f32,
+        ceil: f32,
+    ) -> Sector {
+        Sector {
+            id: SectorId(id),
+            vertices: vertices
+                .iter()
+                .map(|(x, y)| Position2(vec2(*x, *y)))
+                .collect(),
+            portal_sectors: portal_sectors
+                .iter()
+                .map(|portal| portal.map(SectorId))
+                .collect(),
+            colors: vec![RawColor([255, 255, 255]); vertices.len()],
+            floor: Length(floor),
+            ceil: Length(ceil),
+        }
+    }
 
     #[test]
     fn flush_portal_ceiling_expands_child_span_into_threshold_gap() {
@@ -279,5 +467,113 @@ mod tests {
     fn flush_portal_bound_expansion_respects_existing_clip_limits() {
         assert_eq!(portal_child_y_min(10, 10, true), 10);
         assert_eq!(portal_child_y_max(120, 120, true), 120);
+    }
+
+    #[test]
+    fn root_sectors_include_portal_neighbor_on_shared_boundary() {
+        let sectors = vec![
+            sector(
+                0,
+                &[(-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)],
+                &[Some(1), None, None, None],
+                0.0,
+                4.0,
+            ),
+            sector(
+                1,
+                &[(1.0, 1.0), (-1.0, 1.0), (-1.0, 4.0), (1.0, 4.0)],
+                &[Some(0), None, None, None],
+                0.0,
+                4.0,
+            ),
+        ];
+        let sector_refs = sectors.iter().collect::<Vec<_>>();
+        let sectors_by_id = sector_refs
+            .iter()
+            .map(|sector| (sector.id, *sector))
+            .collect::<HashMap<_, _>>();
+        let view = RenderView::new(
+            Position3(vec3(0.0, 1.0, 1.62)),
+            -std::f32::consts::FRAC_PI_2,
+            Some(SectorId(0)),
+        );
+
+        let roots = root_sectors(&view, &sector_refs, &sectors_by_id);
+
+        assert_eq!(roots.len(), 2);
+        assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
+        assert!(roots.iter().any(|sector| sector.id == SectorId(1)));
+    }
+
+    #[test]
+    fn surface_distance_matches_projected_floor_and_ceiling_rows() {
+        for (plane_height, expected_distances) in [
+            (-1.62_f32, [4.0_f32, 8.0, 16.0]),
+            (2.38_f32, [4.0, 8.0, 16.0]),
+        ] {
+            for expected_distance in expected_distances {
+                let row = Pixel::from(project(
+                    Position2(vec2(0.0, expected_distance)),
+                    Length(plane_height),
+                ))
+                .y as f32;
+                let actual_distance = surface_distance(plane_height, row);
+
+                assert!(
+                    (actual_distance - expected_distance).abs() < 0.35,
+                    "expected projected row for plane height {plane_height} to recover {expected_distance}, got {actual_distance}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn projected_surface_rows_share_wall_shade_bands() {
+        for (plane_height, expected_distances) in [
+            (-1.62_f32, [4.0_f32, 8.0, 16.0]),
+            (2.38_f32, [4.0, 8.0, 16.0]),
+        ] {
+            for expected_distance in expected_distances {
+                let row = Pixel::from(project(
+                    Position2(vec2(0.0, expected_distance)),
+                    Length(plane_height),
+                ))
+                .y as f32;
+
+                assert_eq!(
+                    shade_band(surface_distance(
+                        plane_height,
+                        surface_sample_y(plane_height, row as isize),
+                    )),
+                    shade_band(expected_distance),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn wall_distance_recovers_depth_from_projected_column() {
+        let view_left = Position2(vec2(-2.0, 4.0));
+        let view_right = Position2(vec2(2.0, 8.0));
+        let sample = Position2(vec2(-1.0, 5.0));
+        let left_x = screen_x(project(view_left, Length(0.0)).0.x);
+        let right_x = screen_x(project(view_right, Length(0.0)).0.x);
+        let sample_x = screen_x(project(sample, Length(0.0)).0.x);
+        let screen_t = (sample_x - left_x) / (right_x - left_x);
+
+        let recovered = wall_distance(view_left.0.y, view_right.0.y, screen_t);
+
+        assert!((recovered - sample.0.y).abs() < 0.01);
+    }
+
+    #[test]
+    fn shade_color_uses_limited_bands_for_retro_falloff() {
+        let base_hsv: Hsv = Srgb::<u8>::new(255, 0, 0).into_format().into_color();
+        let shades = (0..64)
+            .map(|step| shade_color(base_hsv, NEAR + step as f32 * 0.5).0[0])
+            .collect::<BTreeSet<_>>();
+
+        assert!(shades.len() <= SHADE_BANDS);
+        assert!(shades.len() > SHADE_BANDS / 2);
     }
 }
