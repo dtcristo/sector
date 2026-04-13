@@ -43,11 +43,7 @@ impl Plugin for SectorRuntimePlugin {
                     mouse_capture_system,
                     escape_system,
                     switch_minimap_system,
-                    (
-                        player_look_system,
-                        player_simulation_system,
-                    )
-                        .chain(),
+                    (player_look_system, player_simulation_system).chain(),
                 ),
             )
             .add_systems(Draw, draw_frame_system);

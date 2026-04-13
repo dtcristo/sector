@@ -240,8 +240,18 @@ mod tests {
         let mut near_frame = FrameBuffer::new();
         let mut far_frame = FrameBuffer::new();
 
-        render_frame(near_frame.as_mut_slice(), &view, near_room.iter(), Minimap::Off);
-        render_frame(far_frame.as_mut_slice(), &view, far_room.iter(), Minimap::Off);
+        render_frame(
+            near_frame.as_mut_slice(),
+            &view,
+            near_room.iter(),
+            Minimap::Off,
+        );
+        render_frame(
+            far_frame.as_mut_slice(),
+            &view,
+            far_room.iter(),
+            Minimap::Off,
+        );
 
         let center_x = WIDTH as usize / 2;
         assert!(near_frame.pixel(center_x, 10)[0] > far_frame.pixel(center_x, 10)[0]);
@@ -301,9 +311,8 @@ mod tests {
 
     #[test]
     fn default_map_initial_view_renders_non_black_frame() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
-                .unwrap();
+        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
+            .unwrap();
         let (initial_sector, sectors) = map_to_sectors(&map).unwrap();
         let initial_floor = sectors
             .iter()

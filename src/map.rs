@@ -439,21 +439,35 @@ mod tests {
         assert!(map.sectors.len() >= 7);
 
         let has_walkable_step = map.sectors.iter().any(|sector| {
-            sector.walls.iter().filter_map(|wall| wall.portal).any(|portal_index| {
-                let target_sector = &map.sectors[portal_index];
-                let floor_delta = target_sector.floor - sector.floor;
-                floor_delta > 0.0 && floor_delta <= 0.45
-            })
+            sector
+                .walls
+                .iter()
+                .filter_map(|wall| wall.portal)
+                .any(|portal_index| {
+                    let target_sector = &map.sectors[portal_index];
+                    let floor_delta = target_sector.floor - sector.floor;
+                    floor_delta > 0.0 && floor_delta <= 0.45
+                })
         });
         assert!(has_walkable_step);
 
-        let has_same_height_portal_pair = map.sectors.iter().enumerate().any(|(sector_index, sector)| {
-            sector.walls.iter().filter_map(|wall| wall.portal).any(|portal_index| {
-                portal_index != sector_index
-                    && (map.sectors[portal_index].floor - sector.floor).abs() < f32::EPSILON
-                    && (map.sectors[portal_index].ceil - sector.ceil).abs() < f32::EPSILON
-            })
-        });
+        let has_same_height_portal_pair =
+            map.sectors
+                .iter()
+                .enumerate()
+                .any(|(sector_index, sector)| {
+                    sector
+                        .walls
+                        .iter()
+                        .filter_map(|wall| wall.portal)
+                        .any(|portal_index| {
+                            portal_index != sector_index
+                                && (map.sectors[portal_index].floor - sector.floor).abs()
+                                    < f32::EPSILON
+                                && (map.sectors[portal_index].ceil - sector.ceil).abs()
+                                    < f32::EPSILON
+                        })
+                });
         assert!(has_same_height_portal_pair);
     }
 
