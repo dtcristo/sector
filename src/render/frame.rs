@@ -1,8 +1,6 @@
 use super::{HEIGHT, WIDTH};
 use crate::RawColor;
 
-use rust_bresenham::Bresenham;
-
 pub const FRAME_BYTES: usize = WIDTH as usize * HEIGHT as usize * 4;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -97,8 +95,29 @@ pub(crate) fn draw_vertical_line(
 }
 
 pub(crate) fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: RawColor) {
-    for (x, y) in Bresenham::new(a.to_tuple(), b.to_tuple()) {
+    let mut x = a.x;
+    let mut y = a.y;
+    let dx = (b.x - a.x).abs();
+    let sx = if a.x < b.x { 1 } else { -1 };
+    let dy = -(b.y - a.y).abs();
+    let sy = if a.y < b.y { 1 } else { -1 };
+    let mut error = dx + dy;
+
+    loop {
         draw_pixel(frame, Pixel::new(x, y), color);
+        if x == b.x && y == b.y {
+            break;
+        }
+
+        let doubled_error = error * 2;
+        if doubled_error >= dy {
+            error += dy;
+            x += sx;
+        }
+        if doubled_error <= dx {
+            error += dx;
+            y += sy;
+        }
     }
 }
 
@@ -140,5 +159,25 @@ mod tests {
 
         assert_eq!(frame.pixel(5, 5), [8, 9, 10, 255]);
         assert_eq!(frame.count_color(color), 1);
+    }
+
+    #[test]
+    fn draw_line_covers_every_row_for_steep_slopes() {
+        let mut frame = FrameBuffer::new();
+        let color = RawColor([5, 6, 7]);
+
+        draw_line(
+            frame.as_mut_slice(),
+            Pixel::new(10, 10),
+            Pixel::new(12, 18),
+            color,
+        );
+
+        for y in 10..=18 {
+            assert!(
+                (10..=12).any(|x| frame.pixel(x as usize, y as usize) == [5, 6, 7, 255]),
+                "expected row {y} to contain part of the line"
+            );
+        }
     }
 }

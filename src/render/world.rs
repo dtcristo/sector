@@ -1,5 +1,5 @@
 use super::{
-    frame::{draw_vertical_line, Pixel},
+    frame::{draw_line, draw_vertical_line, Pixel},
     math::{clip_wall, lerp, lerpi, project},
     RenderView, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, FAR, GAP, HEIGHT, NEAR, WIDTH,
 };
@@ -15,6 +15,9 @@ struct PortalSpan<'a> {
     x_min: isize,
     x_max: isize,
 }
+
+const FLUSH_HEIGHT_EPSILON: f32 = 0.001;
+const OUTLINE_COLOR: RawColor = RawColor([0, 0, 0]);
 
 pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sector]) {
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
@@ -71,6 +74,12 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                 let portal_sector = wall
                     .portal_sector
                     .and_then(|id| sectors_by_id.get(&id).copied());
+                let portal_ceiling_flush = portal_sector.is_some_and(|portal_sector| {
+                    heights_match(portal_sector.ceil.0, sector.ceil.0)
+                });
+                let portal_floor_flush = portal_sector.is_some_and(|portal_sector| {
+                    heights_match(portal_sector.floor.0, sector.floor.0)
+                });
 
                 let (y_portal_top, y_portal_bottom) = if let Some(portal_sector) = portal_sector {
                     portal_queue.push_back(PortalSpan {
@@ -111,6 +120,10 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                 };
 
                 let raw_hsv: Hsv = Srgb::<u8>::from(wall.color).into_format().into_color();
+                let mut top_edge_prev = None;
+                let mut portal_top_edge_prev = None;
+                let mut portal_bottom_edge_prev = None;
+                let mut bottom_edge_prev = None;
 
                 for x in x_left..x_right {
                     let skip_floor_ceil = x >= self_portal.x_max as isize - GAP;
@@ -134,6 +147,9 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                         draw_vertical_line(frame, x, y_min, y_top - GAP, ceiling_color);
                     }
 
+                    let mut portal_top_edge = None;
+                    let mut portal_bottom_edge = None;
+
                     if portal_sector.is_some() {
                         if let Some((y_portal_left_top, y_portal_right_top)) = y_portal_top {
                             let y_portal_top = lerpi(y_portal_left_top, y_portal_right_top, x_t)
@@ -141,9 +157,11 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                             if !skip_wall {
                                 draw_vertical_line(frame, x, y_top, y_portal_top - GAP, color);
                             }
+                            portal_top_edge = Some(Pixel::new(x, y_portal_top - GAP));
                             y_min_vec[x as usize] = y_portal_top;
                         } else {
-                            y_min_vec[x as usize] = y_top;
+                            y_min_vec[x as usize] =
+                                portal_child_y_min(y_top, y_min, portal_ceiling_flush);
                         }
 
                         if let Some((portal_left_bottom_y, portal_right_bottom_y)) = y_portal_bottom
@@ -160,9 +178,11 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                                     color,
                                 );
                             }
+                            portal_bottom_edge = Some(Pixel::new(x, y_portal_bottom - GAP));
                             y_max_vec[x as usize] = y_portal_bottom;
                         } else {
-                            y_max_vec[x as usize] = y_bottom;
+                            y_max_vec[x as usize] =
+                                portal_child_y_max(y_bottom, y_max, portal_floor_flush);
                         }
                     } else if !skip_wall {
                         draw_vertical_line(frame, x, y_top, y_bottom - GAP, color);
@@ -171,9 +191,54 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
                     if !skip_floor_ceil {
                         draw_vertical_line(frame, x, y_bottom, y_max - GAP, floor_color);
                     }
+
+                    connect_edge_line(
+                        frame,
+                        &mut top_edge_prev,
+                        (portal_sector.is_none() || !portal_ceiling_flush)
+                            .then_some(Pixel::new(x, y_top - GAP)),
+                    );
+                    connect_edge_line(frame, &mut portal_top_edge_prev, portal_top_edge);
+                    connect_edge_line(frame, &mut portal_bottom_edge_prev, portal_bottom_edge);
+                    connect_edge_line(
+                        frame,
+                        &mut bottom_edge_prev,
+                        (portal_sector.is_none() || !portal_floor_flush)
+                            .then_some(Pixel::new(x, y_bottom - GAP)),
+                    );
                 }
             }
         }
+    }
+}
+
+fn connect_edge_line(frame: &mut [u8], previous: &mut Option<Pixel>, current: Option<Pixel>) {
+    if let Some(current) = current {
+        if let Some(previous) = previous.replace(current) {
+            draw_line(frame, previous, current, OUTLINE_COLOR);
+        }
+    } else {
+        *previous = None;
+    }
+}
+
+fn heights_match(a: f32, b: f32) -> bool {
+    (a - b).abs() <= FLUSH_HEIGHT_EPSILON
+}
+
+fn portal_child_y_min(y_top: isize, y_min: isize, portal_ceiling_flush: bool) -> isize {
+    if portal_ceiling_flush {
+        (y_top - GAP).max(y_min)
+    } else {
+        y_top
+    }
+}
+
+fn portal_child_y_max(y_bottom: isize, y_max: isize, portal_floor_flush: bool) -> isize {
+    if portal_floor_flush {
+        (y_bottom + GAP).min(y_max)
+    } else {
+        y_bottom
     }
 }
 
@@ -188,4 +253,31 @@ fn shade_color(base_hsv: Hsv, distance: f32) -> RawColor {
     };
     let brightness_rounded = (brightness * 100.0).round() / 100.0;
     Hsv::new(base_hsv.hue, base_hsv.saturation, brightness_rounded).into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn flush_portal_ceiling_expands_child_span_into_threshold_gap() {
+        assert_eq!(portal_child_y_min(40, 10, true), 39);
+    }
+
+    #[test]
+    fn flush_portal_floor_expands_child_span_into_threshold_gap() {
+        assert_eq!(portal_child_y_max(120, 200, true), 121);
+    }
+
+    #[test]
+    fn non_flush_portal_bounds_preserve_threshold_lines() {
+        assert_eq!(portal_child_y_min(40, 10, false), 40);
+        assert_eq!(portal_child_y_max(120, 200, false), 120);
+    }
+
+    #[test]
+    fn flush_portal_bound_expansion_respects_existing_clip_limits() {
+        assert_eq!(portal_child_y_min(10, 10, true), 10);
+        assert_eq!(portal_child_y_max(120, 120, true), 120);
+    }
 }
