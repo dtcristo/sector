@@ -240,7 +240,7 @@
       walls: [
         (color: (92, 156, 116), portal: None),
         (color: (92, 156, 116), portal: None),
-        (color: (56, 56, 56), portal: Some(14)),
+        (color: (92, 156, 116), portal: None),
         (color: (92, 156, 116), portal: None),
         (color: (56, 56, 56), portal: Some(12)),
       ],

@@ -563,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn default_map_has_large_drop_and_non_euclidean_loop() {
+    fn default_map_has_large_drop_and_only_bidirectional_portals() {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
 
@@ -583,23 +583,35 @@ mod tests {
             });
         assert!(has_large_drop);
 
-        let has_loop_chain = map.sectors[11]
-            .walls
-            .iter()
-            .any(|wall| wall.portal == Some(12))
-            && map.sectors[12]
-                .walls
-                .iter()
-                .any(|wall| wall.portal == Some(13))
-            && map.sectors[13]
-                .walls
-                .iter()
-                .any(|wall| wall.portal == Some(14))
-            && map.sectors[14]
-                .walls
-                .iter()
-                .any(|wall| wall.portal == Some(2));
-        assert!(has_loop_chain);
+        for (sector_index, sector) in map.sectors.iter().enumerate() {
+            for (wall_index, wall) in sector.walls.iter().enumerate() {
+                let Some(target_sector_index) = wall.portal else {
+                    continue;
+                };
+                let start = sector.vertices[wall_index];
+                let end = sector.vertices[(wall_index + 1) % sector.vertices.len()];
+                let target_sector = &map.sectors[target_sector_index];
+
+                let has_reverse_portal = target_sector.walls.iter().enumerate().any(
+                    |(target_wall_index, target_wall)| {
+                        if target_wall.portal != Some(sector_index) {
+                            return false;
+                        }
+
+                        let target_start = target_sector.vertices[target_wall_index];
+                        let target_end = target_sector.vertices
+                            [(target_wall_index + 1) % target_sector.vertices.len()];
+
+                        target_start == end && target_end == start
+                    },
+                );
+
+                assert!(
+                    has_reverse_portal,
+                    "sector {sector_index} wall {wall_index} portal to sector {target_sector_index} must be bidirectional"
+                );
+            }
+        }
     }
 
     #[test]
