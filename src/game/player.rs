@@ -9,6 +9,8 @@ use bevy::{
 
 pub const PLAYER_HEIGHT_METERS: f32 = 1.8;
 pub const PLAYER_EYE_HEIGHT_METERS: f32 = 1.62;
+pub const PLAYER_CROUCH_HEIGHT_METERS: f32 = 1.25;
+pub const PLAYER_CROUCH_EYE_HEIGHT_METERS: f32 = 1.08;
 pub const PLAYER_RADIUS_METERS: f32 = 0.3;
 pub const PLAYER_MAX_STEP_HEIGHT_METERS: f32 = 0.45;
 pub const EARTH_GRAVITY_MPS2: f32 = 9.81;
@@ -29,6 +31,7 @@ pub struct Player {
     pub direction: Direction,
     pub current_sector: Option<SectorId>,
     pub grounded: bool,
+    pub crouching: bool,
 }
 
 impl Default for Player {
@@ -39,17 +42,34 @@ impl Default for Player {
             direction: Direction(0.0),
             current_sector: None,
             grounded: true,
+            crouching: false,
         }
     }
 }
 
 impl Player {
     pub fn eye_position(self) -> Position3 {
-        Position3(self.position.0 + Vec3::Z * PLAYER_EYE_HEIGHT_METERS)
+        Position3(self.position.0 + Vec3::Z * self.eye_height())
     }
 
     pub fn head_z(self) -> f32 {
-        self.position.0.z + PLAYER_HEIGHT_METERS
+        self.position.0.z + self.height()
+    }
+
+    pub fn height(self) -> f32 {
+        if self.crouching {
+            PLAYER_CROUCH_HEIGHT_METERS
+        } else {
+            PLAYER_HEIGHT_METERS
+        }
+    }
+
+    pub fn eye_height(self) -> f32 {
+        if self.crouching {
+            PLAYER_CROUCH_EYE_HEIGHT_METERS
+        } else {
+            PLAYER_EYE_HEIGHT_METERS
+        }
     }
 }
 
@@ -60,6 +80,7 @@ pub struct PlayerInput {
     pub strafe_left: bool,
     pub strafe_right: bool,
     pub jump_pressed: bool,
+    pub crouch_pressed: bool,
     pub turn_left: bool,
     pub turn_right: bool,
     pub mouse_delta_x: f32,
@@ -74,6 +95,8 @@ impl PlayerInput {
             strafe_left: keys.pressed(KeyCode::KeyA),
             strafe_right: keys.pressed(KeyCode::KeyD),
             jump_pressed,
+            crouch_pressed: keys.pressed(KeyCode::ControlLeft)
+                || keys.pressed(KeyCode::ControlRight),
             turn_left: keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::KeyQ),
             turn_right: keys.pressed(KeyCode::ArrowRight) || keys.pressed(KeyCode::KeyE),
             ..Self::default()
@@ -138,6 +161,7 @@ pub fn jump_speed_mps() -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::input::ButtonInput;
 
     #[test]
     fn player_moves_forward_from_default_direction() {
@@ -172,5 +196,13 @@ mod tests {
     fn jump_speed_matches_target_height() {
         let apex_height = jump_speed_mps() * jump_speed_mps() / (2.0 * EARTH_GRAVITY_MPS2);
         assert!((apex_height - PLAYER_JUMP_HEIGHT_METERS).abs() < 0.0001);
+    }
+
+    #[test]
+    fn control_keys_drive_crouch_input() {
+        let mut keys = ButtonInput::<KeyCode>::default();
+        keys.press(KeyCode::ControlLeft);
+
+        assert!(PlayerInput::from_keys(&keys, false).crouch_pressed);
     }
 }

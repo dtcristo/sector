@@ -336,6 +336,7 @@ fn point_on_segment(point: Vec2, left: Vec2, right: Vec2) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::game::{PLAYER_CROUCH_HEIGHT_METERS, PLAYER_HEIGHT_METERS};
 
     fn sample_map() -> SectorMap {
         SectorMap {
@@ -525,6 +526,21 @@ mod tests {
         });
 
         assert!(has_high_window_sector);
+    }
+
+    #[test]
+    fn default_map_has_crouch_only_connector() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+
+        let has_crouch_connector = map.sectors.iter().any(|sector| {
+            let headroom = sector.ceil - sector.floor;
+            headroom >= PLAYER_CROUCH_HEIGHT_METERS
+                && headroom < PLAYER_HEIGHT_METERS
+                && sector.walls.iter().any(|wall| wall.portal.is_some())
+        });
+
+        assert!(has_crouch_connector);
     }
 
     #[test]

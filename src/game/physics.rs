@@ -21,11 +21,13 @@ pub fn simulate_player<'a>(
         return;
     }
 
-    player.current_sector = resolve_current_sector(
+    player.current_sector = resolve_current_sector_with_height(
         player.position,
         player.current_sector,
         sectors.iter().copied(),
+        player.height(),
     );
+    update_crouch_state(&mut *player, input, &sectors);
 
     let horizontal_velocity = desired_horizontal_velocity(player, input);
     player.velocity.x = horizontal_velocity.x;
@@ -63,7 +65,7 @@ pub fn simulate_player<'a>(
         }
     }
 
-    if input.jump_pressed && player.grounded {
+    if input.jump_pressed && player.grounded && !player.crouching {
         player.velocity.z = jump_speed_mps();
         player.grounded = false;
     }
@@ -73,11 +75,13 @@ pub fn simulate_player<'a>(
         player.position.0.z += player.velocity.z * dt_seconds;
     }
 
-    player.current_sector = resolve_current_sector(
+    player.current_sector = resolve_current_sector_with_height(
         player.position,
         player.current_sector,
         sectors.iter().copied(),
+        player.height(),
     );
+    update_crouch_state(&mut *player, input, &sectors);
 
     if let Some(current_sector) = player.current_sector.and_then(|sector_id| {
         sectors
@@ -85,7 +89,7 @@ pub fn simulate_player<'a>(
             .find(|sector| sector.id == sector_id)
             .copied()
     }) {
-        let max_feet_z = current_sector.ceil.0 - PLAYER_HEIGHT_METERS;
+        let max_feet_z = current_sector.ceil.0 - player.height();
         if player.position.0.z > max_feet_z {
             player.position.0.z = max_feet_z;
             if player.velocity.z > 0.0 {
@@ -108,12 +112,21 @@ pub fn resolve_current_sector<'a>(
     current_sector: Option<SectorId>,
     sectors: impl IntoIterator<Item = &'a Sector>,
 ) -> Option<SectorId> {
+    resolve_current_sector_with_height(position, current_sector, sectors, PLAYER_HEIGHT_METERS)
+}
+
+fn resolve_current_sector_with_height<'a>(
+    position: Position3,
+    current_sector: Option<SectorId>,
+    sectors: impl IntoIterator<Item = &'a Sector>,
+    player_height: f32,
+) -> Option<SectorId> {
     let sectors: Vec<_> = sectors.into_iter().collect();
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
     let matching_sectors = sectors
         .iter()
         .copied()
-        .filter(|sector| sector_matches_position_for_resolution(sector, position))
+        .filter(|sector| sector_matches_position_for_resolution(sector, position, player_height))
         .collect::<Vec<_>>();
 
     if matching_sectors.is_empty() {
@@ -138,9 +151,15 @@ pub fn resolve_current_sector<'a>(
                         .get(portal_id)
                         .copied()
                         .is_some_and(|portal_sector| {
-                            sector_matches_position_for_resolution(portal_sector, position)
-                                && (!sector_contains_player(sector, position)
-                                    || position_on_portal_boundary(sector, position, *portal_id))
+                            sector_matches_position_for_resolution(
+                                portal_sector,
+                                position,
+                                player_height,
+                            ) && (!sector_contains_player_with_height(
+                                sector,
+                                position,
+                                player_height,
+                            ) || position_on_portal_boundary(sector, position, *portal_id))
                         })
                 })
             {
@@ -160,18 +179,30 @@ pub fn resolve_current_sector<'a>(
 }
 
 pub fn sector_contains_player(sector: &Sector, position: Position3) -> bool {
+    sector_contains_player_with_height(sector, position, PLAYER_HEIGHT_METERS)
+}
+
+fn sector_contains_player_with_height(
+    sector: &Sector,
+    position: Position3,
+    player_height: f32,
+) -> bool {
     if position.0.z < sector.floor.0 - POSITION_EPSILON {
         return false;
     }
-    if position.0.z + PLAYER_HEIGHT_METERS > sector.ceil.0 + POSITION_EPSILON {
+    if position.0.z + player_height > sector.ceil.0 + POSITION_EPSILON {
         return false;
     }
 
     sector_contains_horizontal_point(sector, position.truncate().0)
 }
 
-fn sector_matches_position_for_resolution(sector: &Sector, position: Position3) -> bool {
-    if position.0.z + PLAYER_HEIGHT_METERS > sector.ceil.0 + POSITION_EPSILON {
+fn sector_matches_position_for_resolution(
+    sector: &Sector,
+    position: Position3,
+    player_height: f32,
+) -> bool {
+    if position.0.z + player_height > sector.ceil.0 + POSITION_EPSILON {
         return false;
     }
 
@@ -219,16 +250,26 @@ fn move_player_horizontally(
 ) -> (Vec2, Option<SectorId>, Option<f32>) {
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
     let mut position = player.position.truncate().0;
-    let sector_id = player
-        .current_sector
-        .or_else(|| resolve_current_sector(player.position, None, sectors.iter().copied()));
+    let sector_id = player.current_sector.or_else(|| {
+        resolve_current_sector_with_height(
+            player.position,
+            None,
+            sectors.iter().copied(),
+            player.height(),
+        )
+    });
     let remaining = desired_delta;
     let mut stepped_to_floor = None;
 
     if sector_id.is_none() {
         let target = position + remaining;
         let target_position = Position3(Vec3::new(target.x, target.y, player.position.0.z));
-        let target_sector = resolve_current_sector(target_position, None, sectors.iter().copied());
+        let target_sector = resolve_current_sector_with_height(
+            target_position,
+            None,
+            sectors.iter().copied(),
+            player.height(),
+        );
         return (target, target_sector, None);
     }
 
@@ -390,11 +431,37 @@ fn portal_clearance(player: &Player, target_sector: &Sector) -> Option<f32> {
         feet_z = target_sector.floor.0;
     }
 
-    if feet_z + PLAYER_HEIGHT_METERS > target_sector.ceil.0 - POSITION_EPSILON {
+    if feet_z + player.height() > target_sector.ceil.0 - POSITION_EPSILON {
         return None;
     }
 
     Some(feet_z)
+}
+
+fn update_crouch_state(player: &mut Player, input: PlayerInput, sectors: &[&Sector]) {
+    if input.crouch_pressed {
+        player.crouching = true;
+        return;
+    }
+
+    let Some(current_sector) = player.current_sector.and_then(|sector_id| {
+        sectors
+            .iter()
+            .find(|sector| sector.id == sector_id)
+            .copied()
+    }) else {
+        player.crouching = false;
+        return;
+    };
+
+    if can_use_height_in_sector(current_sector, player.position.0.z, PLAYER_HEIGHT_METERS) {
+        player.crouching = false;
+    }
+}
+
+fn can_use_height_in_sector(sector: &Sector, feet_z: f32, height: f32) -> bool {
+    feet_z >= sector.floor.0 - POSITION_EPSILON
+        && feet_z + height <= sector.ceil.0 + POSITION_EPSILON
 }
 
 fn wall_outward_normal(wall: WallSegment) -> Vec2 {
@@ -536,6 +603,40 @@ mod tests {
         ]
     }
 
+    fn crouch_tunnel_chain() -> Vec<Sector> {
+        vec![
+            sector(
+                0,
+                &[(-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)],
+                &[Some(1), None, None, None],
+                &[[255, 0, 255], [0, 255, 0], [0, 255, 0], [0, 255, 0]],
+                0.0,
+                3.2,
+            ),
+            sector(
+                1,
+                &[(-1.0, 3.0), (1.0, 3.0), (1.0, 1.0), (-1.0, 1.0)],
+                &[Some(2), None, Some(0), None],
+                &[
+                    [255, 0, 255],
+                    [120, 120, 120],
+                    [255, 0, 255],
+                    [120, 120, 120],
+                ],
+                0.0,
+                1.35,
+            ),
+            sector(
+                2,
+                &[(-1.0, 5.0), (1.0, 5.0), (1.0, 3.0), (-1.0, 3.0)],
+                &[None, None, Some(1), None],
+                &[[0, 255, 255], [0, 255, 255], [255, 0, 255], [0, 255, 255]],
+                0.0,
+                3.2,
+            ),
+        ]
+    }
+
     #[test]
     fn sector_contains_player_checks_polygon_and_height() {
         let sector = simple_room();
@@ -631,6 +732,31 @@ mod tests {
         assert!(peak > 0.3);
         assert!(player.grounded);
         assert!((player.position.0.z - 0.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn crouching_blocks_jump_until_player_stands() {
+        let sectors = [simple_room()];
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            crouching: true,
+            ..Player::default()
+        };
+
+        simulate_player(
+            &mut player,
+            PlayerInput {
+                jump_pressed: true,
+                crouch_pressed: true,
+                ..PlayerInput::default()
+            },
+            1.0 / 60.0,
+            sectors.iter(),
+        );
+
+        assert!(player.grounded);
+        assert_eq!(player.velocity.z, 0.0);
+        assert_eq!(player.position.0.z, 0.0);
     }
 
     #[test]
@@ -851,6 +977,72 @@ mod tests {
             player.position.0.y > 1.0,
             "expected player to slide through portal"
         );
+    }
+
+    #[test]
+    fn standing_player_cannot_enter_low_crouch_tunnel() {
+        let sectors = crouch_tunnel_chain();
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(0.0, 0.5, 0.0)),
+            ..Player::default()
+        };
+
+        for _ in 0..30 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+        }
+
+        assert_eq!(player.current_sector, Some(SectorId(0)));
+        assert!(player.position.0.y < 1.0);
+    }
+
+    #[test]
+    fn player_stays_crouched_until_exiting_low_tunnel() {
+        let sectors = crouch_tunnel_chain();
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(0.0, 0.5, 0.0)),
+            ..Player::default()
+        };
+
+        for _ in 0..30 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    crouch_pressed: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+        }
+
+        assert_eq!(player.current_sector, Some(SectorId(1)));
+        assert!(player.crouching);
+
+        for _ in 0..45 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+        }
+
+        assert_eq!(player.current_sector, Some(SectorId(2)));
+        assert!(!player.crouching);
     }
 
     #[test]
