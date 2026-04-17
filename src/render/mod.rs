@@ -260,13 +260,45 @@ mod tests {
         );
     }
 
+    fn sector_centroid(sector: &Sector) -> Vec2 {
+        sector
+            .vertices
+            .iter()
+            .fold(Vec2::ZERO, |sum, vertex| sum + vertex.0)
+            / sector.vertices.len() as f32
+    }
+
     fn staircase_portal_walk_frames(direction_sign: f32) -> Vec<FrameBuffer> {
         let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
             .unwrap();
         let (_, sectors) = map_to_sectors(&map).unwrap();
-        let portal_midpoint = Vec2::new(4.0, -3.5);
-        let portal_normal = Vec2::new(3.0, -4.0).normalize();
-        let feet_z = if direction_sign > 0.0 { 0.0 } else { 0.2 };
+        let source_sector_id = if direction_sign > 0.0 {
+            SectorId(3)
+        } else {
+            SectorId(4)
+        };
+        let target_sector_id = if direction_sign > 0.0 {
+            SectorId(4)
+        } else {
+            SectorId(3)
+        };
+        let source_sector = sectors
+            .iter()
+            .find(|sector| sector.id == source_sector_id)
+            .unwrap();
+        let target_sector = sectors
+            .iter()
+            .find(|sector| sector.id == target_sector_id)
+            .unwrap();
+        let wall = source_sector
+            .wall_segments()
+            .into_iter()
+            .find(|wall| wall.portal_sector == Some(target_sector_id))
+            .unwrap();
+        let portal_midpoint = (wall.left.0 + wall.right.0) * 0.5;
+        let portal_normal =
+            (sector_centroid(target_sector) - sector_centroid(source_sector)).normalize();
+        let feet_z = source_sector.floor.0;
         let mut player = Player {
             position: Position3(Vec3::new(
                 portal_midpoint.x - direction_sign * portal_normal.x * 0.18,
@@ -276,11 +308,7 @@ mod tests {
             direction: Direction(
                 (-direction_sign * portal_normal.x).atan2(direction_sign * portal_normal.y),
             ),
-            current_sector: Some(if direction_sign > 0.0 {
-                SectorId(0)
-            } else {
-                SectorId(3)
-            }),
+            current_sector: Some(source_sector_id),
             grounded: true,
             ..Player::default()
         };
@@ -666,10 +694,16 @@ mod tests {
         let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
             .unwrap();
         let (_, sectors) = map_to_sectors(&map).unwrap();
+        let sector = sectors
+            .iter()
+            .find(|sector| sector.id == SectorId(2))
+            .unwrap();
+        let centroid = sector_centroid(sector);
+        let to_spawn = Vec2::new(map.initial_position.0, map.initial_position.1) - centroid;
         let mut player = Player::default();
-        player.position = Position3(Vec3::new(5.5, -4.25, 0.2));
-        player.direction.0 = 6.5_f32.atan2(4.25);
-        player.current_sector = Some(SectorId(3));
+        player.position = Position3(Vec3::new(centroid.x, centroid.y, sector.floor.0));
+        player.direction.0 = (-to_spawn.x).atan2(to_spawn.y);
+        player.current_sector = Some(SectorId(2));
         let view = player_render_view(&player);
         let mut frame = FrameBuffer::new();
 

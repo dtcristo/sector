@@ -943,7 +943,7 @@ mod tests {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
 
-        assert!(map.sectors.len() >= 16);
+        assert!(map.sectors.len() >= 20);
 
         let walkable_step_count = map
             .sectors
@@ -957,7 +957,7 @@ mod tests {
                 })
             })
             .count();
-        assert!(walkable_step_count >= 4);
+        assert!(walkable_step_count >= 8);
     }
 
     #[test]
@@ -968,7 +968,7 @@ mod tests {
         const STAIR_PORTAL_UPPER: [u8; 3] = [72, 72, 76];
         const STAIR_PORTAL_LOWER: [u8; 3] = [44, 44, 48];
 
-        for sector_index in [3_usize, 4, 5, 6] {
+        for sector_index in 3_usize..=10 {
             let sector = &map.sectors[sector_index];
             assert!(sector
                 .walls
@@ -980,32 +980,77 @@ mod tests {
                 }));
         }
 
-        assert!(map.sectors[8]
-            .walls
-            .iter()
-            .filter(|wall| wall.portal == Some(10))
-            .all(|wall| {
-                wall.upper_color == Some(STAIR_PORTAL_UPPER)
-                    && wall.lower_color == Some(STAIR_PORTAL_LOWER)
-            }));
+        for sector_index in 11_usize..=14 {
+            let sector = &map.sectors[sector_index];
+            assert!(sector
+                .walls
+                .iter()
+                .filter(|wall| wall.portal.is_some())
+                .all(|wall| {
+                    wall.upper_color == Some(STAIR_PORTAL_UPPER)
+                        && wall.lower_color == Some(STAIR_PORTAL_LOWER)
+                }));
+        }
+    }
 
+    #[test]
+    fn default_map_has_many_step_spiral_staircase_to_upper_level() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+
+        for sector_index in 3_usize..10 {
+            let sector = &map.sectors[sector_index];
+            let next_sector = &map.sectors[sector_index + 1];
+            assert!(sector
+                .walls
+                .iter()
+                .any(|wall| wall.portal == Some(sector_index + 1)));
+            let floor_delta = next_sector.floor - sector.floor;
+            assert!(floor_delta > 0.0 && floor_delta <= 0.45);
+        }
         assert!(map.sectors[10]
             .walls
             .iter()
-            .filter(|wall| wall.portal.is_some())
-            .all(|wall| {
-                wall.upper_color == Some(STAIR_PORTAL_UPPER)
-                    && wall.lower_color == Some(STAIR_PORTAL_LOWER)
-            }));
+            .any(|wall| wall.portal == Some(15)));
 
-        assert!(map.sectors[11]
-            .walls
+        let portal_angles = (3_usize..=10)
+            .map(|sector_index| {
+                let sector = &map.sectors[sector_index];
+                let wall_index = sector
+                    .walls
+                    .iter()
+                    .position(|wall| {
+                        wall.portal
+                            == Some(if sector_index == 10 {
+                                15
+                            } else {
+                                sector_index + 1
+                            })
+                    })
+                    .unwrap();
+                let start = sector.vertices[wall_index];
+                let end = sector.vertices[(wall_index + 1) % sector.vertices.len()];
+                (end.1 - start.1).atan2(end.0 - start.0)
+            })
+            .collect::<Vec<_>>();
+        let min_angle = portal_angles.iter().copied().fold(f32::INFINITY, f32::min);
+        let max_angle = portal_angles
             .iter()
-            .filter(|wall| wall.portal == Some(10))
-            .all(|wall| {
-                wall.upper_color == Some(STAIR_PORTAL_UPPER)
-                    && wall.lower_color == Some(STAIR_PORTAL_LOWER)
-            }));
+            .copied()
+            .fold(f32::NEG_INFINITY, f32::max);
+        assert!(max_angle - min_angle > 1.5);
+    }
+
+    #[test]
+    fn default_map_has_room_above_room_on_upper_level() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+
+        let lower_room = &map.sectors[2];
+        let upper_room = &map.sectors[19];
+
+        assert!(sectors_overlap_in_2d(lower_room, upper_room));
+        assert!(upper_room.floor >= lower_room.ceil + 0.3);
     }
 
     #[test]
