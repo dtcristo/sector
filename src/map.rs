@@ -38,6 +38,10 @@ pub struct MapWall {
     pub color: [u8; 3],
     #[serde(default)]
     pub portal: Option<usize>,
+    #[serde(default)]
+    pub upper_color: Option<[u8; 3]>,
+    #[serde(default)]
+    pub lower_color: Option<[u8; 3]>,
 }
 
 impl SectorMap {
@@ -223,6 +227,16 @@ pub fn map_to_sectors(map: &SectorMap) -> Result<(InitialSector, Vec<Sector>), S
                 .iter()
                 .map(|wall| RawColor(wall.color))
                 .collect(),
+            portal_upper_colors: sector
+                .walls
+                .iter()
+                .map(|wall| wall.upper_color.map(RawColor))
+                .collect(),
+            portal_lower_colors: sector
+                .walls
+                .iter()
+                .map(|wall| wall.lower_color.map(RawColor))
+                .collect(),
             floor: Length(sector.floor),
             ceil: Length(sector.ceil),
         })
@@ -276,9 +290,13 @@ pub fn sectors_to_map_with_spawn(
                     .portal_sectors
                     .into_iter()
                     .zip(sector.colors)
-                    .map(|(portal, color)| MapWall {
+                    .zip(sector.portal_upper_colors)
+                    .zip(sector.portal_lower_colors)
+                    .map(|(((portal, color), upper_color), lower_color)| MapWall {
                         color: color.0,
                         portal: portal.map(|sector| sector.0 as usize),
+                        upper_color: upper_color.map(|color| color.0),
+                        lower_color: lower_color.map(|color| color.0),
                     })
                     .collect(),
             })
@@ -663,18 +681,26 @@ mod tests {
                         MapWall {
                             color: [0, 0, 255],
                             portal: Some(1),
+                            upper_color: Some([10, 20, 30]),
+                            lower_color: Some([40, 50, 60]),
                         },
                         MapWall {
                             color: [0, 128, 0],
                             portal: None,
+                            upper_color: None,
+                            lower_color: None,
                         },
                         MapWall {
                             color: [255, 0, 0],
                             portal: None,
+                            upper_color: None,
+                            lower_color: None,
                         },
                         MapWall {
                             color: [255, 0, 255],
                             portal: None,
+                            upper_color: None,
+                            lower_color: None,
                         },
                     ],
                 },
@@ -691,18 +717,26 @@ mod tests {
                         MapWall {
                             color: [255, 255, 0],
                             portal: None,
+                            upper_color: None,
+                            lower_color: None,
                         },
                         MapWall {
                             color: [255, 0, 255],
                             portal: None,
+                            upper_color: None,
+                            lower_color: None,
                         },
                         MapWall {
                             color: [0, 128, 0],
                             portal: Some(0),
+                            upper_color: None,
+                            lower_color: None,
                         },
                         MapWall {
                             color: [0, 255, 255],
                             portal: None,
+                            upper_color: None,
+                            lower_color: None,
                         },
                     ],
                 },
@@ -729,6 +763,14 @@ mod tests {
         );
         assert_eq!(round_tripped.sectors.len(), map.sectors.len());
         assert_eq!(round_tripped.sectors[0].walls[0].portal, Some(1));
+        assert_eq!(
+            round_tripped.sectors[0].walls[0].upper_color,
+            Some([10, 20, 30])
+        );
+        assert_eq!(
+            round_tripped.sectors[0].walls[0].lower_color,
+            Some([40, 50, 60])
+        );
     }
 
     #[test]
@@ -769,26 +811,38 @@ mod tests {
             MapWall {
                 color: [0, 0, 255],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
             MapWall {
                 color: [0, 128, 0],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
             MapWall {
                 color: [255, 0, 0],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
             MapWall {
                 color: [255, 255, 0],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
             MapWall {
                 color: [255, 0, 255],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
             MapWall {
                 color: [0, 255, 255],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
         ];
 
@@ -848,18 +902,26 @@ mod tests {
             MapWall {
                 color: [255, 255, 0],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
             MapWall {
                 color: [255, 0, 255],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
             MapWall {
                 color: [0, 128, 0],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
             MapWall {
                 color: [0, 255, 255],
                 portal: None,
+                upper_color: None,
+                lower_color: None,
             },
         ];
 
@@ -903,7 +965,8 @@ mod tests {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
 
-        const STAIR_PORTAL_GREY: [u8; 3] = [56, 56, 56];
+        const STAIR_PORTAL_UPPER: [u8; 3] = [72, 72, 76];
+        const STAIR_PORTAL_LOWER: [u8; 3] = [44, 44, 48];
 
         for sector_index in [3_usize, 4, 5, 6] {
             let sector = &map.sectors[sector_index];
@@ -911,14 +974,38 @@ mod tests {
                 .walls
                 .iter()
                 .filter(|wall| wall.portal.is_some())
-                .all(|wall| wall.color == STAIR_PORTAL_GREY));
+                .all(|wall| {
+                    wall.upper_color == Some(STAIR_PORTAL_UPPER)
+                        && wall.lower_color == Some(STAIR_PORTAL_LOWER)
+                }));
         }
+
+        assert!(map.sectors[8]
+            .walls
+            .iter()
+            .filter(|wall| wall.portal == Some(10))
+            .all(|wall| {
+                wall.upper_color == Some(STAIR_PORTAL_UPPER)
+                    && wall.lower_color == Some(STAIR_PORTAL_LOWER)
+            }));
 
         assert!(map.sectors[10]
             .walls
             .iter()
             .filter(|wall| wall.portal.is_some())
-            .all(|wall| wall.color == STAIR_PORTAL_GREY));
+            .all(|wall| {
+                wall.upper_color == Some(STAIR_PORTAL_UPPER)
+                    && wall.lower_color == Some(STAIR_PORTAL_LOWER)
+            }));
+
+        assert!(map.sectors[11]
+            .walls
+            .iter()
+            .filter(|wall| wall.portal == Some(10))
+            .all(|wall| {
+                wall.upper_color == Some(STAIR_PORTAL_UPPER)
+                    && wall.lower_color == Some(STAIR_PORTAL_LOWER)
+            }));
     }
 
     #[test]

@@ -16,6 +16,8 @@ pub struct Sector {
     pub vertices: Vec<Position2>,
     pub portal_sectors: Vec<Option<SectorId>>,
     pub colors: Vec<RawColor>,
+    pub portal_upper_colors: Vec<Option<RawColor>>,
+    pub portal_lower_colors: Vec<Option<RawColor>>,
     pub floor: Length,
     pub ceil: Length,
 }
@@ -26,6 +28,8 @@ pub struct WallSegment {
     pub right: Position2,
     pub portal_sector: Option<SectorId>,
     pub color: RawColor,
+    pub portal_upper_color: Option<RawColor>,
+    pub portal_lower_color: Option<RawColor>,
 }
 
 impl Sector {
@@ -35,6 +39,8 @@ impl Sector {
         let mut vertex_iter = self.vertices.iter();
         let mut portal_sector_iter = self.portal_sectors.iter();
         let mut color_iter = self.colors.iter();
+        let mut portal_upper_color_iter = self.portal_upper_colors.iter();
+        let mut portal_lower_color_iter = self.portal_lower_colors.iter();
 
         let Some(&initial) = vertex_iter.next() else {
             return walls;
@@ -46,6 +52,8 @@ impl Sector {
                 right,
                 portal_sector: *portal_sector_iter.next().unwrap_or(&None),
                 color: *color_iter.next().unwrap_or(&MISSING_WALL_COLOR),
+                portal_upper_color: *portal_upper_color_iter.next().unwrap_or(&None),
+                portal_lower_color: *portal_lower_color_iter.next().unwrap_or(&None),
             });
         };
 
@@ -80,6 +88,8 @@ mod tests {
                 RawColor([4, 5, 6]),
                 RawColor([7, 8, 9]),
             ],
+            portal_upper_colors: vec![None, Some(RawColor([10, 11, 12])), None],
+            portal_lower_colors: vec![None, Some(RawColor([13, 14, 15])), None],
             floor: Length(0.0),
             ceil: Length(1.0),
         };
@@ -87,8 +97,12 @@ mod tests {
         let walls = sector.wall_segments();
 
         assert_eq!(walls.len(), 3);
+        assert_eq!(walls[1].portal_upper_color, Some(RawColor([10, 11, 12])));
+        assert_eq!(walls[1].portal_lower_color, Some(RawColor([13, 14, 15])));
         assert_eq!(walls[2].left, Position2(vec2(1.0, 1.0)));
         assert_eq!(walls[2].right, Position2(vec2(0.0, 0.0)));
         assert_eq!(walls[2].color, RawColor([7, 8, 9]));
+        assert_eq!(walls[2].portal_upper_color, None);
+        assert_eq!(walls[2].portal_lower_color, None);
     }
 }

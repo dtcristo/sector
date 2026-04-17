@@ -566,6 +566,8 @@ mod tests {
                 .map(|portal| portal.map(SectorId))
                 .collect(),
             colors: colors.iter().copied().map(RawColor).collect(),
+            portal_upper_colors: vec![None; vertices.len()],
+            portal_lower_colors: vec![None; vertices.len()],
             floor: Length(floor),
             ceil: Length(ceil),
         }

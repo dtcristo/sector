@@ -249,6 +249,16 @@ fn render_sector_tree<'a>(
 
                 let wall_hsv: Hsv = Srgb::<u8>::from(wall.color).into_format().into_color();
                 let wall_tag = SurfaceTag::wall(wall.color);
+                let portal_upper_color = wall.portal_upper_color.unwrap_or(wall.color);
+                let portal_upper_hsv: Hsv = Srgb::<u8>::from(portal_upper_color)
+                    .into_format()
+                    .into_color();
+                let portal_upper_tag = SurfaceTag::wall(portal_upper_color);
+                let portal_lower_color = wall.portal_lower_color.unwrap_or(wall.color);
+                let portal_lower_hsv: Hsv = Srgb::<u8>::from(portal_lower_color)
+                    .into_format()
+                    .into_color();
+                let portal_lower_tag = SurfaceTag::wall(portal_lower_color);
 
                 for x in x_left..x_right {
                     let x_t = ((x as f32 + 0.5) - left_top_x) / dx;
@@ -256,6 +266,8 @@ fn render_sector_tree<'a>(
 
                     let distance = wall_distance(view_left.0.y, view_right.0.y, x_t);
                     let wall_color = shade_color(wall_hsv, distance);
+                    let portal_upper_color = shade_color(portal_upper_hsv, distance);
+                    let portal_lower_color = shade_color(portal_lower_hsv, distance);
                     let y_top = lerp(left_top_y, right_top_y, x_t).round() as isize;
                     let y_bottom = lerp(left_bottom_y, right_bottom_y, x_t).round() as isize;
                     let y_min = y_min_vec[x as usize];
@@ -287,8 +299,8 @@ fn render_sector_tree<'a>(
                                 x,
                                 y_top,
                                 y_portal_top,
-                                wall_color,
-                                wall_tag,
+                                portal_upper_color,
+                                portal_upper_tag,
                             );
                             y_portal_top
                         } else {
@@ -311,8 +323,8 @@ fn render_sector_tree<'a>(
                                         x,
                                         y_portal_bottom,
                                         y_bottom,
-                                        wall_color,
-                                        wall_tag,
+                                        portal_lower_color,
+                                        portal_lower_tag,
                                     );
                                     y_portal_bottom
                                 } else {
@@ -320,8 +332,8 @@ fn render_sector_tree<'a>(
                                         x,
                                         y_top: y_bottom,
                                         y_bottom: y_portal_bottom,
-                                        color: wall_color,
-                                        surface_tag: wall_tag,
+                                        color: portal_lower_color,
+                                        surface_tag: portal_lower_tag,
                                     });
                                     y_max
                                 }
@@ -340,8 +352,8 @@ fn render_sector_tree<'a>(
                                     x,
                                     y_top: y_bottom,
                                     y_bottom: y_drop_bottom,
-                                    color: wall_color,
-                                    surface_tag: wall_tag,
+                                    color: portal_lower_color,
+                                    surface_tag: portal_lower_tag,
                                 });
                             }
                         }
@@ -689,7 +701,7 @@ fn shade_band_t(distance: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Length, Position2};
+    use crate::{Length, Position2, Position3};
     use bevy::math::{vec2, vec3};
     use std::collections::BTreeSet;
 
@@ -711,6 +723,8 @@ mod tests {
                 .map(|portal| portal.map(SectorId))
                 .collect(),
             colors: vec![RawColor([255, 255, 255]); vertices.len()],
+            portal_upper_colors: vec![None; vertices.len()],
+            portal_lower_colors: vec![None; vertices.len()],
             floor: Length(floor),
             ceil: Length(ceil),
         }
@@ -843,6 +857,41 @@ mod tests {
         let ceiling = SurfaceTag::ceiling(*CEILING_COLOR, 3.2);
         let higher = SurfaceTag::ceiling(*CEILING_COLOR, 3.4);
         assert!(should_outline_edge(ceiling, Some(higher)));
+    }
+
+    #[test]
+    fn portal_trim_colors_override_wall_color() {
+        let mut near = sector(
+            0,
+            &[(-2.0, 4.0), (2.0, 4.0), (2.0, -2.0), (-2.0, -2.0)],
+            &[Some(1), None, None, None],
+            0.0,
+            4.0,
+        );
+        near.colors[0] = RawColor([180, 60, 60]);
+        near.portal_upper_colors[0] = Some(RawColor([80, 160, 220]));
+        near.portal_lower_colors[0] = Some(RawColor([220, 140, 80]));
+
+        let mut far = sector(
+            1,
+            &[(2.0, 4.0), (-2.0, 4.0), (-2.0, 8.0), (2.0, 8.0)],
+            &[Some(0), None, None, None],
+            1.5,
+            2.5,
+        );
+        far.colors[0] = RawColor([60, 180, 60]);
+
+        let sectors = [&near, &far];
+        let view = RenderView::new(Position3(vec3(0.0, 0.0, 1.62)), 0.0, Some(SectorId(0)));
+        let mut frame = vec![255; WIDTH as usize * HEIGHT as usize * 4];
+        let mut baseline_frame = vec![255; WIDTH as usize * HEIGHT as usize * 4];
+
+        render_world(&mut frame, &view, &sectors);
+        near.portal_upper_colors[0] = None;
+        near.portal_lower_colors[0] = None;
+        render_world(&mut baseline_frame, &view, &[&near, &far]);
+
+        assert_ne!(frame, baseline_frame);
     }
 
     #[test]

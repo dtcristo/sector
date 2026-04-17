@@ -34,7 +34,7 @@
         (-6.0, 0.0),
       ],
       walls: [
-        (color: (56, 56, 56), portal: Some(11)),
+        (color: (56, 56, 56), portal: Some(11), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
         (color: (88, 156, 156), portal: None),
         (color: (56, 56, 56), portal: Some(3)),
         (color: (88, 156, 156), portal: None),
@@ -69,10 +69,10 @@
         (6.0, 4.0),
       ],
       walls: [
-        (color: (56, 56, 56), portal: Some(4)),
+        (color: (56, 56, 56), portal: Some(4), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
         (color: (184, 128, 80), portal: None),
         (color: (184, 128, 80), portal: None),
-        (color: (56, 56, 56), portal: Some(1)),
+        (color: (56, 56, 56), portal: Some(1), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
       ],
     ),
     (
@@ -86,8 +86,8 @@
       ],
       walls: [
         (color: (204, 104, 88), portal: None),
-        (color: (56, 56, 56), portal: Some(5)),
-        (color: (56, 56, 56), portal: Some(3)),
+        (color: (56, 56, 56), portal: Some(5), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
+        (color: (56, 56, 56), portal: Some(3), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
         (color: (204, 104, 88), portal: None),
       ],
     ),
@@ -103,8 +103,8 @@
       walls: [
         (color: (188, 92, 152), portal: None),
         (color: (188, 92, 152), portal: None),
-        (color: (56, 56, 56), portal: Some(6)),
-        (color: (56, 56, 56), portal: Some(4)),
+        (color: (56, 56, 56), portal: Some(6), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
+        (color: (56, 56, 56), portal: Some(4), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
       ],
     ),
     (
@@ -117,8 +117,8 @@
         (10.2, 4.0),
       ],
       walls: [
-        (color: (56, 56, 56), portal: Some(5)),
-        (color: (56, 56, 56), portal: Some(7)),
+        (color: (56, 56, 56), portal: Some(5), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
+        (color: (56, 56, 56), portal: Some(7), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
         (color: (124, 92, 188), portal: None),
         (color: (124, 92, 188), portal: None),
       ],
@@ -135,10 +135,10 @@
       ],
       walls: [
         (color: (110, 140, 220), portal: None),
-        (color: (56, 56, 56), portal: Some(14)),
+        (color: (56, 56, 56), portal: Some(14), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
         (color: (110, 140, 220), portal: None),
         (color: (110, 140, 220), portal: None),
-        (color: (56, 56, 56), portal: Some(6)),
+        (color: (56, 56, 56), portal: Some(6), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
       ],
     ),
     (
@@ -156,7 +156,7 @@
       walls: [
         (color: (96, 64, 132), portal: None),
         (color: (96, 64, 132), portal: None),
-        (color: (56, 56, 56), portal: Some(10)),
+        (color: (56, 56, 56), portal: Some(10), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
         (color: (96, 64, 132), portal: None),
         (color: (56, 56, 56), portal: Some(9)),
         (color: (96, 64, 132), portal: None),
@@ -174,9 +174,9 @@
       ],
       walls: [
         (color: (72, 104, 156), portal: None),
-        (color: (56, 56, 56), portal: Some(11)),
+        (color: (56, 56, 56), portal: Some(11), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
         (color: (72, 104, 156), portal: None),
-        (color: (56, 56, 56), portal: Some(8)),
+        (color: (56, 56, 56), portal: Some(8), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
       ],
     ),
     (
@@ -190,9 +190,9 @@
       ],
       walls: [
         (color: (72, 92, 180), portal: None),
-        (color: (56, 56, 56), portal: Some(11)),
+        (color: (56, 56, 56), portal: Some(11), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
         (color: (72, 92, 180), portal: None),
-        (color: (56, 56, 56), portal: Some(8)),
+        (color: (56, 56, 56), portal: Some(8), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
       ],
     ),
     (
@@ -214,7 +214,7 @@
         (color: (92, 156, 116), portal: Some(1)),
         (color: (56, 56, 56), portal: Some(9)),
         (color: (92, 156, 116), portal: None),
-        (color: (56, 56, 56), portal: Some(10)),
+        (color: (56, 56, 56), portal: Some(10), upper_color: Some((72, 72, 76)), lower_color: Some((44, 44, 48))),
       ],
     ),
     (
