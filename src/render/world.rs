@@ -231,16 +231,7 @@ fn render_sector_tree<'a>(
                             None
                         };
 
-                        let y_drop_face_bottom = if view_portal_floor.0 < view_floor.0 {
-                            let drop_floor_t =
-                                (view_portal_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
-                            Some((
-                                lerp(left_top_y, left_bottom_y, drop_floor_t),
-                                lerp(right_top_y, right_bottom_y, drop_floor_t),
-                            ))
-                        } else {
-                            None
-                        };
+                        let y_drop_face_bottom = None;
 
                         (y_portal_top, y_portal_bottom, y_drop_face_bottom)
                     } else {
@@ -892,6 +883,34 @@ mod tests {
         render_world(&mut baseline_frame, &view, &[&near, &far]);
 
         assert_ne!(frame, baseline_frame);
+    }
+
+    #[test]
+    fn descending_portal_does_not_draw_lower_backface() {
+        let mut high = sector(
+            0,
+            &[(-2.0, 4.0), (2.0, 4.0), (2.0, -2.0), (-2.0, -2.0)],
+            &[Some(1), None, None, None],
+            1.2,
+            4.4,
+        );
+        high.portal_lower_colors[0] = Some(RawColor([220, 40, 40]));
+        let low = sector(
+            1,
+            &[(2.0, 4.0), (-2.0, 4.0), (-2.0, 8.0), (2.0, 8.0)],
+            &[Some(0), None, None, None],
+            0.0,
+            3.2,
+        );
+        let view = RenderView::new(Position3(vec3(0.0, 0.0, 2.82)), 0.0, Some(SectorId(0)));
+        let mut frame = vec![255; WIDTH as usize * HEIGHT as usize * 4];
+        let mut baseline_frame = vec![255; WIDTH as usize * HEIGHT as usize * 4];
+
+        render_world(&mut frame, &view, &[&high, &low]);
+        high.portal_lower_colors[0] = None;
+        render_world(&mut baseline_frame, &view, &[&high, &low]);
+
+        assert_eq!(frame, baseline_frame);
     }
 
     #[test]
