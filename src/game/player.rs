@@ -1,4 +1,11 @@
-use crate::{Position3, SectorId};
+use crate::{
+    player::{
+        EARTH_GRAVITY_MPS2, PLAYER_CROUCH_EYE_HEIGHT_METERS, PLAYER_CROUCH_HEIGHT_METERS,
+        PLAYER_EYE_HEIGHT_METERS, PLAYER_HEIGHT_METERS, PLAYER_JUMP_HEIGHT_METERS,
+        PLAYER_WALK_SPEED_MPS,
+    },
+    Position3, SectorId,
+};
 
 use bevy::{
     ecs::system::Commands,
@@ -6,16 +13,6 @@ use bevy::{
     math::vec3,
     prelude::{Component, KeyCode, Vec3},
 };
-
-pub const PLAYER_HEIGHT_METERS: f32 = 1.8;
-pub const PLAYER_EYE_HEIGHT_METERS: f32 = 1.62;
-pub const PLAYER_CROUCH_HEIGHT_METERS: f32 = 1.25;
-pub const PLAYER_CROUCH_EYE_HEIGHT_METERS: f32 = 1.08;
-pub const PLAYER_RADIUS_METERS: f32 = 0.3;
-pub const PLAYER_MAX_STEP_HEIGHT_METERS: f32 = 0.45;
-pub const EARTH_GRAVITY_MPS2: f32 = 9.81;
-pub const PLAYER_JUMP_HEIGHT_METERS: f32 = 0.5;
-pub const PLAYER_WALK_SPEED_MPS: f32 = 3.25;
 
 const MOUSE_LOOK_SENSITIVITY: f32 = 0.005;
 const KEYBOARD_LOOK_STEP: f32 = 0.04;

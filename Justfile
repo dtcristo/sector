@@ -16,6 +16,9 @@ dev BIN_NAME:
 run BIN_NAME:
     cargo run --bin {{BIN_NAME}} --features {{BIN_NAME}} --release
 
+validate-map MAP_PATH="assets/maps/default.map.ron":
+    cargo run --bin sector_validate -- {{MAP_PATH}}
+
 serve-web: build-web
     miniserve --index index.html wasm
 

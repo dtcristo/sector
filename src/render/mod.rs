@@ -258,24 +258,6 @@ mod tests {
         );
     }
 
-    fn assert_no_adjacent_tall_black_columns(frame: &FrameBuffer) {
-        let tall_black_columns = (1..WIDTH as usize - 1)
-            .filter_map(|x| {
-                let count = (16..HEIGHT as usize - 16)
-                    .filter(|&y| frame.pixel(x, y) == [0, 0, 0, 255])
-                    .count();
-                (count > 12).then_some(x)
-            })
-            .collect::<Vec<_>>();
-
-        assert!(
-            tall_black_columns
-                .windows(2)
-                .all(|pair| pair[1] > pair[0] + 1),
-            "expected tall black columns to stay isolated, found {tall_black_columns:?}"
-        );
-    }
-
     fn staircase_portal_walk_frames(direction_sign: f32) -> Vec<FrameBuffer> {
         let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
             .unwrap();
@@ -642,20 +624,7 @@ mod tests {
                     black_columns.is_empty(),
                     "expected staircase portal walk frame {index} direction_sign {direction_sign} to avoid fully black columns, found {black_columns:?}"
                 );
-                let tall_black_columns = (1..WIDTH as usize - 1)
-                    .filter_map(|x| {
-                        let count = (16..HEIGHT as usize - 16)
-                            .filter(|&y| frame.pixel(x, y) == [0, 0, 0, 255])
-                            .count();
-                        (count > 12).then_some(x)
-                    })
-                    .collect::<Vec<_>>();
-                assert!(
-                    tall_black_columns
-                        .windows(2)
-                        .all(|pair| pair[1] > pair[0] + 1),
-                    "expected staircase portal walk frame {index} direction_sign {direction_sign} to keep tall black columns isolated, found {tall_black_columns:?}"
-                );
+                assert_no_long_black_run_on_center_row(&frame);
             }
         }
     }
@@ -691,7 +660,7 @@ mod tests {
     }
 
     #[test]
-    fn brown_sector_view_back_to_spawn_keeps_portal_edges_single_column() {
+    fn brown_sector_view_back_to_spawn_avoids_wide_black_gaps() {
         let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
             .unwrap();
         let (_, sectors) = map_to_sectors(&map).unwrap();
@@ -704,6 +673,6 @@ mod tests {
 
         render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
-        assert_no_adjacent_tall_black_columns(&frame);
+        assert_no_long_black_run_on_center_row(&frame);
     }
 }

@@ -20,6 +20,7 @@
   - `cargo test --features "sector sector_edit"`
   - `cargo run --features sector --bin sector`
   - `cargo run --features sector_edit --bin sector_edit`
+  - `cargo run --bin sector_validate -- assets/maps/default.map.ron`
 
 ## Working rules
 

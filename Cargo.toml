@@ -50,3 +50,6 @@ required-features = ["sector"]
 [[bin]]
 name = "sector_edit"
 required-features = ["sector_edit"]
+
+[[bin]]
+name = "sector_validate"

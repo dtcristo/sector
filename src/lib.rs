@@ -3,6 +3,7 @@ pub mod color;
 pub mod game;
 pub mod geometry;
 pub mod map;
+pub mod player;
 #[cfg(feature = "sector")]
 pub mod render;
 pub mod world;

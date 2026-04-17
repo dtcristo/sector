@@ -1,4 +1,7 @@
-use crate::{InitialSector, Length, Position2, RawColor, Sector, SectorId};
+use crate::{
+    player::{PLAYER_HEIGHT_METERS, PLAYER_RADIUS_METERS},
+    InitialSector, Length, Position2, RawColor, Sector, SectorId,
+};
 
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
@@ -46,6 +49,8 @@ impl SectorMap {
 #[derive(Default, TypePath)]
 pub struct SectorMapLoader;
 
+const MAP_EPSILON: f32 = 0.0001;
+
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum SectorMapError {
@@ -62,11 +67,35 @@ pub enum SectorMapError {
     },
     #[error("Sector {sector_index} must have at least one vertex")]
     EmptySector { sector_index: usize },
+    #[error("Sector {sector_index} must have at least three vertices")]
+    TooFewVertices { sector_index: usize },
+    #[error("Sector {sector_index} floor {floor} must be below ceil {ceil}")]
+    InvalidHeights {
+        sector_index: usize,
+        floor: f32,
+        ceil: f32,
+    },
     #[error("Initial position ({x}, {y}) must be inside initial sector {initial_sector}")]
     InitialPositionOutsideInitialSector {
         initial_sector: usize,
         x: f32,
         y: f32,
+    },
+    #[error(
+        "Initial position ({x}, {y}) does not leave enough wall clearance for the player radius in sector {initial_sector}"
+    )]
+    InitialPositionLacksClearance {
+        initial_sector: usize,
+        x: f32,
+        y: f32,
+    },
+    #[error(
+        "Initial sector {initial_sector} only has {headroom}m of headroom; at least {required_headroom}m is required"
+    )]
+    InitialSectorInsufficientHeadroom {
+        initial_sector: usize,
+        headroom: f32,
+        required_headroom: f32,
     },
     #[error(
         "Sector {sector_index} has {vertex_count} vertices but {wall_count} walls; counts must match"
@@ -85,6 +114,43 @@ pub enum SectorMapError {
         target_sector: usize,
         sector_count: usize,
     },
+    #[error("Sector {sector_index} must wind clockwise for stable rendering")]
+    SectorNotClockwise { sector_index: usize },
+    #[error("Sector {sector_index} must be convex")]
+    SectorNotConvex { sector_index: usize },
+    #[error("Sector {sector_index} wall {wall_index} has zero length")]
+    ZeroLengthWall {
+        sector_index: usize,
+        wall_index: usize,
+    },
+    #[error(
+        "Sector {sector_index} wall {wall_index} portal to sector {target_sector} must match a reversed wall back to sector {sector_index}"
+    )]
+    NonReciprocalPortal {
+        sector_index: usize,
+        wall_index: usize,
+        target_sector: usize,
+    },
+    #[error(
+        "Sector {sector_index} wall {wall_index} portal to sector {target_sector} has no overlapping vertical opening"
+    )]
+    PortalHasNoOpening {
+        sector_index: usize,
+        wall_index: usize,
+        target_sector: usize,
+    },
+    #[error(
+        "Sector {sector_index} wall {wall_index} shares a zero-thickness solid boundary with sector {other_sector}; add a small gap or make it a portal"
+    )]
+    ZeroThicknessSolidWall {
+        sector_index: usize,
+        wall_index: usize,
+        other_sector: usize,
+    },
+    #[error(
+        "Sector {sector_a} overlaps sector {sector_b} in plan view while their vertical ranges also overlap"
+    )]
+    OverlappingSectors { sector_a: usize, sector_b: usize },
     #[error("Sectors must have contiguous ids starting at 0; expected {expected}, found {found}")]
     NonContiguousSectorIds { expected: u32, found: u32 },
 }
@@ -242,9 +308,38 @@ pub fn validate_map(map: &SectorMap) -> Result<(), SectorMapError> {
         });
     }
 
+    let initial_sector = &map.sectors[map.initial_sector];
+    let initial_headroom = initial_sector.ceil - initial_sector.floor;
+    if initial_headroom + MAP_EPSILON < PLAYER_HEIGHT_METERS {
+        return Err(SectorMapError::InitialSectorInsufficientHeadroom {
+            initial_sector: map.initial_sector,
+            headroom: initial_headroom,
+            required_headroom: PLAYER_HEIGHT_METERS,
+        });
+    }
+
+    let spawn = Vec2::new(map.initial_position.0, map.initial_position.1);
+    if minimum_wall_distance(initial_sector, spawn) + MAP_EPSILON < PLAYER_RADIUS_METERS {
+        return Err(SectorMapError::InitialPositionLacksClearance {
+            initial_sector: map.initial_sector,
+            x: map.initial_position.0,
+            y: map.initial_position.1,
+        });
+    }
+
     for (sector_index, sector) in map.sectors.iter().enumerate() {
         if sector.vertices.is_empty() {
             return Err(SectorMapError::EmptySector { sector_index });
+        }
+        if sector.vertices.len() < 3 {
+            return Err(SectorMapError::TooFewVertices { sector_index });
+        }
+        if sector.floor + MAP_EPSILON >= sector.ceil {
+            return Err(SectorMapError::InvalidHeights {
+                sector_index,
+                floor: sector.floor,
+                ceil: sector.ceil,
+            });
         }
 
         if sector.vertices.len() != sector.walls.len() {
@@ -253,6 +348,24 @@ pub fn validate_map(map: &SectorMap) -> Result<(), SectorMapError> {
                 vertex_count: sector.vertices.len(),
                 wall_count: sector.walls.len(),
             });
+        }
+
+        for wall_index in 0..sector.vertices.len() {
+            let start = map_vertex_vec2(sector.vertices[wall_index]);
+            let end = map_vertex_vec2(sector.vertices[(wall_index + 1) % sector.vertices.len()]);
+            if start.distance_squared(end) <= MAP_EPSILON * MAP_EPSILON {
+                return Err(SectorMapError::ZeroLengthWall {
+                    sector_index,
+                    wall_index,
+                });
+            }
+        }
+
+        if polygon_signed_area(&sector.vertices) >= -MAP_EPSILON {
+            return Err(SectorMapError::SectorNotClockwise { sector_index });
+        }
+        if !sector_is_convex(sector) {
+            return Err(SectorMapError::SectorNotConvex { sector_index });
         }
 
         for (wall_index, wall) in sector.walls.iter().enumerate() {
@@ -265,6 +378,42 @@ pub fn validate_map(map: &SectorMap) -> Result<(), SectorMapError> {
                         sector_count: map.sectors.len(),
                     });
                 }
+
+                let target = &map.sectors[target_sector];
+                if !has_matching_reverse_portal(map, sector_index, wall_index, target_sector) {
+                    return Err(SectorMapError::NonReciprocalPortal {
+                        sector_index,
+                        wall_index,
+                        target_sector,
+                    });
+                }
+
+                let overlap_floor = sector.floor.max(target.floor);
+                let overlap_ceil = sector.ceil.min(target.ceil);
+                if overlap_floor + MAP_EPSILON >= overlap_ceil {
+                    return Err(SectorMapError::PortalHasNoOpening {
+                        sector_index,
+                        wall_index,
+                        target_sector,
+                    });
+                }
+            } else if let Some(other_sector) = find_shared_solid_wall(map, sector_index, wall_index)
+            {
+                return Err(SectorMapError::ZeroThicknessSolidWall {
+                    sector_index,
+                    wall_index,
+                    other_sector,
+                });
+            }
+        }
+    }
+
+    for sector_a in 0..map.sectors.len() {
+        for sector_b in (sector_a + 1)..map.sectors.len() {
+            if sectors_overlap_in_2d(&map.sectors[sector_a], &map.sectors[sector_b])
+                && vertical_ranges_overlap(&map.sectors[sector_a], &map.sectors[sector_b])
+            {
+                return Err(SectorMapError::OverlappingSectors { sector_a, sector_b });
             }
         }
     }
@@ -285,6 +434,163 @@ fn sector_spawn_position(initial_sector: SectorId, sectors: &[Sector]) -> MapVer
             MapVertex(center.x, center.y)
         })
         .unwrap_or_default()
+}
+
+fn map_vertex_vec2(vertex: MapVertex) -> Vec2 {
+    Vec2::new(vertex.0, vertex.1)
+}
+
+fn polygon_signed_area(vertices: &[MapVertex]) -> f32 {
+    let mut area = 0.0;
+    for index in 0..vertices.len() {
+        let current = vertices[index];
+        let next = vertices[(index + 1) % vertices.len()];
+        area += current.0 * next.1 - next.0 * current.1;
+    }
+    area * 0.5
+}
+
+fn sector_is_convex(sector: &MapSector) -> bool {
+    let mut turn_sign: f32 = 0.0;
+
+    for index in 0..sector.vertices.len() {
+        let previous = map_vertex_vec2(
+            sector.vertices[(index + sector.vertices.len() - 1) % sector.vertices.len()],
+        );
+        let current = map_vertex_vec2(sector.vertices[index]);
+        let next = map_vertex_vec2(sector.vertices[(index + 1) % sector.vertices.len()]);
+        let cross = (current - previous).perp_dot(next - current);
+
+        if cross.abs() <= MAP_EPSILON {
+            continue;
+        }
+        if turn_sign.abs() <= MAP_EPSILON {
+            turn_sign = cross;
+            continue;
+        }
+        if cross.signum() != turn_sign.signum() {
+            return false;
+        }
+    }
+
+    turn_sign < 0.0
+}
+
+fn minimum_wall_distance(sector: &MapSector, point: Vec2) -> f32 {
+    (0..sector.vertices.len())
+        .map(|index| {
+            let start = map_vertex_vec2(sector.vertices[index]);
+            let end = map_vertex_vec2(sector.vertices[(index + 1) % sector.vertices.len()]);
+            distance_to_segment(point, start, end)
+        })
+        .fold(f32::INFINITY, f32::min)
+}
+
+fn distance_to_segment(point: Vec2, start: Vec2, end: Vec2) -> f32 {
+    let segment = end - start;
+    let length_squared = segment.length_squared();
+    if length_squared <= MAP_EPSILON * MAP_EPSILON {
+        return point.distance(start);
+    }
+
+    let t = ((point - start).dot(segment) / length_squared).clamp(0.0, 1.0);
+    point.distance(start + segment * t)
+}
+
+fn has_matching_reverse_portal(
+    map: &SectorMap,
+    sector_index: usize,
+    wall_index: usize,
+    target_sector_index: usize,
+) -> bool {
+    let sector = &map.sectors[sector_index];
+    let start = sector.vertices[wall_index];
+    let end = sector.vertices[(wall_index + 1) % sector.vertices.len()];
+    let target_sector = &map.sectors[target_sector_index];
+
+    target_sector
+        .walls
+        .iter()
+        .enumerate()
+        .any(|(target_wall_index, target_wall)| {
+            target_wall.portal == Some(sector_index)
+                && target_sector.vertices[target_wall_index] == end
+                && target_sector.vertices[(target_wall_index + 1) % target_sector.vertices.len()]
+                    == start
+        })
+}
+
+fn find_shared_solid_wall(
+    map: &SectorMap,
+    sector_index: usize,
+    wall_index: usize,
+) -> Option<usize> {
+    let sector = &map.sectors[sector_index];
+    let start = sector.vertices[wall_index];
+    let end = sector.vertices[(wall_index + 1) % sector.vertices.len()];
+
+    map.sectors
+        .iter()
+        .enumerate()
+        .find_map(|(other_index, other_sector)| {
+            if other_index == sector_index {
+                return None;
+            }
+
+            other_sector
+                .walls
+                .iter()
+                .enumerate()
+                .find(|(other_wall_index, other_wall)| {
+                    other_wall.portal.is_none()
+                        && other_sector.vertices[*other_wall_index] == end
+                        && other_sector.vertices
+                            [(*other_wall_index + 1) % other_sector.vertices.len()]
+                            == start
+                })
+                .map(|_| other_index)
+        })
+}
+
+fn sectors_overlap_in_2d(a: &MapSector, b: &MapSector) -> bool {
+    let axes = polygon_axes(a)
+        .into_iter()
+        .chain(polygon_axes(b))
+        .collect::<Vec<_>>();
+
+    axes.into_iter().all(|axis| {
+        let (a_min, a_max) = project_polygon(a, axis);
+        let (b_min, b_max) = project_polygon(b, axis);
+        let overlap = a_max.min(b_max) - a_min.max(b_min);
+        overlap > MAP_EPSILON
+    })
+}
+
+fn polygon_axes(sector: &MapSector) -> Vec<Vec2> {
+    (0..sector.vertices.len())
+        .filter_map(|index| {
+            let start = map_vertex_vec2(sector.vertices[index]);
+            let end = map_vertex_vec2(sector.vertices[(index + 1) % sector.vertices.len()]);
+            let edge = end - start;
+            let normal = Vec2::new(-edge.y, edge.x);
+            (normal.length_squared() > MAP_EPSILON * MAP_EPSILON).then_some(normal.normalize())
+        })
+        .collect()
+}
+
+fn project_polygon(sector: &MapSector, axis: Vec2) -> (f32, f32) {
+    sector
+        .vertices
+        .iter()
+        .map(|vertex| map_vertex_vec2(*vertex).dot(axis))
+        .fold(
+            (f32::INFINITY, f32::NEG_INFINITY),
+            |(min, max), projection| (min.min(projection), max.max(projection)),
+        )
+}
+
+fn vertical_ranges_overlap(a: &MapSector, b: &MapSector) -> bool {
+    a.ceil.min(b.ceil) - a.floor.max(b.floor) > MAP_EPSILON
 }
 
 fn sector_contains_horizontal_point(sector: &MapSector, point: Vec2) -> bool {
@@ -336,33 +642,38 @@ fn point_on_segment(point: Vec2, left: Vec2, right: Vec2) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::game::{PLAYER_CROUCH_HEIGHT_METERS, PLAYER_HEIGHT_METERS};
+    use crate::player::{PLAYER_CROUCH_HEIGHT_METERS, PLAYER_HEIGHT_METERS};
 
     fn sample_map() -> SectorMap {
         SectorMap {
             initial_sector: 0,
-            initial_position: MapVertex(5.7, 4.0),
+            initial_position: MapVertex(2.0, 2.0),
             initial_direction_degrees: -20.0,
             sectors: vec![
                 MapSector {
                     floor: 0.0,
                     ceil: 4.0,
                     vertices: vec![
-                        MapVertex(2.0, 10.0),
-                        MapVertex(4.0, 10.0),
-                        MapVertex(11.0, -8.0),
+                        MapVertex(0.0, 4.0),
+                        MapVertex(4.0, 4.0),
+                        MapVertex(4.0, 0.0),
+                        MapVertex(0.0, 0.0),
                     ],
                     walls: vec![
                         MapWall {
                             color: [0, 0, 255],
-                            portal: None,
-                        },
-                        MapWall {
-                            color: [0, 128, 0],
                             portal: Some(1),
                         },
                         MapWall {
+                            color: [0, 128, 0],
+                            portal: None,
+                        },
+                        MapWall {
                             color: [255, 0, 0],
+                            portal: None,
+                        },
+                        MapWall {
+                            color: [255, 0, 255],
                             portal: None,
                         },
                     ],
@@ -371,14 +682,15 @@ mod tests {
                     floor: 0.25,
                     ceil: 3.75,
                     vertices: vec![
-                        MapVertex(4.0, 10.0),
-                        MapVertex(6.0, 10.0),
-                        MapVertex(6.0, 14.0),
+                        MapVertex(0.0, 8.0),
+                        MapVertex(4.0, 8.0),
+                        MapVertex(4.0, 4.0),
+                        MapVertex(0.0, 4.0),
                     ],
                     walls: vec![
                         MapWall {
                             color: [255, 255, 0],
-                            portal: Some(0),
+                            portal: None,
                         },
                         MapWall {
                             color: [255, 0, 255],
@@ -386,6 +698,10 @@ mod tests {
                         },
                         MapWall {
                             color: [0, 128, 0],
+                            portal: Some(0),
+                        },
+                        MapWall {
+                            color: [0, 255, 255],
                             portal: None,
                         },
                     ],
@@ -412,7 +728,7 @@ mod tests {
             map.initial_direction_degrees
         );
         assert_eq!(round_tripped.sectors.len(), map.sectors.len());
-        assert_eq!(round_tripped.sectors[0].walls[1].portal, Some(1));
+        assert_eq!(round_tripped.sectors[0].walls[0].portal, Some(1));
     }
 
     #[test]
@@ -422,6 +738,134 @@ mod tests {
         assert!(matches!(
             validate_map(&map),
             Err(SectorMapError::MismatchedWallCount { .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_counter_clockwise_sector() {
+        let mut map = sample_map();
+        map.sectors[0].vertices.reverse();
+        map.sectors[0].walls.reverse();
+
+        assert!(matches!(
+            validate_map(&map),
+            Err(SectorMapError::SectorNotClockwise { .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_non_convex_sector() {
+        let mut map = sample_map();
+        map.initial_position = MapVertex(1.0, 3.0);
+        map.sectors[0].vertices = vec![
+            MapVertex(0.0, 4.0),
+            MapVertex(4.0, 4.0),
+            MapVertex(4.0, 2.0),
+            MapVertex(2.0, 2.0),
+            MapVertex(2.0, 0.0),
+            MapVertex(0.0, 0.0),
+        ];
+        map.sectors[0].walls = vec![
+            MapWall {
+                color: [0, 0, 255],
+                portal: None,
+            },
+            MapWall {
+                color: [0, 128, 0],
+                portal: None,
+            },
+            MapWall {
+                color: [255, 0, 0],
+                portal: None,
+            },
+            MapWall {
+                color: [255, 255, 0],
+                portal: None,
+            },
+            MapWall {
+                color: [255, 0, 255],
+                portal: None,
+            },
+            MapWall {
+                color: [0, 255, 255],
+                portal: None,
+            },
+        ];
+
+        assert!(matches!(
+            validate_map(&map),
+            Err(SectorMapError::SectorNotConvex { .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_initial_position_without_clearance() {
+        let mut map = sample_map();
+        map.initial_position = MapVertex(0.1, 0.1);
+
+        assert!(matches!(
+            validate_map(&map),
+            Err(SectorMapError::InitialPositionLacksClearance { .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_nonreciprocal_portal() {
+        let mut map = sample_map();
+        map.sectors[1].walls[2].portal = None;
+
+        assert!(matches!(
+            validate_map(&map),
+            Err(SectorMapError::NonReciprocalPortal { .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_zero_thickness_shared_solid_wall() {
+        let mut map = sample_map();
+        map.sectors[0].walls[0].portal = None;
+        map.sectors[1].walls[2].portal = None;
+
+        assert!(matches!(
+            validate_map(&map),
+            Err(SectorMapError::ZeroThicknessSolidWall { .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_overlapping_sectors_with_overlapping_heights() {
+        let mut map = sample_map();
+        map.sectors[0].walls[0].portal = None;
+        map.sectors[1].floor = 1.0;
+        map.sectors[1].ceil = 3.0;
+        map.sectors[1].vertices = vec![
+            MapVertex(1.0, 3.0),
+            MapVertex(3.0, 3.0),
+            MapVertex(3.0, 1.0),
+            MapVertex(1.0, 1.0),
+        ];
+        map.sectors[1].walls = vec![
+            MapWall {
+                color: [255, 255, 0],
+                portal: None,
+            },
+            MapWall {
+                color: [255, 0, 255],
+                portal: None,
+            },
+            MapWall {
+                color: [0, 128, 0],
+                portal: None,
+            },
+            MapWall {
+                color: [0, 255, 255],
+                portal: None,
+            },
+        ];
+
+        assert!(matches!(
+            validate_map(&map),
+            Err(SectorMapError::OverlappingSectors { .. })
         ));
     }
 
