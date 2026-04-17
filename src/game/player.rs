@@ -18,7 +18,7 @@ pub const PLAYER_JUMP_HEIGHT_METERS: f32 = 0.5;
 pub const PLAYER_WALK_SPEED_MPS: f32 = 3.25;
 
 const MOUSE_LOOK_SENSITIVITY: f32 = 0.005;
-const KEYBOARD_LOOK_STEP: f32 = 0.0001;
+const KEYBOARD_LOOK_STEP: f32 = 0.04;
 
 #[derive(Debug, Copy, Clone, Default, PartialEq)]
 pub struct Direction(pub f32);
@@ -190,6 +190,21 @@ mod tests {
             PlayerInput::default().with_mouse_look(10.0, true),
         );
         assert!((player.direction.0 + 0.05).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn keyboard_turn_uses_larger_step() {
+        let mut player = Player::default();
+
+        apply_player_look(
+            &mut player,
+            PlayerInput {
+                turn_left: true,
+                ..PlayerInput::default()
+            },
+        );
+
+        assert!((player.direction.0 - 0.04).abs() < f32::EPSILON);
     }
 
     #[test]
