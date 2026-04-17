@@ -358,6 +358,29 @@ fn clip_target_against_blocking_walls(
                 }
             }
 
+            let projection = segment_projection(clipped, wall.left.0, wall.right.0);
+            if projection <= POSITION_EPSILON || projection >= 1.0 - POSITION_EPSILON {
+                let endpoint = if projection <= 0.5 {
+                    wall.left.0
+                } else {
+                    wall.right.0
+                };
+                let delta = clipped - endpoint;
+                let distance = delta.length();
+                if distance >= PLAYER_RADIUS_METERS - POSITION_EPSILON {
+                    continue;
+                }
+
+                let correction_direction = if distance > POSITION_EPSILON {
+                    delta / distance
+                } else {
+                    -wall_outward_normal(wall)
+                };
+                clipped = endpoint + correction_direction * PLAYER_RADIUS_METERS;
+                changed = true;
+                continue;
+            }
+
             let start_distance = signed_distance_to_wall(start, wall);
             let end_distance = signed_distance_to_wall(clipped, wall);
             if start_distance > POSITION_EPSILON && end_distance < start_distance {
@@ -471,6 +494,16 @@ fn wall_outward_normal(wall: WallSegment) -> Vec2 {
 
 fn signed_distance_to_wall(point: Vec2, wall: WallSegment) -> f32 {
     wall_outward_normal(wall).dot(point - wall.left.0)
+}
+
+fn segment_projection(point: Vec2, start: Vec2, end: Vec2) -> f32 {
+    let segment = end - start;
+    let length_squared = segment.length_squared();
+    if length_squared <= POSITION_EPSILON {
+        return 0.0;
+    }
+
+    (point - start).dot(segment) / length_squared
 }
 
 fn segments_intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
@@ -637,6 +670,57 @@ mod tests {
                 3.2,
             ),
         ]
+    }
+
+    fn default_map_sectors() -> (SectorMap, Vec<Sector>) {
+        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
+            .unwrap();
+        let (_, sectors) = map_to_sectors(&map).unwrap();
+        (map, sectors)
+    }
+
+    fn sector_centroid(sector: &Sector) -> Vec2 {
+        sector
+            .vertices
+            .iter()
+            .fold(Vec2::ZERO, |sum, vertex| sum + vertex.0)
+            / sector.vertices.len() as f32
+    }
+
+    fn direction_toward(from: Vec2, to: Vec2) -> Direction {
+        let delta = (to - from).normalize();
+        Direction((-delta.x).atan2(delta.y))
+    }
+
+    fn simulate_forward_steps(
+        sectors: &[Sector],
+        start_sector: SectorId,
+        start: Vec2,
+        feet_z: f32,
+        direction: Direction,
+        steps: usize,
+    ) -> Player {
+        let mut player = Player {
+            current_sector: Some(start_sector),
+            position: Position3(vec3(start.x, start.y, feet_z)),
+            direction,
+            grounded: true,
+            ..Player::default()
+        };
+
+        for _ in 0..steps {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+        }
+
+        player
     }
 
     #[test]
@@ -1088,9 +1172,8 @@ mod tests {
 
     #[test]
     fn default_map_spawn_stays_stable_without_input() {
-        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
-            .unwrap();
-        let (initial_sector, sectors) = map_to_sectors(&map).unwrap();
+        let (map, sectors) = default_map_sectors();
+        let initial_sector = crate::InitialSector(SectorId(map.initial_sector as u32));
         let initial_floor = sectors
             .iter()
             .find(|sector| sector.id == initial_sector.0)
@@ -1119,5 +1202,104 @@ mod tests {
         assert!((player.position.0.x - map.initial_position.0).abs() < 0.001);
         assert!((player.position.0.y - map.initial_position.1).abs() < 0.001);
         assert!((player.position.0.z - initial_floor).abs() < 0.001);
+    }
+
+    #[test]
+    fn default_map_walkable_portals_allow_bidirectional_crossing() {
+        let (_, sectors) = default_map_sectors();
+        let offset = PLAYER_RADIUS_METERS + 0.05;
+        let mut checked_pairs = 0;
+
+        for source_sector in &sectors {
+            let source_centroid = sector_centroid(source_sector);
+            for wall in source_sector.wall_segments() {
+                let Some(target_sector_id) = wall.portal_sector else {
+                    continue;
+                };
+                if source_sector.id.0 >= target_sector_id.0 {
+                    continue;
+                }
+
+                let target_sector = sectors
+                    .iter()
+                    .find(|sector| sector.id == target_sector_id)
+                    .unwrap();
+                let midpoint = (wall.left.0 + wall.right.0) * 0.5;
+                let source_start = midpoint + (source_centroid - midpoint).normalize() * offset;
+                let target_centroid = sector_centroid(target_sector);
+                let target_start = midpoint + (target_centroid - midpoint).normalize() * offset;
+
+                let from_source = Player {
+                    position: Position3(vec3(
+                        source_start.x,
+                        source_start.y,
+                        source_sector.floor.0,
+                    )),
+                    grounded: true,
+                    ..Player::default()
+                };
+                let from_target = Player {
+                    position: Position3(vec3(
+                        target_start.x,
+                        target_start.y,
+                        target_sector.floor.0,
+                    )),
+                    grounded: true,
+                    ..Player::default()
+                };
+
+                if portal_clearance(&from_source, target_sector).is_none()
+                    || portal_clearance(&from_target, source_sector).is_none()
+                {
+                    continue;
+                }
+
+                checked_pairs += 1;
+
+                let toward_target = simulate_forward_steps(
+                    &sectors,
+                    source_sector.id,
+                    source_start,
+                    source_sector.floor.0,
+                    direction_toward(source_start, target_centroid),
+                    30,
+                );
+                assert_eq!(
+                    toward_target.current_sector,
+                    Some(target_sector.id),
+                    "expected portal {:?}->{:?} to be walkable from source",
+                    source_sector.id,
+                    target_sector.id
+                );
+                assert!(
+                    sector_contains_player(target_sector, toward_target.position),
+                    "player should finish inside target sector {:?}",
+                    target_sector.id
+                );
+
+                let toward_source = simulate_forward_steps(
+                    &sectors,
+                    target_sector.id,
+                    target_start,
+                    target_sector.floor.0,
+                    direction_toward(target_start, source_centroid),
+                    30,
+                );
+                assert_eq!(
+                    toward_source.current_sector,
+                    Some(source_sector.id),
+                    "expected portal {:?}->{:?} to be walkable from target",
+                    target_sector.id,
+                    source_sector.id
+                );
+                assert!(
+                    sector_contains_player(source_sector, toward_source.position),
+                    "player should finish inside source sector {:?}",
+                    source_sector.id
+                );
+            }
+        }
+
+        assert!(checked_pairs > 0);
     }
 }
