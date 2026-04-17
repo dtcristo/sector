@@ -74,19 +74,16 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
     let ceiling_hsv: Hsv = Srgb::<u8>::from(*CEILING_COLOR).into_format().into_color();
     let floor_hsv: Hsv = Srgb::<u8>::from(*FLOOR_COLOR).into_format().into_color();
     let mut surfaces = vec![None; WIDTH as usize * HEIGHT as usize];
-
-    for root_sector in root_sectors {
-        render_sector_tree(
-            frame,
-            &mut surfaces,
-            view,
-            &sectors_by_id,
-            root_sector,
-            view_matrix,
-            ceiling_hsv,
-            floor_hsv,
-        );
-    }
+    render_sector_tree(
+        frame,
+        &mut surfaces,
+        view,
+        &sectors_by_id,
+        &root_sectors,
+        view_matrix,
+        ceiling_hsv,
+        floor_hsv,
+    );
 
     apply_outlines(frame, &surfaces);
 }
@@ -96,7 +93,7 @@ fn render_sector_tree<'a>(
     surfaces: &mut [Option<SurfaceTag>],
     view: &RenderView,
     sectors_by_id: &HashMap<SectorId, &'a Sector>,
-    root_sector: &'a Sector,
+    root_sectors: &[&'a Sector],
     view_matrix: Mat3,
     ceiling_hsv: Hsv,
     floor_hsv: Hsv,
@@ -105,12 +102,12 @@ fn render_sector_tree<'a>(
     let mut y_min_vec = vec![0; WIDTH as usize];
     let mut y_max_vec = vec![HEIGHT as isize; WIDTH as usize];
 
-    portal_queue.push_back(PortalSpan {
+    portal_queue.extend(root_sectors.iter().copied().map(|root_sector| PortalSpan {
         sector: root_sector,
         source_sector: None,
         x_min: 0,
         x_max: WIDTH as isize,
-    });
+    }));
 
     while let Some(self_portal) = portal_queue.pop_front() {
         let sector = self_portal.sector;
