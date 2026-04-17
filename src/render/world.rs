@@ -586,14 +586,13 @@ fn apply_outlines(frame: &mut [u8], surfaces: &[Option<SurfaceTag>]) {
             let left = surface_at(surfaces, x - 1, y);
             let up = surface_at(surfaces, x, y - 1);
             let upper_left = surface_at(surfaces, x - 1, y - 1);
-            let right = surface_at(surfaces, x + 1, y);
             let upper_right = surface_at(surfaces, x + 1, y - 1);
 
-            let needs_outline = (should_outline_edge(current, left) && upper_left != Some(current))
+            let needs_outline = (should_outline_edge(current, left)
+                && up == Some(current)
+                && upper_left != Some(current))
                 || (should_outline_edge(current, up)
-                    && left == Some(current)
-                    && right != Some(current)
-                    && upper_right != Some(current));
+                    && (upper_left != Some(current) || upper_right != Some(current)));
 
             if needs_outline {
                 draw_pixel(frame, Pixel::new(x, y), OUTLINE_COLOR);
@@ -969,5 +968,10 @@ mod tests {
     fn apply_outlines_keeps_sloped_boundaries_single_pixel_thick() {
         assert_boundary_is_single_pixel_thick(&[80, 81, 82, 83, 84, 85]);
         assert_boundary_is_single_pixel_thick(&[85, 84, 83, 82, 81, 80]);
+    }
+
+    #[test]
+    fn apply_outlines_keeps_flat_boundaries_single_pixel_thick() {
+        assert_boundary_is_single_pixel_thick(&[82, 82, 82, 82, 82, 82]);
     }
 }
