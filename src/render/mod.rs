@@ -483,6 +483,20 @@ mod tests {
     }
 
     #[test]
+    fn stale_current_sector_near_portal_boundary_keeps_rows_filled() {
+        for (y, initial_sector, direction) in [
+            (0.99_f32, SectorId(1), 0.0_f32),
+            (1.01_f32, SectorId(0), 0.0_f32),
+            (0.99_f32, SectorId(1), std::f32::consts::PI),
+            (1.01_f32, SectorId(0), std::f32::consts::PI),
+        ] {
+            let frame = render_connected_boundary_frame(y, direction, initial_sector, false);
+            assert_no_fully_black_columns(&frame);
+            assert_no_long_black_run_on_center_row(&frame);
+        }
+    }
+
+    #[test]
     fn default_map_initial_view_renders_non_black_frame() {
         let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
             .unwrap();

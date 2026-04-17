@@ -330,13 +330,23 @@ fn root_sectors<'a>(
         return roots;
     };
 
-    roots.push(current_sector);
-    seen.insert(current_sector.id);
-
     for sector in sectors {
         if sector_contains_view(sector, view.position) && seen.insert(sector.id) {
             roots.push(*sector);
         }
+    }
+
+    if roots.is_empty() {
+        for sector in sectors {
+            if sector_has_portal_near_view(sector, view.position) && seen.insert(sector.id) {
+                roots.push(*sector);
+            }
+        }
+    }
+
+    if roots.is_empty() {
+        roots.push(current_sector);
+        seen.insert(current_sector.id);
     }
 
     let mut index = 0;
@@ -360,6 +370,22 @@ fn root_sectors<'a>(
     }
 
     roots
+}
+
+fn sector_has_portal_near_view(sector: &Sector, position: Position3) -> bool {
+    if position.0.z < sector.floor.0 - CONTAINMENT_EPSILON {
+        return false;
+    }
+    if position.0.z > sector.ceil.0 + CONTAINMENT_EPSILON {
+        return false;
+    }
+
+    let point = position.truncate().0;
+    sector
+        .wall_segments()
+        .into_iter()
+        .filter(|wall| wall.portal_sector.is_some())
+        .any(|wall| position_near_wall(point, wall.left.0, wall.right.0))
 }
 
 fn sector_contains_view(sector: &Sector, position: Position3) -> bool {
@@ -686,6 +712,37 @@ mod tests {
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
         assert!(roots.iter().any(|sector| sector.id == SectorId(1)));
+    }
+
+    #[test]
+    fn root_sectors_prefer_geometric_sector_over_stale_current_sector() {
+        let sectors = vec![
+            sector(
+                0,
+                &[(-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)],
+                &[Some(1), None, None, None],
+                0.0,
+                4.0,
+            ),
+            sector(
+                1,
+                &[(1.0, 1.0), (-1.0, 1.0), (-1.0, 4.0), (1.0, 4.0)],
+                &[Some(0), None, None, None],
+                0.0,
+                4.0,
+            ),
+        ];
+        let sector_refs = sectors.iter().collect::<Vec<_>>();
+        let sectors_by_id = sector_refs
+            .iter()
+            .map(|sector| (sector.id, *sector))
+            .collect::<HashMap<_, _>>();
+        let view = RenderView::new(Position3(vec3(0.0, 2.0, 1.62)), 0.0, Some(SectorId(0)));
+
+        let roots = root_sectors(&view, &sector_refs, &sectors_by_id);
+
+        assert_eq!(roots.len(), 1);
+        assert_eq!(roots[0].id, SectorId(1));
     }
 
     #[test]
