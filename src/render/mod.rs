@@ -75,11 +75,11 @@ pub enum Automap {
 impl Automap {
     pub fn next(self) -> Self {
         match self {
-            Self::Off => Self::RotateFull,
-            Self::RotateFull => Self::RotateVisible,
-            Self::RotateVisible => Self::NorthUpFull,
-            Self::NorthUpFull => Self::NorthUpVisible,
-            Self::NorthUpVisible => Self::Off,
+            Self::Off => Self::RotateVisible,
+            Self::RotateVisible => Self::RotateFull,
+            Self::RotateFull => Self::NorthUpVisible,
+            Self::NorthUpVisible => Self::NorthUpFull,
+            Self::NorthUpFull => Self::Off,
         }
     }
 }
@@ -541,6 +541,28 @@ mod tests {
             ]
         );
         assert!(frame.count_color(*crate::FRUSTUM_COLOR) > 0);
+    }
+
+    #[test]
+    fn automap_mode_cycle_swaps_visible_and_full_order() {
+        let mut mode = Automap::Off;
+        let mut seen = Vec::new();
+
+        for _ in 0..5 {
+            mode = mode.next();
+            seen.push(mode);
+        }
+
+        assert_eq!(
+            seen,
+            vec![
+                Automap::RotateVisible,
+                Automap::RotateFull,
+                Automap::NorthUpVisible,
+                Automap::NorthUpFull,
+                Automap::Off,
+            ]
+        );
     }
 
     #[test]
