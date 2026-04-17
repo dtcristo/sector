@@ -14,14 +14,14 @@ use sector::{
         simulate_player, Player, PlayerInput,
     },
     map::{load_map_from_path, map_to_sectors},
-    render::{render_frame, Minimap, HEIGHT, WIDTH, WINDOW_SCALE},
+    render::{render_frame, Automap, HEIGHT, WIDTH, WINDOW_SCALE},
     *,
 };
 use std::path::PathBuf;
 use std::time::Duration;
 
 #[derive(Resource, Debug, PartialEq)]
-struct MinimapMode(Minimap);
+struct AutomapMode(Automap);
 
 #[derive(Resource, Debug)]
 struct WindowTitleTimer(Timer);
@@ -30,7 +30,7 @@ struct SectorRuntimePlugin;
 
 impl Plugin for SectorRuntimePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(MinimapMode(Minimap::Off))
+        app.insert_resource(AutomapMode(Automap::Off))
             .insert_resource(WindowTitleTimer(Timer::new(
                 Duration::from_millis(500),
                 TimerMode::Repeating,
@@ -42,7 +42,7 @@ impl Plugin for SectorRuntimePlugin {
                     update_title_system,
                     mouse_capture_system,
                     escape_system,
-                    switch_minimap_system,
+                    switch_automap_system,
                     (player_look_system, player_simulation_system).chain(),
                 ),
             )
@@ -215,13 +215,9 @@ fn escape_system(
     }
 }
 
-fn switch_minimap_system(mut minimap: ResMut<MinimapMode>, key: Res<ButtonInput<KeyCode>>) {
+fn switch_automap_system(mut automap: ResMut<AutomapMode>, key: Res<ButtonInput<KeyCode>>) {
     if key.just_pressed(KeyCode::Tab) {
-        minimap.0 = match minimap.0 {
-            Minimap::Off => Minimap::FirstPerson,
-            Minimap::FirstPerson => Minimap::Absolute,
-            Minimap::Absolute => Minimap::Off,
-        };
+        automap.0 = automap.0.next();
     }
 }
 
@@ -262,7 +258,7 @@ fn player_simulation_system(
 }
 
 fn draw_frame_system(
-    minimap: Res<MinimapMode>,
+    automap: Res<AutomapMode>,
     player_query: Query<&Player>,
     sector_query: Query<&Sector>,
     mut wrapper_query: Query<&mut PixelsWrapper>,
@@ -277,6 +273,6 @@ fn draw_frame_system(
         wrapper.pixels.frame_mut(),
         &player_render_view(player),
         sector_query.iter(),
-        minimap.0,
+        automap.0,
     );
 }

@@ -1,6 +1,6 @@
+mod automap;
 mod frame;
 mod math;
-mod minimap;
 mod world;
 
 use crate::{Position2, Position3, Sector, SectorId};
@@ -24,7 +24,7 @@ const FRAC_WIDTH_2: u32 = WIDTH / 2;
 const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
 const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
-const MINIMAP_SCALE: f32 = 8.0;
+const AUTOMAP_SCALE: f32 = 8.0;
 
 lazy_static! {
     static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
@@ -57,17 +57,31 @@ impl From<Normalized> for Pixel {
 impl From<Position2> for Pixel {
     fn from(position: Position2) -> Self {
         Self {
-            x: FRAC_WIDTH_2 as isize + (MINIMAP_SCALE * position.0.x).round() as isize,
-            y: FRAC_HEIGHT_2 as isize - (MINIMAP_SCALE * position.0.y).round() as isize,
+            x: FRAC_WIDTH_2 as isize + (AUTOMAP_SCALE * position.0.x).round() as isize,
+            y: FRAC_HEIGHT_2 as isize - (AUTOMAP_SCALE * position.0.y).round() as isize,
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Minimap {
+pub enum Automap {
     Off,
-    FirstPerson,
-    Absolute,
+    RotateFull,
+    RotateVisible,
+    NorthUpFull,
+    NorthUpVisible,
+}
+
+impl Automap {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Off => Self::RotateFull,
+            Self::RotateFull => Self::RotateVisible,
+            Self::RotateVisible => Self::NorthUpFull,
+            Self::NorthUpFull => Self::NorthUpVisible,
+            Self::NorthUpVisible => Self::Off,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -91,12 +105,12 @@ pub fn render_frame<'a>(
     frame: &mut [u8],
     view: &RenderView,
     sectors: impl IntoIterator<Item = &'a Sector>,
-    minimap: Minimap,
+    automap: Automap,
 ) {
     clear_frame(frame);
     let sectors: Vec<_> = sectors.into_iter().collect();
     world::render_world(frame, view, &sectors);
-    minimap::render_minimap(frame, view, &sectors, minimap);
+    automap::render_automap(frame, view, &sectors, automap);
 }
 
 #[cfg(test)]
@@ -204,7 +218,7 @@ mod tests {
         let view = player_render_view(&player);
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         frame
     }
@@ -294,7 +308,7 @@ mod tests {
                 frame.as_mut_slice(),
                 &player_render_view(&player),
                 sectors.iter(),
-                Minimap::Off,
+                Automap::Off,
             );
             frames.push(frame);
 
@@ -322,7 +336,7 @@ mod tests {
         let sectors = [room_with_front_wall(10.0)];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         assert!(frame
             .as_slice()
@@ -340,7 +354,7 @@ mod tests {
         let sectors = [room_with_front_wall(10.0)];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         assert!(frame
             .as_slice()
@@ -356,7 +370,7 @@ mod tests {
         let sectors = [room_with_front_wall(10.0)];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         let ceiling_pixel = frame.pixel(center_x, 10);
@@ -384,13 +398,13 @@ mod tests {
             near_frame.as_mut_slice(),
             &view,
             near_room.iter(),
-            Minimap::Off,
+            Automap::Off,
         );
         render_frame(
             far_frame.as_mut_slice(),
             &view,
             far_room.iter(),
-            Minimap::Off,
+            Automap::Off,
         );
 
         let center_x = WIDTH as usize / 2;
@@ -412,13 +426,13 @@ mod tests {
             near_frame.as_mut_slice(),
             &view,
             near_room.iter(),
-            Minimap::Off,
+            Automap::Off,
         );
         render_frame(
             far_frame.as_mut_slice(),
             &view,
             far_room.iter(),
-            Minimap::Off,
+            Automap::Off,
         );
 
         let center_x = WIDTH as usize / 2;
@@ -437,7 +451,7 @@ mod tests {
         let sectors = [room_with_front_wall(10.0)];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         let sample_xs = [48_usize, WIDTH as usize / 2, WIDTH as usize - 48];
         let ceiling_samples = sample_xs.map(|x| frame.pixel(x, 20));
@@ -470,7 +484,7 @@ mod tests {
         ])];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         let center_y = HEIGHT as usize / 2;
@@ -491,7 +505,7 @@ mod tests {
         ])];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         let center_y = HEIGHT as usize / 2;
@@ -501,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn render_frame_absolute_minimap_draws_player_and_frustum() {
+    fn render_frame_north_up_automap_draws_player_and_frustum() {
         let view = RenderView::new(
             Position3(Vec3::new(0.0, 0.0, crate::game::PLAYER_EYE_HEIGHT_METERS)),
             0.0,
@@ -514,7 +528,7 @@ mod tests {
             frame.as_mut_slice(),
             &view,
             sectors.iter(),
-            Minimap::Absolute,
+            Automap::NorthUpFull,
         );
 
         assert_eq!(
@@ -540,7 +554,7 @@ mod tests {
         let view = player_render_view(&player);
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         assert!(frame
             .as_slice()
@@ -646,7 +660,7 @@ mod tests {
         let view = player_render_view(&player);
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         assert!(frame
             .as_slice()
@@ -666,7 +680,7 @@ mod tests {
         let view = player_render_view(&player);
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
 
         assert_no_adjacent_tall_black_columns(&frame);
     }
