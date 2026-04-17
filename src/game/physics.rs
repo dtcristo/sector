@@ -110,6 +110,22 @@ pub fn resolve_current_sector<'a>(
 ) -> Option<SectorId> {
     let sectors: Vec<_> = sectors.into_iter().collect();
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
+    let matching_sectors = sectors
+        .iter()
+        .copied()
+        .filter(|sector| sector_matches_position_for_resolution(sector, position))
+        .collect::<Vec<_>>();
+
+    if matching_sectors.is_empty() {
+        if let Some(current_sector_id) = current_sector {
+            if let Some(sector) = sectors_by_id.get(&current_sector_id).copied() {
+                if sector_contains_horizontal_point(sector, position.truncate().0) {
+                    return Some(current_sector_id);
+                }
+            }
+        }
+        return None;
+    }
 
     if let Some(current_sector_id) = current_sector {
         if let Some(sector) = sectors_by_id.get(&current_sector_id).copied() {
@@ -131,17 +147,16 @@ pub fn resolve_current_sector<'a>(
                 return Some(adjacent_sector_id);
             }
 
-            if sector_contains_player(sector, position) {
+            if matching_sectors
+                .iter()
+                .any(|matching_sector| matching_sector.id == current_sector_id)
+            {
                 return Some(current_sector_id);
             }
         }
     }
 
-    sectors
-        .into_iter()
-        .find(|sector| sector_matches_position_for_resolution(sector, position))
-        .map(|sector| sector.id)
-        .or(current_sector)
+    matching_sectors.first().map(|sector| sector.id)
 }
 
 pub fn sector_contains_player(sector: &Sector, position: Position3) -> bool {
@@ -202,15 +217,22 @@ fn move_player_horizontally(
     desired_delta: Vec2,
     sectors: &[&Sector],
 ) -> (Vec2, Option<SectorId>, Option<f32>) {
-    let Some(current_sector_id) = player.current_sector else {
-        return (player.position.truncate().0, None, None);
-    };
-
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
     let mut position = player.position.truncate().0;
-    let mut sector_id = current_sector_id;
+    let sector_id = player
+        .current_sector
+        .or_else(|| resolve_current_sector(player.position, None, sectors.iter().copied()));
     let remaining = desired_delta;
     let mut stepped_to_floor = None;
+
+    if sector_id.is_none() {
+        let target = position + remaining;
+        let target_position = Position3(Vec3::new(target.x, target.y, player.position.0.z));
+        let target_sector = resolve_current_sector(target_position, None, sectors.iter().copied());
+        return (target, target_sector, None);
+    }
+
+    let mut sector_id = sector_id.expect("sector_id checked above");
 
     for _ in 0..4 {
         if remaining.length_squared() <= POSITION_EPSILON {
@@ -233,32 +255,20 @@ fn move_player_horizontally(
             break;
         }
 
-        if let Some(blocking_wall) =
-            find_blocking_wall(position, target, player, sector, &sectors_by_id)
+        let clipped_target =
+            clip_target_against_blocking_walls(position, target, player, sector, &sectors_by_id);
+        if let Some(transition) =
+            find_portal_transition(position, clipped_target, player, sector, &sectors_by_id)
         {
-            let tangent = (blocking_wall.right.0 - blocking_wall.left.0).normalize_or_zero();
-            let projected = tangent * remaining.dot(tangent);
-            if projected.length_squared() <= POSITION_EPSILON {
-                break;
+            position = clipped_target;
+            sector_id = transition.target_sector_id;
+            if transition.step_to_floor.is_some() {
+                stepped_to_floor = transition.step_to_floor;
             }
-
-            let slide_target = position + projected;
-            if let Some(transition) =
-                find_portal_transition(position, slide_target, player, sector, &sectors_by_id)
-            {
-                position = slide_target;
-                sector_id = transition.target_sector_id;
-                if transition.step_to_floor.is_some() {
-                    stepped_to_floor = transition.step_to_floor;
-                }
-                break;
-            }
-
-            position = slide_target;
             break;
         }
 
-        position = target;
+        position = clipped_target;
         break;
     }
 
@@ -284,37 +294,48 @@ fn find_portal_transition(
         .next()
 }
 
-fn find_blocking_wall(
+fn clip_target_against_blocking_walls(
     start: Vec2,
     target: Vec2,
     player: &Player,
     sector: &Sector,
     sectors_by_id: &HashMap<SectorId, &Sector>,
-) -> Option<WallSegment> {
-    sector
-        .wall_segments()
-        .into_iter()
-        .filter(|wall| {
+) -> Vec2 {
+    let limit = -PLAYER_RADIUS_METERS;
+    let mut clipped = target;
+
+    for _ in 0..sector.vertices.len().max(1) {
+        let mut changed = false;
+
+        for wall in sector.wall_segments() {
             if let Some(target_sector) = wall
                 .portal_sector
                 .and_then(|sector_id| sectors_by_id.get(&sector_id).copied())
             {
                 if portal_clearance(player, target_sector).is_some() {
-                    return false;
+                    continue;
                 }
             }
 
-            movement_interacts_with_wall(start, target, wall)
-                || distance_to_segment(target, wall.left.0, wall.right.0)
-                    < PLAYER_RADIUS_METERS - POSITION_EPSILON
-        })
-        .min_by(|left, right| {
-            distance_to_segment(target, left.left.0, left.right.0).total_cmp(&distance_to_segment(
-                target,
-                right.left.0,
-                right.right.0,
-            ))
-        })
+            let start_distance = signed_distance_to_wall(start, wall);
+            let end_distance = signed_distance_to_wall(clipped, wall);
+            if start_distance > POSITION_EPSILON && end_distance < start_distance {
+                continue;
+            }
+            if end_distance <= limit + POSITION_EPSILON {
+                continue;
+            }
+
+            clipped -= wall_outward_normal(wall) * (end_distance - limit);
+            changed = true;
+        }
+
+        if !changed {
+            break;
+        }
+    }
+
+    clipped
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -376,22 +397,13 @@ fn portal_clearance(player: &Player, target_sector: &Sector) -> Option<f32> {
     Some(feet_z)
 }
 
-fn movement_interacts_with_wall(start: Vec2, target: Vec2, wall: &WallSegment) -> bool {
-    segments_intersect(start, target, wall.left.0, wall.right.0)
-        || distance_to_segment(target, wall.left.0, wall.right.0)
-            < PLAYER_RADIUS_METERS - POSITION_EPSILON
+fn wall_outward_normal(wall: WallSegment) -> Vec2 {
+    let edge = wall.right.0 - wall.left.0;
+    Vec2::new(-edge.y, edge.x).normalize_or_zero()
 }
 
-fn distance_to_segment(point: Vec2, start: Vec2, end: Vec2) -> f32 {
-    let segment = end - start;
-    let length_squared = segment.length_squared();
-    if length_squared <= POSITION_EPSILON {
-        return point.distance(start);
-    }
-
-    let t = ((point - start).dot(segment) / length_squared).clamp(0.0, 1.0);
-    let projection = start + segment * t;
-    point.distance(projection)
+fn signed_distance_to_wall(point: Vec2, wall: WallSegment) -> f32 {
+    wall_outward_normal(wall).dot(point - wall.left.0)
 }
 
 fn segments_intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
@@ -577,6 +589,17 @@ mod tests {
     }
 
     #[test]
+    fn resolve_current_sector_returns_none_when_outside_all_geometry() {
+        let sectors = [simple_room()];
+        let resolved = resolve_current_sector(
+            Position3(vec3(5.0, 0.0, 0.0)),
+            Some(SectorId(0)),
+            sectors.iter(),
+        );
+        assert_eq!(resolved, None);
+    }
+
+    #[test]
     fn player_jump_uses_earth_gravity_and_lands_back_on_floor() {
         let sectors = [simple_room()];
         let mut player = Player {
@@ -667,6 +690,61 @@ mod tests {
 
         assert!(player.position.0.x < 3.71);
         assert!(player.position.0.y > 0.2);
+    }
+
+    #[test]
+    fn player_cannot_escape_through_convex_corner() {
+        let sectors = [simple_room()];
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(3.5, 3.5, 0.0)),
+            direction: Direction(-std::f32::consts::FRAC_PI_4),
+            ..Player::default()
+        };
+
+        for _ in 0..20 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+        }
+
+        assert_eq!(player.current_sector, Some(SectorId(0)));
+        assert!(sector_contains_player(&sectors[0], player.position));
+        assert!(player.position.0.x <= 4.0 - PLAYER_RADIUS_METERS + 0.01);
+        assert!(player.position.0.y <= 4.0 - PLAYER_RADIUS_METERS + 0.01);
+    }
+
+    #[test]
+    fn player_can_reenter_room_through_backside_when_out_of_bounds() {
+        let sectors = [simple_room()];
+        let mut player = Player {
+            current_sector: None,
+            position: Position3(vec3(4.2, 0.0, 0.0)),
+            direction: Direction(std::f32::consts::FRAC_PI_2),
+            ..Player::default()
+        };
+
+        for _ in 0..10 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+        }
+
+        assert_eq!(player.current_sector, Some(SectorId(0)));
+        assert!(sector_contains_player(&sectors[0], player.position));
+        assert!(player.position.0.x < 4.0 - PLAYER_RADIUS_METERS + 0.01);
     }
 
     #[test]

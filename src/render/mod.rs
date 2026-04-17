@@ -103,7 +103,10 @@ pub fn render_frame<'a>(
 mod tests {
     use super::*;
     use crate::{
-        game::{player_render_view, resolve_current_sector, Direction, Player},
+        game::{
+            player_render_view, resolve_current_sector, simulate_player, Direction, Player,
+            PlayerInput,
+        },
         map::{map_to_sectors, SectorMap},
         Length, RawColor,
     };
@@ -217,7 +220,7 @@ mod tests {
         );
     }
 
-    fn assert_no_long_black_run_on_center_row(frame: &FrameBuffer) {
+    fn longest_black_run_on_center_row(frame: &FrameBuffer) -> usize {
         let mut longest_run = 0;
         let mut current_run = 0;
         let center_y = HEIGHT as usize / 2;
@@ -230,16 +233,107 @@ mod tests {
             }
         }
 
+        longest_run
+    }
+
+    fn assert_no_long_black_run_on_center_row(frame: &FrameBuffer) {
+        let longest_run = longest_black_run_on_center_row(frame);
         assert!(
             longest_run <= 3,
             "expected center row to stay filled across portal boundary, longest black run was {longest_run}"
         );
     }
 
+    fn assert_no_adjacent_tall_black_columns(frame: &FrameBuffer) {
+        let tall_black_columns = (1..WIDTH as usize - 1)
+            .filter_map(|x| {
+                let count = (16..HEIGHT as usize - 16)
+                    .filter(|&y| frame.pixel(x, y) == [0, 0, 0, 255])
+                    .count();
+                (count > 12).then_some(x)
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            tall_black_columns
+                .windows(2)
+                .all(|pair| pair[1] > pair[0] + 1),
+            "expected tall black columns to stay isolated, found {tall_black_columns:?}"
+        );
+    }
+
+    fn staircase_portal_walk_frames(direction_sign: f32) -> Vec<FrameBuffer> {
+        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
+            .unwrap();
+        let (_, sectors) = map_to_sectors(&map).unwrap();
+        let portal_midpoint = Vec2::new(4.0, -3.5);
+        let portal_normal = Vec2::new(3.0, -4.0).normalize();
+        let feet_z = if direction_sign > 0.0 { 0.0 } else { 0.2 };
+        let mut player = Player {
+            position: Position3(Vec3::new(
+                portal_midpoint.x - direction_sign * portal_normal.x * 0.18,
+                portal_midpoint.y - direction_sign * portal_normal.y * 0.18,
+                feet_z,
+            )),
+            direction: Direction(
+                (-direction_sign * portal_normal.x).atan2(direction_sign * portal_normal.y),
+            ),
+            current_sector: Some(if direction_sign > 0.0 {
+                SectorId(0)
+            } else {
+                SectorId(3)
+            }),
+            grounded: true,
+            ..Player::default()
+        };
+
+        let mut frames = Vec::new();
+        for _ in 0..128 {
+            let mut frame = FrameBuffer::new();
+            render_frame(
+                frame.as_mut_slice(),
+                &player_render_view(&player),
+                sectors.iter(),
+                Minimap::Off,
+            );
+            frames.push(frame);
+
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                0.001,
+                sectors.iter(),
+            );
+        }
+
+        frames
+    }
+
     #[test]
-    fn render_frame_without_current_sector_is_background_only() {
+    fn render_frame_without_current_sector_still_uses_geometric_roots() {
         let view = RenderView::new(
             Position3(Vec3::new(0.0, 0.0, crate::game::PLAYER_EYE_HEIGHT_METERS)),
+            0.0,
+            None,
+        );
+        let sectors = [room_with_front_wall(10.0)];
+        let mut frame = FrameBuffer::new();
+
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+
+        assert!(frame
+            .as_slice()
+            .chunks_exact(4)
+            .any(|pixel| pixel != [0, 0, 0, 255]));
+    }
+
+    #[test]
+    fn render_frame_without_current_sector_stays_background_when_outside_geometry() {
+        let view = RenderView::new(
+            Position3(Vec3::new(40.0, 40.0, crate::game::PLAYER_EYE_HEIGHT_METERS)),
             0.0,
             None,
         );
@@ -497,6 +591,40 @@ mod tests {
     }
 
     #[test]
+    fn staircase_portal_walk_frames_stay_filled_in_both_directions() {
+        for direction_sign in [1.0_f32, -1.0_f32] {
+            for (index, frame) in staircase_portal_walk_frames(direction_sign)
+                .into_iter()
+                .enumerate()
+            {
+                let black_columns = (24..WIDTH as usize - 24)
+                    .filter(|&x| {
+                        (16..HEIGHT as usize - 16).all(|y| frame.pixel(x, y) == [0, 0, 0, 255])
+                    })
+                    .collect::<Vec<_>>();
+                assert!(
+                    black_columns.is_empty(),
+                    "expected staircase portal walk frame {index} direction_sign {direction_sign} to avoid fully black columns, found {black_columns:?}"
+                );
+                let tall_black_columns = (1..WIDTH as usize - 1)
+                    .filter_map(|x| {
+                        let count = (16..HEIGHT as usize - 16)
+                            .filter(|&y| frame.pixel(x, y) == [0, 0, 0, 255])
+                            .count();
+                        (count > 12).then_some(x)
+                    })
+                    .collect::<Vec<_>>();
+                assert!(
+                    tall_black_columns
+                        .windows(2)
+                        .all(|pair| pair[1] > pair[0] + 1),
+                    "expected staircase portal walk frame {index} direction_sign {direction_sign} to keep tall black columns isolated, found {tall_black_columns:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn default_map_initial_view_renders_non_black_frame() {
         let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
             .unwrap();
@@ -540,17 +668,6 @@ mod tests {
 
         render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
 
-        let tall_black_columns = (1..WIDTH as usize - 1)
-            .filter_map(|x| {
-                let count = (16..HEIGHT as usize - 16)
-                    .filter(|&y| frame.pixel(x, y) == [0, 0, 0, 255])
-                    .count();
-                (count > 12).then_some(x)
-            })
-            .collect::<Vec<_>>();
-
-        assert!(tall_black_columns
-            .windows(2)
-            .all(|pair| pair[1] > pair[0] + 1));
+        assert_no_adjacent_tall_black_columns(&frame);
     }
 }

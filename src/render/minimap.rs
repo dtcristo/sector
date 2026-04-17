@@ -1,11 +1,10 @@
 use super::{
-    frame::{draw_line, draw_pixel},
-    math::clip_wall,
+    frame::{draw_line, draw_pixel, Pixel},
     Minimap, RenderView, BACK_CLIP_1, BACK_CLIP_2, LEFT_CLIP_2, RIGHT_CLIP_1,
 };
+use crate::game::PLAYER_RADIUS_METERS;
 use crate::{
-    Position2, Sector, FRUSTUM_COLOR, MINIMAP_HIDDEN_WALL_COLOR, MINIMAP_PORTAL_COLOR,
-    MINIMAP_VISIBLE_WALL_COLOR, PLAYER_COLOR,
+    Position2, Sector, FRUSTUM_COLOR, MINIMAP_PORTAL_COLOR, MINIMAP_WALL_COLOR, PLAYER_COLOR,
 };
 
 use bevy::{math::vec2, prelude::*};
@@ -44,51 +43,17 @@ pub(crate) fn render_minimap(
             let view_left = wall.left.transform(view_matrix);
             let view_right = wall.right.transform(view_matrix);
 
-            let mut view_left_after_clip = view_left;
-            let mut view_right_after_clip = view_right;
-
-            let clipping = clip_wall(view_left, view_right);
-            if let Some((l, r)) = clipping {
-                view_left_after_clip = l;
-                view_right_after_clip = r;
-            }
-
-            if let Some((left, right, left_after_clip, right_after_clip)) = match minimap {
+            if let Some((left, right)) = match minimap {
                 Minimap::Off => None,
-                Minimap::FirstPerson => Some((
-                    view_left.into(),
-                    view_right.into(),
-                    view_left_after_clip.into(),
-                    view_right_after_clip.into(),
-                )),
-                Minimap::Absolute => {
-                    let abs_left = wall.left;
-                    let abs_right = wall.right;
-                    let abs_left_after_clip = view_left_after_clip.transform(reverse_view_matrix);
-                    let abs_right_after_clip = view_right_after_clip.transform(reverse_view_matrix);
-
-                    Some((
-                        abs_left.into(),
-                        abs_right.into(),
-                        abs_left_after_clip.into(),
-                        abs_right_after_clip.into(),
-                    ))
-                }
+                Minimap::FirstPerson => Some((view_left.into(), view_right.into())),
+                Minimap::Absolute => Some((wall.left.into(), wall.right.into())),
             } {
                 if wall.portal_sector.is_some() {
                     draw_line(frame, left, right, *MINIMAP_PORTAL_COLOR);
                     continue;
                 }
 
-                draw_line(frame, left, right, *MINIMAP_HIDDEN_WALL_COLOR);
-                if clipping.is_some() {
-                    draw_line(
-                        frame,
-                        left_after_clip,
-                        right_after_clip,
-                        *MINIMAP_VISIBLE_WALL_COLOR,
-                    );
-                }
+                draw_line(frame, left, right, *MINIMAP_WALL_COLOR);
             }
         }
     }
@@ -127,7 +92,25 @@ pub(crate) fn render_minimap(
         draw_line(frame, near_left, far_left, *FRUSTUM_COLOR);
         draw_line(frame, near_right, far_right, *FRUSTUM_COLOR);
         draw_line(frame, near_left, near_right, *FRUSTUM_COLOR);
-        draw_pixel(frame, player_pixel, *PLAYER_COLOR);
+        draw_disc(
+            frame,
+            player_pixel,
+            (super::MINIMAP_SCALE * PLAYER_RADIUS_METERS)
+                .round()
+                .max(1.0) as isize,
+            *PLAYER_COLOR,
+        );
+    }
+}
+
+fn draw_disc(frame: &mut [u8], center: Pixel, radius: isize, color: crate::RawColor) {
+    let radius_squared = radius * radius;
+    for y in -radius..=radius {
+        for x in -radius..=radius {
+            if x * x + y * y <= radius_squared {
+                draw_pixel(frame, Pixel::new(center.x + x, center.y + y), color);
+            }
+        }
     }
 }
 
@@ -173,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn absolute_minimap_uses_visibility_colors_for_solid_walls() {
+    fn absolute_minimap_draws_solid_walls_in_uniform_grey() {
         let sectors = [sector(
             0,
             &[(-6.0, 10.0), (6.0, 10.0), (6.0, -10.0), (-6.0, -10.0)],
@@ -193,24 +176,18 @@ mod tests {
             Minimap::Absolute,
         );
 
-        let front_wall = [
-            MINIMAP_VISIBLE_WALL_COLOR.0[0],
-            MINIMAP_VISIBLE_WALL_COLOR.0[1],
-            MINIMAP_VISIBLE_WALL_COLOR.0[2],
-            255,
-        ];
-        let back_wall = [
-            MINIMAP_HIDDEN_WALL_COLOR.0[0],
-            MINIMAP_HIDDEN_WALL_COLOR.0[1],
-            MINIMAP_HIDDEN_WALL_COLOR.0[2],
+        let wall = [
+            MINIMAP_WALL_COLOR.0[0],
+            MINIMAP_WALL_COLOR.0[1],
+            MINIMAP_WALL_COLOR.0[2],
             255,
         ];
         let center_x = super::super::WIDTH as usize / 2;
         let front_y = (super::super::HEIGHT as usize / 2).saturating_sub(80);
         let back_y = super::super::HEIGHT as usize / 2 + 80;
 
-        assert_eq!(frame.pixel(center_x, front_y), front_wall);
-        assert_eq!(frame.pixel(center_x, back_y), back_wall);
+        assert_eq!(frame.pixel(center_x, front_y), wall);
+        assert_eq!(frame.pixel(center_x, back_y), wall);
     }
 
     #[test]
@@ -253,5 +230,37 @@ mod tests {
                 255,
             ]
         );
+    }
+
+    #[test]
+    fn absolute_minimap_draws_player_as_collision_radius_disc() {
+        let sectors = [sector(
+            0,
+            &[(-6.0, 10.0), (6.0, 10.0), (6.0, -10.0), (-6.0, -10.0)],
+            &[None, None, None, None],
+        )];
+        let view = RenderView::new(
+            Position3(Vec3::new(0.0, 0.0, crate::game::PLAYER_EYE_HEIGHT_METERS)),
+            0.0,
+            None,
+        );
+        let mut frame = super::super::FrameBuffer::new();
+
+        render_minimap(
+            frame.as_mut_slice(),
+            &view,
+            &sectors.iter().collect::<Vec<_>>(),
+            Minimap::Absolute,
+        );
+
+        let radius = (super::super::MINIMAP_SCALE * PLAYER_RADIUS_METERS)
+            .round()
+            .max(1.0) as usize;
+        let center_x = super::super::WIDTH as usize / 2;
+        let center_y = super::super::HEIGHT as usize / 2;
+        let player = [PLAYER_COLOR.0[0], PLAYER_COLOR.0[1], PLAYER_COLOR.0[2], 255];
+
+        assert_eq!(frame.pixel(center_x, center_y), player);
+        assert_eq!(frame.pixel(center_x + radius, center_y), player);
     }
 }

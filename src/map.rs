@@ -432,11 +432,11 @@ mod tests {
     }
 
     #[test]
-    fn default_map_has_walkable_steps_and_composite_rooms() {
+    fn default_map_has_walkable_steps_and_many_rooms() {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
 
-        assert!(map.sectors.len() >= 10);
+        assert!(map.sectors.len() >= 16);
 
         let walkable_step_count = map
             .sectors
@@ -451,41 +451,14 @@ mod tests {
             })
             .count();
         assert!(walkable_step_count >= 4);
-
-        let has_same_height_portal_pair =
-            map.sectors
-                .iter()
-                .enumerate()
-                .any(|(sector_index, sector)| {
-                    sector
-                        .walls
-                        .iter()
-                        .filter_map(|wall| wall.portal)
-                        .any(|portal_index| {
-                            portal_index != sector_index
-                                && (map.sectors[portal_index].floor - sector.floor).abs()
-                                    < f32::EPSILON
-                                && (map.sectors[portal_index].ceil - sector.ceil).abs()
-                                    < f32::EPSILON
-                        })
-                });
-        assert!(has_same_height_portal_pair);
     }
 
     #[test]
-    fn default_map_reuses_entry_green_and_darkens_stair_boundaries() {
+    fn default_map_uses_dark_grey_portal_trims_for_stairs_and_windows() {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
 
-        const ENTRY_GREEN: [u8; 3] = [132, 160, 116];
         const STAIR_PORTAL_GREY: [u8; 3] = [56, 56, 56];
-
-        assert_eq!(map.sectors[0].walls[0].color, ENTRY_GREEN);
-        assert_eq!(map.sectors[0].walls[3].color, STAIR_PORTAL_GREY);
-        assert!(map.sectors[2]
-            .walls
-            .iter()
-            .all(|wall| wall.color == ENTRY_GREEN));
 
         for sector_index in [3_usize, 4, 5, 6] {
             let sector = &map.sectors[sector_index];
@@ -494,12 +467,13 @@ mod tests {
                 .iter()
                 .filter(|wall| wall.portal.is_some())
                 .all(|wall| wall.color == STAIR_PORTAL_GREY));
-            assert!(sector
-                .walls
-                .iter()
-                .filter(|wall| wall.portal.is_none())
-                .all(|wall| wall.color != STAIR_PORTAL_GREY));
         }
+
+        assert!(map.sectors[10]
+            .walls
+            .iter()
+            .filter(|wall| wall.portal.is_some())
+            .all(|wall| wall.color == STAIR_PORTAL_GREY));
     }
 
     #[test]
@@ -510,7 +484,7 @@ mod tests {
         let stair_wall_index = initial_sector
             .walls
             .iter()
-            .position(|wall| wall.portal == Some(3))
+            .position(|wall| wall.portal == Some(1))
             .expect("default map should have a portal from the initial room to the staircase");
         let wall_start = initial_sector.vertices[stair_wall_index];
         let wall_end =
@@ -570,6 +544,46 @@ mod tests {
             })
         });
         assert!(has_angled_wall);
+    }
+
+    #[test]
+    fn default_map_has_large_drop_and_non_euclidean_loop() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+
+        let has_large_drop = map
+            .sectors
+            .iter()
+            .enumerate()
+            .any(|(sector_index, sector)| {
+                sector
+                    .walls
+                    .iter()
+                    .filter_map(|wall| wall.portal)
+                    .any(|portal_index| {
+                        portal_index != sector_index
+                            && sector.floor - map.sectors[portal_index].floor > 0.45
+                    })
+            });
+        assert!(has_large_drop);
+
+        let has_loop_chain = map.sectors[11]
+            .walls
+            .iter()
+            .any(|wall| wall.portal == Some(12))
+            && map.sectors[12]
+                .walls
+                .iter()
+                .any(|wall| wall.portal == Some(13))
+            && map.sectors[13]
+                .walls
+                .iter()
+                .any(|wall| wall.portal == Some(14))
+            && map.sectors[14]
+                .walls
+                .iter()
+                .any(|wall| wall.portal == Some(2));
+        assert!(has_loop_chain);
     }
 
     #[test]

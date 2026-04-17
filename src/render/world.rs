@@ -193,46 +193,59 @@ fn render_sector_tree<'a>(
                     .portal_sector
                     .and_then(|id| sectors_by_id.get(&id).copied());
 
-                let (y_portal_top, y_portal_bottom) = if let Some(portal_sector) = portal_sector {
-                    if Some(portal_sector.id) != self_portal.source_sector {
-                        portal_queue.push_back(PortalSpan {
-                            sector: portal_sector,
-                            source_sector: Some(sector.id),
-                            x_min: x_left,
-                            x_max: x_right,
-                        });
-                    }
+                let (y_portal_top, y_portal_bottom, y_drop_face_bottom) =
+                    if let Some(portal_sector) = portal_sector {
+                        if Some(portal_sector.id) != self_portal.source_sector {
+                            portal_queue.push_back(PortalSpan {
+                                sector: portal_sector,
+                                source_sector: Some(sector.id),
+                                x_min: x_left,
+                                x_max: x_right,
+                            });
+                        }
 
-                    let view_portal_ceil = crate::Length(portal_sector.ceil.0 - view.position.0.z);
-                    let view_portal_floor =
-                        crate::Length(portal_sector.floor.0 - view.position.0.z);
+                        let view_portal_ceil =
+                            crate::Length(portal_sector.ceil.0 - view.position.0.z);
+                        let view_portal_floor =
+                            crate::Length(portal_sector.floor.0 - view.position.0.z);
 
-                    let y_portal_top = if view_portal_ceil.0 < view_ceil.0 {
-                        let portal_ceil_t =
-                            (view_portal_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
-                        Some((
-                            lerp(left_top_y, left_bottom_y, portal_ceil_t),
-                            lerp(right_top_y, right_bottom_y, portal_ceil_t),
-                        ))
+                        let y_portal_top = if view_portal_ceil.0 < view_ceil.0 {
+                            let portal_ceil_t =
+                                (view_portal_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
+                            Some((
+                                lerp(left_top_y, left_bottom_y, portal_ceil_t),
+                                lerp(right_top_y, right_bottom_y, portal_ceil_t),
+                            ))
+                        } else {
+                            None
+                        };
+
+                        let y_portal_bottom = if view_portal_floor.0 > view_floor.0 {
+                            let portal_floor_t =
+                                (view_portal_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
+                            Some((
+                                lerp(left_top_y, left_bottom_y, portal_floor_t),
+                                lerp(right_top_y, right_bottom_y, portal_floor_t),
+                            ))
+                        } else {
+                            None
+                        };
+
+                        let y_drop_face_bottom = if view_portal_floor.0 < view_floor.0 {
+                            let drop_floor_t =
+                                (view_portal_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
+                            Some((
+                                lerp(left_top_y, left_bottom_y, drop_floor_t),
+                                lerp(right_top_y, right_bottom_y, drop_floor_t),
+                            ))
+                        } else {
+                            None
+                        };
+
+                        (y_portal_top, y_portal_bottom, y_drop_face_bottom)
                     } else {
-                        None
+                        (None, None, None)
                     };
-
-                    let y_portal_bottom = if view_portal_floor.0 > view_floor.0 {
-                        let portal_floor_t =
-                            (view_portal_floor.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
-                        Some((
-                            lerp(left_top_y, left_bottom_y, portal_floor_t),
-                            lerp(right_top_y, right_bottom_y, portal_floor_t),
-                        ))
-                    } else {
-                        None
-                    };
-
-                    (y_portal_top, y_portal_bottom)
-                } else {
-                    (None, None)
-                };
 
                 let wall_hsv: Hsv = Srgb::<u8>::from(wall.color).into_format().into_color();
                 let wall_tag = SurfaceTag::wall(wall.color);
@@ -316,6 +329,22 @@ fn render_sector_tree<'a>(
                                 y_bottom
                             };
                         y_max_vec[x as usize] = portal_y_max;
+
+                        if let Some((drop_left_bottom_y, drop_right_bottom_y)) = y_drop_face_bottom
+                        {
+                            let y_drop_bottom =
+                                lerp(drop_left_bottom_y, drop_right_bottom_y, x_t).round() as isize;
+                            let y_drop_bottom = y_drop_bottom.clamp(y_bottom, y_max);
+                            if y_drop_bottom > y_bottom {
+                                deferred_walls.push(DeferredWallColumn {
+                                    x,
+                                    y_top: y_bottom,
+                                    y_bottom: y_drop_bottom,
+                                    color: wall_color,
+                                    surface_tag: wall_tag,
+                                });
+                            }
+                        }
                     } else {
                         draw_wall_column(frame, surfaces, x, y_top, y_bottom, wall_color, wall_tag);
                     }
@@ -355,13 +384,9 @@ fn root_sectors<'a>(
 ) -> Vec<&'a Sector> {
     let mut roots = Vec::new();
     let mut seen = HashSet::new();
-
-    let Some(current_sector) = view
+    let current_sector = view
         .current_sector
-        .and_then(|id| sectors_by_id.get(&id).copied())
-    else {
-        return roots;
-    };
+        .and_then(|id| sectors_by_id.get(&id).copied());
 
     for sector in sectors {
         if sector_contains_view(sector, view.position) && seen.insert(sector.id) {
@@ -378,28 +403,42 @@ fn root_sectors<'a>(
     }
 
     if roots.is_empty() {
-        roots.push(current_sector);
-        seen.insert(current_sector.id);
+        if let Some(current_sector) = current_sector {
+            roots.push(current_sector);
+            seen.insert(current_sector.id);
+        }
     }
 
-    let mut index = 0;
-    while let Some(sector) = roots.get(index).copied() {
-        for wall in sector.wall_segments() {
-            let Some(portal_id) = wall.portal_sector else {
-                continue;
-            };
-            let Some(portal_sector) = sectors_by_id.get(&portal_id).copied() else {
-                continue;
-            };
-            if position_near_wall(view.position.truncate().0, wall.left.0, wall.right.0)
-                && view.position.0.z >= portal_sector.floor.0 - CONTAINMENT_EPSILON
-                && view.position.0.z <= portal_sector.ceil.0 + CONTAINMENT_EPSILON
-                && seen.insert(portal_sector.id)
-            {
-                roots.push(portal_sector);
+    if !roots.is_empty() {
+        let point = view.position.truncate().0;
+        let forward = vec2(-view.direction.sin(), view.direction.cos());
+        let current_sector_contains_view =
+            current_sector.is_some_and(|sector| sector_contains_view(sector, view.position));
+
+        let mut index = 0;
+        while let Some(sector) = roots.get(index).copied() {
+            for wall in sector.wall_segments() {
+                let Some(portal_id) = wall.portal_sector else {
+                    continue;
+                };
+                let Some(portal_sector) = sectors_by_id.get(&portal_id).copied() else {
+                    continue;
+                };
+                if (portal_sector.floor.0 - sector.floor.0).abs() > CONTAINMENT_EPSILON
+                    || (portal_sector.ceil.0 - sector.ceil.0).abs() > CONTAINMENT_EPSILON
+                {
+                    continue;
+                }
+                let wall_direction = (wall.right.0 - wall.left.0).normalize_or_zero();
+                if position_near_wall(point, wall.left.0, wall.right.0)
+                    && (!current_sector_contains_view || wall_direction.dot(forward).abs() >= 0.6)
+                    && seen.insert(portal_sector.id)
+                {
+                    roots.push(portal_sector);
+                }
             }
+            index += 1;
         }
-        index += 1;
     }
 
     roots
@@ -547,11 +586,14 @@ fn apply_outlines(frame: &mut [u8], surfaces: &[Option<SurfaceTag>]) {
             let left = surface_at(surfaces, x - 1, y);
             let up = surface_at(surfaces, x, y - 1);
             let upper_left = surface_at(surfaces, x - 1, y - 1);
+            let right = surface_at(surfaces, x + 1, y);
+            let upper_right = surface_at(surfaces, x + 1, y - 1);
 
             let needs_outline = (should_outline_edge(current, left) && upper_left != Some(current))
-                || should_outline_edge(current, up)
-                || surface_at(surfaces, x + 1, y).is_none()
-                || surface_at(surfaces, x, y + 1).is_none();
+                || (should_outline_edge(current, up)
+                    && left == Some(current)
+                    && right != Some(current)
+                    && upper_right != Some(current));
 
             if needs_outline {
                 draw_pixel(frame, Pixel::new(x, y), OUTLINE_COLOR);
@@ -712,7 +754,7 @@ mod tests {
     }
 
     #[test]
-    fn root_sectors_include_portal_neighbor_when_view_is_close_to_boundary() {
+    fn root_sectors_include_same_height_neighbor_when_view_is_close_and_parallel() {
         let sectors = vec![
             sector(
                 0,

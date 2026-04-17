@@ -26,11 +26,12 @@ impl From<RawColor> for Srgb<u8> {
 lazy_static! {
     pub static ref CEILING_COLOR: RawColor = SILVER.into();
     pub static ref FLOOR_COLOR: RawColor = GRAY.into();
-    pub static ref MINIMAP_VISIBLE_WALL_COLOR: RawColor = WHITE.into();
-    pub static ref MINIMAP_HIDDEN_WALL_COLOR: RawColor = DARKGRAY.into();
+    pub static ref MINIMAP_WALL_COLOR: RawColor = DARKGRAY.into();
+    pub static ref MINIMAP_VISIBLE_WALL_COLOR: RawColor = *MINIMAP_WALL_COLOR;
+    pub static ref MINIMAP_HIDDEN_WALL_COLOR: RawColor = *MINIMAP_WALL_COLOR;
     pub static ref MINIMAP_PORTAL_COLOR: RawColor = RED.into();
     pub static ref WALL_CLIPPED_COLOR: RawColor = WHITE.into();
-    pub static ref FRUSTUM_COLOR: RawColor = LIGHTGRAY.into();
-    pub static ref PLAYER_COLOR: RawColor = RED.into();
+    pub static ref FRUSTUM_COLOR: RawColor = WHITE.into();
+    pub static ref PLAYER_COLOR: RawColor = BLUE.into();
     pub static ref MISSING_WALL_COLOR: RawColor = RED.into();
 }
