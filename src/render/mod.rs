@@ -525,4 +525,32 @@ mod tests {
             .chunks_exact(4)
             .any(|pixel| pixel != [0, 0, 0, 255]));
     }
+
+    #[test]
+    fn brown_sector_view_back_to_spawn_keeps_portal_edges_single_column() {
+        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
+            .unwrap();
+        let (_, sectors) = map_to_sectors(&map).unwrap();
+        let mut player = Player::default();
+        player.position = Position3(Vec3::new(5.5, -4.25, 0.2));
+        player.direction.0 = 6.5_f32.atan2(4.25);
+        player.current_sector = Some(SectorId(3));
+        let view = player_render_view(&player);
+        let mut frame = FrameBuffer::new();
+
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+
+        let tall_black_columns = (1..WIDTH as usize - 1)
+            .filter_map(|x| {
+                let count = (16..HEIGHT as usize - 16)
+                    .filter(|&y| frame.pixel(x, y) == [0, 0, 0, 255])
+                    .count();
+                (count > 12).then_some(x)
+            })
+            .collect::<Vec<_>>();
+
+        assert!(tall_black_columns
+            .windows(2)
+            .all(|pair| pair[1] > pair[0] + 1));
+    }
 }

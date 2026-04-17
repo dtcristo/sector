@@ -18,6 +18,15 @@ struct PortalSpan<'a> {
     x_max: isize,
 }
 
+#[derive(Debug, Copy, Clone)]
+struct DeferredWallColumn {
+    x: isize,
+    y_top: isize,
+    y_bottom: isize,
+    color: RawColor,
+    surface_tag: SurfaceTag,
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum SurfaceKind {
     Wall,
@@ -101,6 +110,7 @@ fn render_sector_tree<'a>(
     let mut portal_queue = VecDeque::<PortalSpan>::new();
     let mut y_min_vec = vec![0; WIDTH as usize];
     let mut y_max_vec = vec![HEIGHT as isize; WIDTH as usize];
+    let mut deferred_walls = Vec::new();
 
     portal_queue.extend(root_sectors.iter().copied().map(|root_sector| PortalSpan {
         sector: root_sector,
@@ -171,10 +181,10 @@ fn render_sector_tree<'a>(
                     continue 'walls;
                 }
 
-                let x_left =
-                    (left_top_x.floor() as isize).clamp(self_portal.x_min, self_portal.x_max);
-                let x_right =
-                    (right_top_x.ceil() as isize).clamp(self_portal.x_min, self_portal.x_max);
+                let x_left = ((left_top_x - 0.5).ceil() as isize)
+                    .clamp(self_portal.x_min, self_portal.x_max);
+                let x_right = ((right_top_x - 0.5).ceil() as isize)
+                    .clamp(self_portal.x_min, self_portal.x_max);
                 if x_left >= x_right {
                     continue 'walls;
                 }
@@ -281,16 +291,27 @@ fn render_sector_tree<'a>(
                                     lerp(portal_left_bottom_y, portal_right_bottom_y, x_t).round()
                                         as isize;
                                 let y_portal_bottom = y_portal_bottom.clamp(y_top, y_max);
-                                draw_wall_column(
-                                    frame,
-                                    surfaces,
-                                    x,
-                                    y_portal_bottom,
-                                    y_bottom,
-                                    wall_color,
-                                    wall_tag,
-                                );
-                                y_portal_bottom
+                                if y_portal_bottom <= y_bottom {
+                                    draw_wall_column(
+                                        frame,
+                                        surfaces,
+                                        x,
+                                        y_portal_bottom,
+                                        y_bottom,
+                                        wall_color,
+                                        wall_tag,
+                                    );
+                                    y_portal_bottom
+                                } else {
+                                    deferred_walls.push(DeferredWallColumn {
+                                        x,
+                                        y_top: y_bottom,
+                                        y_bottom: y_portal_bottom,
+                                        color: wall_color,
+                                        surface_tag: wall_tag,
+                                    });
+                                    y_max
+                                }
                             } else {
                                 y_bottom
                             };
@@ -312,6 +333,18 @@ fn render_sector_tree<'a>(
                 }
             }
         }
+    }
+
+    for deferred_wall in deferred_walls {
+        draw_wall_column(
+            frame,
+            surfaces,
+            deferred_wall.x,
+            deferred_wall.y_top,
+            deferred_wall.y_bottom,
+            deferred_wall.color,
+            deferred_wall.surface_tag,
+        );
     }
 }
 
