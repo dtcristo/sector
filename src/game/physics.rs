@@ -122,7 +122,7 @@ pub fn resolve_current_sector<'a>(
                         .get(portal_id)
                         .copied()
                         .is_some_and(|portal_sector| {
-                            sector_contains_player(portal_sector, position)
+                            sector_matches_position_for_resolution(portal_sector, position)
                                 && (!sector_contains_player(sector, position)
                                     || position_on_portal_boundary(sector, position, *portal_id))
                         })
@@ -139,7 +139,7 @@ pub fn resolve_current_sector<'a>(
 
     sectors
         .into_iter()
-        .find(|sector| sector_contains_player(sector, position))
+        .find(|sector| sector_matches_position_for_resolution(sector, position))
         .map(|sector| sector.id)
         .or(current_sector)
 }
@@ -149,6 +149,20 @@ pub fn sector_contains_player(sector: &Sector, position: Position3) -> bool {
         return false;
     }
     if position.0.z + PLAYER_HEIGHT_METERS > sector.ceil.0 + POSITION_EPSILON {
+        return false;
+    }
+
+    sector_contains_horizontal_point(sector, position.truncate().0)
+}
+
+fn sector_matches_position_for_resolution(sector: &Sector, position: Position3) -> bool {
+    if position.0.z + PLAYER_HEIGHT_METERS > sector.ceil.0 + POSITION_EPSILON {
+        return false;
+    }
+
+    if position.0.z < sector.floor.0 - POSITION_EPSILON
+        && sector.floor.0 - position.0.z > PLAYER_MAX_STEP_HEIGHT_METERS
+    {
         return false;
     }
 
@@ -195,7 +209,7 @@ fn move_player_horizontally(
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
     let mut position = player.position.truncate().0;
     let mut sector_id = current_sector_id;
-    let mut remaining = desired_delta;
+    let remaining = desired_delta;
     let mut stepped_to_floor = None;
 
     for _ in 0..4 {
@@ -208,7 +222,9 @@ fn move_player_horizontally(
         };
         let target = position + remaining;
 
-        if let Some(transition) = find_portal_transition(target, player, sector, &sectors_by_id) {
+        if let Some(transition) =
+            find_portal_transition(position, target, player, sector, &sectors_by_id)
+        {
             position = target;
             sector_id = transition.target_sector_id;
             if transition.step_to_floor.is_some() {
@@ -222,11 +238,24 @@ fn move_player_horizontally(
         {
             let tangent = (blocking_wall.right.0 - blocking_wall.left.0).normalize_or_zero();
             let projected = tangent * remaining.dot(tangent);
-            if projected.length_squared() >= remaining.length_squared() - POSITION_EPSILON {
+            if projected.length_squared() <= POSITION_EPSILON {
                 break;
             }
-            remaining = projected;
-            continue;
+
+            let slide_target = position + projected;
+            if let Some(transition) =
+                find_portal_transition(position, slide_target, player, sector, &sectors_by_id)
+            {
+                position = slide_target;
+                sector_id = transition.target_sector_id;
+                if transition.step_to_floor.is_some() {
+                    stepped_to_floor = transition.step_to_floor;
+                }
+                break;
+            }
+
+            position = slide_target;
+            break;
         }
 
         position = target;
@@ -237,6 +266,7 @@ fn move_player_horizontally(
 }
 
 fn find_portal_transition(
+    start: Vec2,
     target: Vec2,
     player: &Player,
     sector: &Sector,
@@ -249,7 +279,7 @@ fn find_portal_transition(
             let target_sector = wall
                 .portal_sector
                 .and_then(|sector_id| sectors_by_id.get(&sector_id).copied())?;
-            portal_transition_for_wall(target, player, sector, target_sector)
+            portal_transition_for_wall(start, target, player, sector, wall, target_sector)
         })
         .next()
 }
@@ -294,12 +324,15 @@ struct PortalTransition {
 }
 
 fn portal_transition_for_wall(
+    start: Vec2,
     target: Vec2,
     player: &Player,
     sector: &Sector,
+    wall: WallSegment,
     target_sector: &Sector,
 ) -> Option<PortalTransition> {
     if !sector_contains_horizontal_point(target_sector, target)
+        && !segments_intersect(start, target, wall.left.0, wall.right.0)
         && !position_on_portal_boundary(
             sector,
             Position3(Vec3::new(target.x, target.y, player.position.0.z)),
@@ -310,10 +343,20 @@ fn portal_transition_for_wall(
     }
 
     let feet_z = portal_clearance(player, target_sector)?;
+    let floor_delta = target_sector.floor.0 - player.position.0.z;
+    let step_to_floor = if player.grounded
+        && floor_delta.abs() > POSITION_EPSILON
+        && floor_delta.abs() <= PLAYER_MAX_STEP_HEIGHT_METERS
+    {
+        Some(target_sector.floor.0)
+    } else {
+        None
+    };
 
     Some(PortalTransition {
         target_sector_id: target_sector.id,
-        step_to_floor: (feet_z > player.position.0.z + POSITION_EPSILON).then_some(feet_z),
+        step_to_floor: step_to_floor
+            .or_else(|| (feet_z > player.position.0.z + POSITION_EPSILON).then_some(feet_z)),
     })
 }
 
@@ -587,6 +630,13 @@ mod tests {
                 1.0 / 60.0,
                 sectors.iter(),
             );
+            eprintln!(
+                "player pos=({:.3},{:.3},{:.3}) sector={:?}",
+                player.position.0.x,
+                player.position.0.y,
+                player.position.0.z,
+                player.current_sector
+            );
         }
 
         assert!(player.position.0.x < 3.71);
@@ -667,6 +717,62 @@ mod tests {
 
         assert_eq!(player.current_sector, Some(SectorId(0)));
         assert!(player.position.0.y < 1.0);
+    }
+
+    #[test]
+    fn descending_step_snaps_to_lower_floor_without_airborne_frame() {
+        let sectors = portal_pair(0.0, 0.3);
+        let mut player = Player {
+            current_sector: Some(SectorId(1)),
+            position: Position3(vec3(0.0, 1.02, 0.3)),
+            direction: Direction(std::f32::consts::PI),
+            ..Player::default()
+        };
+
+        simulate_player(
+            &mut player,
+            PlayerInput {
+                forward: true,
+                ..PlayerInput::default()
+            },
+            1.0 / 60.0,
+            sectors.iter(),
+        );
+
+        assert_eq!(player.current_sector, Some(SectorId(0)));
+        assert!((player.position.0.z - 0.0).abs() < 0.0001);
+        assert!(player.grounded);
+        assert_eq!(player.velocity.z, 0.0);
+    }
+
+    #[test]
+    fn player_slides_through_portal_boundary_without_sticking() {
+        let sectors = portal_pair(0.0, 0.0);
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(0.72, 0.8, 0.0)),
+            direction: Direction(0.0),
+            ..Player::default()
+        };
+
+        for _ in 0..20 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    strafe_right: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+        }
+
+        assert_eq!(player.current_sector, Some(SectorId(1)));
+        assert!(
+            player.position.0.y > 1.0,
+            "expected player to slide through portal"
+        );
     }
 
     #[test]
