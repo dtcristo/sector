@@ -103,7 +103,7 @@ pub fn render_frame<'a>(
 mod tests {
     use super::*;
     use crate::{
-        game::{player_render_view, resolve_current_sector, Player},
+        game::{player_render_view, resolve_current_sector, Direction, Player},
         map::{map_to_sectors, SectorMap},
         Length, RawColor,
     };
@@ -179,6 +179,61 @@ mod tests {
                 4.0,
             ),
         ]
+    }
+
+    fn render_connected_boundary_frame(
+        y: f32,
+        direction: f32,
+        initial_sector: SectorId,
+        resolve_sector: bool,
+    ) -> FrameBuffer {
+        let sectors = connected_portal_sectors();
+        let mut player = Player {
+            position: Position3(Vec3::new(0.0, y, 0.0)),
+            direction: Direction(direction),
+            current_sector: Some(initial_sector),
+            ..Player::default()
+        };
+        if resolve_sector {
+            player.current_sector =
+                resolve_current_sector(player.position, player.current_sector, sectors.iter());
+        }
+        let view = player_render_view(&player);
+        let mut frame = FrameBuffer::new();
+
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Minimap::Off);
+
+        frame
+    }
+
+    fn assert_no_fully_black_columns(frame: &FrameBuffer) {
+        let black_columns = (24..WIDTH as usize - 24)
+            .filter(|&x| (16..HEIGHT as usize - 16).all(|y| frame.pixel(x, y) == [0, 0, 0, 255]))
+            .collect::<Vec<_>>();
+        assert!(
+            black_columns.is_empty(),
+            "expected no fully black interior columns, found {:?}",
+            black_columns
+        );
+    }
+
+    fn assert_no_long_black_run_on_center_row(frame: &FrameBuffer) {
+        let mut longest_run = 0;
+        let mut current_run = 0;
+        let center_y = HEIGHT as usize / 2;
+        for x in 24..WIDTH as usize - 24 {
+            if frame.pixel(x, center_y) == [0, 0, 0, 255] {
+                current_run += 1;
+                longest_run = longest_run.max(current_run);
+            } else {
+                current_run = 0;
+            }
+        }
+
+        assert!(
+            longest_run <= 3,
+            "expected center row to stay filled across portal boundary, longest black run was {longest_run}"
+        );
     }
 
     #[test]
@@ -397,6 +452,34 @@ mod tests {
             .as_slice()
             .chunks_exact(4)
             .any(|pixel| pixel != [0, 0, 0, 255]));
+    }
+
+    #[test]
+    fn portal_boundary_views_parallel_to_shared_wall_keep_columns_filled() {
+        for (y, initial_sector) in [
+            (0.99_f32, SectorId(0)),
+            (1.0_f32, SectorId(0)),
+            (1.01_f32, SectorId(1)),
+        ] {
+            for direction in [
+                -std::f32::consts::FRAC_PI_2 + 0.05,
+                std::f32::consts::FRAC_PI_2 - 0.05,
+            ] {
+                let frame = render_connected_boundary_frame(y, direction, initial_sector, true);
+                assert_no_fully_black_columns(&frame);
+            }
+        }
+    }
+
+    #[test]
+    fn portal_boundary_views_perpendicular_to_shared_wall_keep_rows_filled() {
+        for initial_sector in [SectorId(0), SectorId(1)] {
+            for direction in [0.0_f32, std::f32::consts::PI] {
+                let frame = render_connected_boundary_frame(1.0, direction, initial_sector, false);
+                assert_no_fully_black_columns(&frame);
+                assert_no_long_black_run_on_center_row(&frame);
+            }
+        }
     }
 
     #[test]

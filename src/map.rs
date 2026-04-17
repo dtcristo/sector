@@ -473,40 +473,61 @@ mod tests {
     }
 
     #[test]
-    fn default_map_uses_uniform_sector_wall_colors_and_same_color_steps() {
+    fn default_map_reuses_entry_green_and_darkens_stair_boundaries() {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
 
-        assert!(map.sectors.iter().all(|sector| {
-            sector.walls.first().is_some_and(|first_wall| {
-                sector
-                    .walls
-                    .iter()
-                    .all(|wall| wall.color == first_wall.color)
-            })
-        }));
+        const ENTRY_GREEN: [u8; 3] = [132, 160, 116];
+        const STAIR_PORTAL_GREY: [u8; 3] = [56, 56, 56];
 
-        let has_same_color_adjacent_step_pair = map.sectors.iter().any(|sector| {
-            let Some(color) = sector.walls.first().map(|wall| wall.color) else {
-                return false;
-            };
+        assert_eq!(map.sectors[0].walls[0].color, ENTRY_GREEN);
+        assert_eq!(map.sectors[0].walls[3].color, STAIR_PORTAL_GREY);
+        assert!(map.sectors[2]
+            .walls
+            .iter()
+            .all(|wall| wall.color == ENTRY_GREEN));
 
-            sector
+        for sector_index in [3_usize, 4, 5, 6] {
+            let sector = &map.sectors[sector_index];
+            assert!(sector
                 .walls
                 .iter()
-                .filter_map(|wall| wall.portal)
-                .any(|portal_index| {
-                    let target_sector = &map.sectors[portal_index];
-                    let floor_delta = (target_sector.floor - sector.floor).abs();
-                    floor_delta > 0.0
-                        && floor_delta <= 0.45
-                        && target_sector
-                            .walls
-                            .first()
-                            .is_some_and(|wall| wall.color == color)
-                })
-        });
-        assert!(has_same_color_adjacent_step_pair);
+                .filter(|wall| wall.portal.is_some())
+                .all(|wall| wall.color == STAIR_PORTAL_GREY));
+            assert!(sector
+                .walls
+                .iter()
+                .filter(|wall| wall.portal.is_none())
+                .all(|wall| wall.color != STAIR_PORTAL_GREY));
+        }
+    }
+
+    #[test]
+    fn default_map_spawn_faces_staircase() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let initial_sector = &map.sectors[map.initial_sector];
+        let stair_wall_index = initial_sector
+            .walls
+            .iter()
+            .position(|wall| wall.portal == Some(3))
+            .expect("default map should have a portal from the initial room to the staircase");
+        let wall_start = initial_sector.vertices[stair_wall_index];
+        let wall_end =
+            initial_sector.vertices[(stair_wall_index + 1) % initial_sector.vertices.len()];
+        let target_x = (wall_start.0 + wall_end.0) * 0.5;
+        let target_y = (wall_start.1 + wall_end.1) * 0.5;
+        let to_stair_x = target_x - map.initial_position.0;
+        let to_stair_y = target_y - map.initial_position.1;
+        let to_stair_len = (to_stair_x * to_stair_x + to_stair_y * to_stair_y).sqrt();
+        let forward_x = -map.initial_direction_radians().sin();
+        let forward_y = map.initial_direction_radians().cos();
+        let alignment = (forward_x * to_stair_x + forward_y * to_stair_y) / to_stair_len;
+
+        assert!(
+            alignment > 0.99,
+            "spawn should face staircase, alignment was {alignment}"
+        );
     }
 
     #[test]

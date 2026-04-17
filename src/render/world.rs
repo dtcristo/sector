@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 #[derive(Debug, Copy, Clone)]
 struct PortalSpan<'a> {
     sector: &'a Sector,
+    source_sector: Option<SectorId>,
     x_min: isize,
     x_max: isize,
 }
@@ -59,6 +60,7 @@ impl SurfaceTag {
 
 const CONTAINMENT_EPSILON: f32 = 0.001;
 const OUTLINE_COLOR: RawColor = RawColor([0, 0, 0]);
+const ROOT_PORTAL_EPSILON: f32 = 0.05;
 
 pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sector]) {
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
@@ -105,6 +107,7 @@ fn render_sector_tree<'a>(
 
     portal_queue.push_back(PortalSpan {
         sector: root_sector,
+        source_sector: None,
         x_min: 0,
         x_max: WIDTH as isize,
     });
@@ -133,8 +136,41 @@ fn render_sector_tree<'a>(
                 let right_top_y = screen_y(norm_right_top.0.y);
                 let right_bottom_y = screen_y(norm_right_bottom.0.y);
 
+                let (
+                    view_left,
+                    left_top_x,
+                    left_top_y,
+                    left_bottom_y,
+                    view_right,
+                    right_top_x,
+                    right_top_y,
+                    right_bottom_y,
+                ) = if left_top_x <= right_top_x {
+                    (
+                        view_left,
+                        left_top_x,
+                        left_top_y,
+                        left_bottom_y,
+                        view_right,
+                        right_top_x,
+                        right_top_y,
+                        right_bottom_y,
+                    )
+                } else {
+                    (
+                        view_right,
+                        right_top_x,
+                        right_top_y,
+                        right_bottom_y,
+                        view_left,
+                        left_top_x,
+                        left_top_y,
+                        left_bottom_y,
+                    )
+                };
+
                 let dx = right_top_x - left_top_x;
-                if dx <= 0.0 {
+                if dx <= f32::EPSILON {
                     continue 'walls;
                 }
 
@@ -151,11 +187,14 @@ fn render_sector_tree<'a>(
                     .and_then(|id| sectors_by_id.get(&id).copied());
 
                 let (y_portal_top, y_portal_bottom) = if let Some(portal_sector) = portal_sector {
-                    portal_queue.push_back(PortalSpan {
-                        sector: portal_sector,
-                        x_min: x_left,
-                        x_max: x_right,
-                    });
+                    if Some(portal_sector.id) != self_portal.source_sector {
+                        portal_queue.push_back(PortalSpan {
+                            sector: portal_sector,
+                            source_sector: Some(sector.id),
+                            x_min: x_left,
+                            x_max: x_right,
+                        });
+                    }
 
                     let view_portal_ceil = crate::Length(portal_sector.ceil.0 - view.position.0.z);
                     let view_portal_floor =
@@ -303,6 +342,26 @@ fn root_sectors<'a>(
         }
     }
 
+    let mut index = 0;
+    while let Some(sector) = roots.get(index).copied() {
+        for wall in sector.wall_segments() {
+            let Some(portal_id) = wall.portal_sector else {
+                continue;
+            };
+            let Some(portal_sector) = sectors_by_id.get(&portal_id).copied() else {
+                continue;
+            };
+            if position_near_wall(view.position.truncate().0, wall.left.0, wall.right.0)
+                && view.position.0.z >= portal_sector.floor.0 - CONTAINMENT_EPSILON
+                && view.position.0.z <= portal_sector.ceil.0 + CONTAINMENT_EPSILON
+                && seen.insert(portal_sector.id)
+            {
+                roots.push(portal_sector);
+            }
+        }
+        index += 1;
+    }
+
     roots
 }
 
@@ -360,6 +419,22 @@ fn point_on_segment(point: Vec2, start: Vec2, end: Vec2) -> bool {
     dot <= segment.length_squared() + CONTAINMENT_EPSILON
 }
 
+fn position_near_wall(point: Vec2, start: Vec2, end: Vec2) -> bool {
+    distance_to_segment(point, start, end) <= ROOT_PORTAL_EPSILON
+}
+
+fn distance_to_segment(point: Vec2, start: Vec2, end: Vec2) -> f32 {
+    let segment = end - start;
+    let length_squared = segment.length_squared();
+    if length_squared <= CONTAINMENT_EPSILON {
+        return point.distance(start);
+    }
+
+    let t = ((point - start).dot(segment) / length_squared).clamp(0.0, 1.0);
+    let projection = start + segment * t;
+    point.distance(projection)
+}
+
 fn draw_wall_column(
     frame: &mut [u8],
     surfaces: &mut [Option<SurfaceTag>],
@@ -413,11 +488,14 @@ fn apply_outlines(frame: &mut [u8], surfaces: &[Option<SurfaceTag>]) {
             let Some(current) = surface_at(surfaces, x, y) else {
                 continue;
             };
+            let left = surface_at(surfaces, x - 1, y);
+            let up = surface_at(surfaces, x, y - 1);
+            let upper_left = surface_at(surfaces, x - 1, y - 1);
 
-            let needs_outline = surface_at(surfaces, x - 1, y).is_none()
-                || surface_at(surfaces, x, y - 1).is_none()
-                || should_outline_edge(current, surface_at(surfaces, x + 1, y))
-                || should_outline_edge(current, surface_at(surfaces, x, y + 1));
+            let needs_outline = (should_outline_edge(current, left) && upper_left != Some(current))
+                || should_outline_edge(current, up)
+                || surface_at(surfaces, x + 1, y).is_none()
+                || surface_at(surfaces, x, y + 1).is_none();
 
             if needs_outline {
                 draw_pixel(frame, Pixel::new(x, y), OUTLINE_COLOR);
@@ -578,6 +656,42 @@ mod tests {
     }
 
     #[test]
+    fn root_sectors_include_portal_neighbor_when_view_is_close_to_boundary() {
+        let sectors = vec![
+            sector(
+                0,
+                &[(-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)],
+                &[Some(1), None, None, None],
+                0.0,
+                4.0,
+            ),
+            sector(
+                1,
+                &[(1.0, 1.0), (-1.0, 1.0), (-1.0, 4.0), (1.0, 4.0)],
+                &[Some(0), None, None, None],
+                0.0,
+                4.0,
+            ),
+        ];
+        let sector_refs = sectors.iter().collect::<Vec<_>>();
+        let sectors_by_id = sector_refs
+            .iter()
+            .map(|sector| (sector.id, *sector))
+            .collect::<HashMap<_, _>>();
+        let view = RenderView::new(
+            Position3(vec3(0.0, 0.975, 1.62)),
+            -std::f32::consts::FRAC_PI_2,
+            Some(SectorId(0)),
+        );
+
+        let roots = root_sectors(&view, &sector_refs, &sectors_by_id);
+
+        assert_eq!(roots.len(), 2);
+        assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
+        assert!(roots.iter().any(|sector| sector.id == SectorId(1)));
+    }
+
+    #[test]
     fn wall_surfaces_skip_outline_when_colors_match() {
         let wall = SurfaceTag::wall(RawColor([1, 2, 3]));
         assert!(!should_outline_edge(wall, Some(wall)));
@@ -673,5 +787,58 @@ mod tests {
 
         assert!(shades.len() <= SHADE_BANDS);
         assert!(shades.len() > SHADE_BANDS / 2);
+    }
+
+    fn paint_surface_span(
+        surfaces: &mut [Option<SurfaceTag>],
+        x: isize,
+        y_min: isize,
+        y_max: isize,
+        tag: SurfaceTag,
+    ) {
+        for y in y_min..y_max {
+            if let Some(index) = surface_index(x, y) {
+                surfaces[index] = Some(tag);
+            }
+        }
+    }
+
+    fn assert_boundary_is_single_pixel_thick(boundary_rows: &[isize]) {
+        let mut frame = vec![255; WIDTH as usize * HEIGHT as usize * 4];
+        let mut surfaces = vec![None; WIDTH as usize * HEIGHT as usize];
+        let top = SurfaceTag::ceiling(RawColor([120, 120, 120]), 3.2);
+        let bottom = SurfaceTag::floor(RawColor([180, 180, 180]), 0.0);
+        let start_x = 48_isize;
+
+        for (offset, boundary_row) in boundary_rows.iter().copied().enumerate() {
+            let x = start_x + offset as isize;
+            paint_surface_span(&mut surfaces, x, 72, boundary_row, top);
+            paint_surface_span(&mut surfaces, x, boundary_row, 104, bottom);
+        }
+
+        apply_outlines(&mut frame, &surfaces);
+
+        for (offset, boundary_row) in boundary_rows
+            .iter()
+            .copied()
+            .enumerate()
+            .skip(1)
+            .take(boundary_rows.len().saturating_sub(2))
+        {
+            let x = (start_x + offset as isize) as usize;
+            let outline_pixels = ((boundary_row - 1) as usize..=(boundary_row + 1) as usize)
+                .filter(|&y| frame[(y * WIDTH as usize + x) * 4..][..4] == [0, 0, 0, 255])
+                .count();
+            assert_eq!(
+                outline_pixels, 1,
+                "expected a single outline pixel near column {x}, found {outline_pixels}"
+            );
+        }
+    }
+
+    #[test]
+    fn apply_outlines_keeps_sloped_boundaries_single_pixel_thick() {
+        assert_boundary_is_single_pixel_thick(&[80, 81, 82, 83, 84, 85]);
+        assert_boundary_is_single_pixel_thick(&[85, 84, 83, 82, 81, 80]);
     }
 }
