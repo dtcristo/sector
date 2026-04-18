@@ -88,11 +88,13 @@ The player simulation is built around a small first-person controller:
 - fixed physical dimensions from `src/player.rs`
 - walk/strafe movement in the horizontal plane
 - jump using earth gravity
-- crouch with reduced height and eye height
+- grounded crouch that lowers eye height, plus airborne crouch that lifts the feet instead
 - step-up support using `PLAYER_MAX_STEP_HEIGHT_METERS`
 - sector resolution that prefers the current or adjacent portal sector when possible
 
 Horizontal movement is resolved against sector walls and portal openings. A portal behaves like passable space only when both sides mark it walkable and the destination sector offers enough vertical clearance and acceptable step height. Otherwise it behaves like a solid wall even though the renderer may still draw through it.
+
+Airborne crouching is intentionally slightly gamey: the camera stays fixed while the collision capsule shortens upward, which allows limited crouch-jump behavior for ledges that are just out of reach with a normal jump.
 
 ### Rendering
 

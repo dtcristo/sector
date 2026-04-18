@@ -5,10 +5,12 @@ use std::collections::HashMap;
 
 use super::{
     desired_horizontal_velocity, jump_speed_mps, Player, PlayerInput, EARTH_GRAVITY_MPS2,
-    PLAYER_HEIGHT_METERS, PLAYER_MAX_STEP_HEIGHT_METERS, PLAYER_RADIUS_METERS,
+    PLAYER_CROUCH_EYE_HEIGHT_METERS, PLAYER_EYE_HEIGHT_METERS, PLAYER_HEIGHT_METERS,
+    PLAYER_MAX_STEP_HEIGHT_METERS, PLAYER_RADIUS_METERS,
 };
 
 const POSITION_EPSILON: f32 = 0.0001;
+const AIR_CROUCH_FEET_LIFT: f32 = PLAYER_EYE_HEIGHT_METERS - PLAYER_CROUCH_EYE_HEIGHT_METERS;
 
 pub fn simulate_player<'a>(
     player: &mut Player,
@@ -470,7 +472,16 @@ fn portal_clearance(player: &Player, target_sector: &Sector) -> Option<f32> {
 
 fn update_crouch_state(player: &mut Player, input: PlayerInput, sectors: &[&Sector]) {
     if input.crouch_pressed {
-        player.crouching = true;
+        if !player.crouching {
+            if !player.grounded {
+                player.position.0.z += AIR_CROUCH_FEET_LIFT;
+            }
+            player.crouching = true;
+        }
+        return;
+    }
+
+    if !player.crouching {
         return;
     }
 
@@ -480,11 +491,22 @@ fn update_crouch_state(player: &mut Player, input: PlayerInput, sectors: &[&Sect
             .find(|sector| sector.id == sector_id)
             .copied()
     }) else {
+        if !player.grounded {
+            player.position.0.z -= AIR_CROUCH_FEET_LIFT;
+        }
         player.crouching = false;
         return;
     };
 
-    if can_use_height_in_sector(current_sector, player.position.0.z, PLAYER_HEIGHT_METERS) {
+    let standing_feet_z = if player.grounded {
+        player.position.0.z
+    } else {
+        player.position.0.z - AIR_CROUCH_FEET_LIFT
+    };
+    if can_use_height_in_sector(current_sector, standing_feet_z, PLAYER_HEIGHT_METERS) {
+        if !player.grounded {
+            player.position.0.z = standing_feet_z;
+        }
         player.crouching = false;
     }
 }
@@ -857,6 +879,32 @@ mod tests {
     }
 
     #[test]
+    fn midair_crouch_keeps_eye_height_fixed_by_lifting_feet() {
+        let sectors = [simple_room()];
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(0.0, 0.0, 0.5)),
+            grounded: false,
+            ..Player::default()
+        };
+        let eye_before = player.eye_position().0.z;
+
+        simulate_player(
+            &mut player,
+            PlayerInput {
+                crouch_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.0,
+            sectors.iter(),
+        );
+
+        assert!(player.crouching);
+        assert!((player.eye_position().0.z - eye_before).abs() < 0.0001);
+        assert!((player.position.0.z - (0.5 + AIR_CROUCH_FEET_LIFT)).abs() < 0.0001);
+    }
+
+    #[test]
     fn player_collides_with_solid_wall() {
         let sectors = [simple_room()];
         let mut player = Player {
@@ -1182,6 +1230,65 @@ mod tests {
 
         assert_eq!(player.current_sector, Some(SectorId(2)));
         assert!(!player.crouching);
+    }
+
+    #[test]
+    fn midair_crouch_jump_reaches_higher_portal_than_standing_jump() {
+        let sectors = portal_pair(0.0, 0.75);
+        let mut standing_jump = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(0.0, 0.55, 0.0)),
+            grounded: true,
+            ..Player::default()
+        };
+        let mut crouch_jump = standing_jump;
+
+        simulate_player(
+            &mut standing_jump,
+            PlayerInput {
+                forward: true,
+                jump_pressed: true,
+                ..PlayerInput::default()
+            },
+            1.0 / 60.0,
+            sectors.iter(),
+        );
+        simulate_player(
+            &mut crouch_jump,
+            PlayerInput {
+                forward: true,
+                jump_pressed: true,
+                ..PlayerInput::default()
+            },
+            1.0 / 60.0,
+            sectors.iter(),
+        );
+
+        for frame in 0..45 {
+            simulate_player(
+                &mut standing_jump,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+            simulate_player(
+                &mut crouch_jump,
+                PlayerInput {
+                    forward: true,
+                    crouch_pressed: frame >= 2,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+        }
+
+        assert_eq!(standing_jump.current_sector, Some(SectorId(0)));
+        assert_eq!(crouch_jump.current_sector, Some(SectorId(1)));
+        assert!(crouch_jump.position.0.z >= 0.75 - 0.0001);
     }
 
     #[test]

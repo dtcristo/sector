@@ -79,7 +79,7 @@ The project currently focuses on:
 
 - fast headless validation and rendering tests
 - portal-based software rendering
-- simple first-person movement with stepping, jumping, and crouching
+- simple first-person movement with stepping, jumping, crouching, and modest crouch-jumps
 - low-level map experimentation
 
 The editor exists, but runtime/rendering quality and performance are the main priorities.
