@@ -122,7 +122,7 @@ mod tests {
             PlayerInput,
         },
         map::{map_to_sectors, SectorMap},
-        Length, RawColor,
+        Length, RawColor, CEILING_COLOR, FLOOR_COLOR,
     };
 
     fn sector(
@@ -149,6 +149,8 @@ mod tests {
             portal_lower_colors: vec![None; vertices.len()],
             floor: Length(floor),
             ceil: Length(ceil),
+            floor_color: *FLOOR_COLOR,
+            ceil_color: *CEILING_COLOR,
             no_ceiling: false,
         }
     }
@@ -515,6 +517,27 @@ mod tests {
         assert_eq!(frame.pixel(center_x, 10), [0, 0, 0, 255]);
         assert_ne!(frame.pixel(center_x, HEIGHT as usize / 2), [0, 0, 0, 255]);
         assert_ne!(frame.pixel(center_x, HEIGHT as usize - 10), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn render_frame_uses_sector_floor_and_ceiling_colors() {
+        let mut player = Player::default();
+        player.current_sector = Some(SectorId(0));
+        let view = player_render_view(&player);
+        let mut sector = room_with_front_wall(10.0);
+        sector.floor_color = RawColor([40, 220, 60]);
+        sector.ceil_color = RawColor([220, 60, 40]);
+        let sectors = [sector];
+        let mut frame = FrameBuffer::new();
+
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+
+        let center_x = WIDTH as usize / 2;
+        let ceiling_pixel = frame.pixel(center_x, 10);
+        let floor_pixel = frame.pixel(center_x, HEIGHT as usize - 10);
+
+        assert!(ceiling_pixel[0] > ceiling_pixel[1] && ceiling_pixel[0] > ceiling_pixel[2]);
+        assert!(floor_pixel[1] > floor_pixel[0] && floor_pixel[1] > floor_pixel[2]);
     }
 
     #[test]

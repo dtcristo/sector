@@ -30,7 +30,7 @@
 - Raise the editor above its current prototype state with better selection, snapping, and portal authoring workflows.
 - Add visual feedback for invalid winding, non-convex sectors, missing reciprocal portals, and overlap problems while editing.
 - Show spawn position and facing direction directly in the map view and allow editing them interactively.
-- Add color-picking and palette workflows that fit the project's retro look.
+- Add color-picking and palette workflows for walls, floors, and ceilings that fit the project's retro look.
 - Add undo/redo and safer save flows.
 
 ## Testing and quality

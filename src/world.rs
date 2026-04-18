@@ -21,6 +21,8 @@ pub struct Sector {
     pub portal_lower_colors: Vec<Option<RawColor>>,
     pub floor: Length,
     pub ceil: Length,
+    pub floor_color: RawColor,
+    pub ceil_color: RawColor,
     pub no_ceiling: bool,
 }
 
@@ -76,6 +78,7 @@ impl Sector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{CEILING_COLOR, FLOOR_COLOR};
     use bevy::math::vec2;
 
     #[test]
@@ -98,6 +101,8 @@ mod tests {
             portal_lower_colors: vec![None, Some(RawColor([13, 14, 15])), None],
             floor: Length(0.0),
             ceil: Length(1.0),
+            floor_color: *FLOOR_COLOR,
+            ceil_color: *CEILING_COLOR,
             no_ceiling: false,
         };
 

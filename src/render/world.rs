@@ -4,7 +4,7 @@ use super::{
     RenderView, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, HEIGHT, NEAR, SHADE_BANDS, SHADE_FAR,
     TAN_FAC_FOV_Y_2, WIDTH,
 };
-use crate::{Position3, RawColor, Sector, SectorId, CEILING_COLOR, FLOOR_COLOR};
+use crate::{Position3, RawColor, Sector, SectorId};
 
 use bevy::{math::vec2, prelude::*};
 use palette::{Hsv, IntoColor, Srgb};
@@ -80,8 +80,6 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
 
     let view_matrix = Mat3::from_rotation_z(-view.direction)
         * Mat3::from_translation(-vec2(view.position.0.x, view.position.0.y));
-    let ceiling_hsv: Hsv = Srgb::<u8>::from(*CEILING_COLOR).into_format().into_color();
-    let floor_hsv: Hsv = Srgb::<u8>::from(*FLOOR_COLOR).into_format().into_color();
     let mut surfaces = vec![None; WIDTH as usize * HEIGHT as usize];
     render_sector_tree(
         frame,
@@ -90,8 +88,6 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sect
         &sectors_by_id,
         &root_sectors,
         view_matrix,
-        ceiling_hsv,
-        floor_hsv,
     );
 
     apply_outlines(frame, &surfaces);
@@ -104,8 +100,6 @@ fn render_sector_tree<'a>(
     sectors_by_id: &HashMap<SectorId, &'a Sector>,
     root_sectors: &[&'a Sector],
     view_matrix: Mat3,
-    ceiling_hsv: Hsv,
-    floor_hsv: Hsv,
 ) {
     let mut portal_queue = VecDeque::<PortalSpan>::new();
     let mut y_min_vec = vec![0; WIDTH as usize];
@@ -123,8 +117,14 @@ fn render_sector_tree<'a>(
         let sector = self_portal.sector;
         let view_floor = crate::Length(sector.floor.0 - view.position.0.z);
         let view_ceil = crate::Length(sector.ceil.0 - view.position.0.z);
-        let ceiling_tag = SurfaceTag::ceiling(*CEILING_COLOR, sector.ceil.0);
-        let floor_tag = SurfaceTag::floor(*FLOOR_COLOR, sector.floor.0);
+        let ceiling_hsv: Hsv = Srgb::<u8>::from(sector.ceil_color)
+            .into_format()
+            .into_color();
+        let floor_hsv: Hsv = Srgb::<u8>::from(sector.floor_color)
+            .into_format()
+            .into_color();
+        let ceiling_tag = SurfaceTag::ceiling(sector.ceil_color, sector.ceil.0);
+        let floor_tag = SurfaceTag::floor(sector.floor_color, sector.floor.0);
 
         'walls: for wall in sector.wall_segments() {
             let view_left = wall.left.transform(view_matrix);
@@ -694,7 +694,7 @@ fn shade_band_t(distance: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Length, Position2, Position3};
+    use crate::{Length, Position2, Position3, CEILING_COLOR, FLOOR_COLOR};
     use bevy::math::{vec2, vec3};
     use std::collections::BTreeSet;
 
@@ -721,6 +721,8 @@ mod tests {
             portal_lower_colors: vec![None; vertices.len()],
             floor: Length(floor),
             ceil: Length(ceil),
+            floor_color: *FLOOR_COLOR,
+            ceil_color: *CEILING_COLOR,
             no_ceiling: false,
         }
     }

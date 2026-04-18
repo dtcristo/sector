@@ -38,7 +38,7 @@ The shared library code lives in `src/`:
 
 The runtime world is intentionally small:
 
-- `Sector` stores an id, clockwise convex polygon vertices, per-wall colors, optional per-wall portal targets, per-portal walkability flags, optional portal trim colors, flat `floor`/`ceil` heights, and a `no_ceiling` render flag.
+- `Sector` stores an id, clockwise convex polygon vertices, per-wall colors, optional per-wall portal targets, per-portal walkability flags, optional portal trim colors, flat `floor`/`ceil` heights, per-sector `floor_color`/`ceil_color`, and a `no_ceiling` render flag.
 - `WallSegment` is derived from `Sector` and expands the implicit polygon loop into explicit wall edges.
 - `InitialSector` marks the sector containing the spawn.
 
@@ -54,6 +54,8 @@ Maps are stored as RON in `assets/maps/*.map.ron`. `SectorMap` mirrors the runti
 - `sectors`
   - `floor`
   - `ceil`
+  - optional `floor_color`
+  - optional `ceil_color`
   - optional `no_ceiling`
   - `vertices`
   - `walls`
@@ -63,7 +65,7 @@ Maps are stored as RON in `assets/maps/*.map.ron`. `SectorMap` mirrors the runti
     - optional `upper_color`
     - optional `lower_color`
 
-Wall colors are the only material system today. There are no textures, no slopes, no per-surface UVs, and no separate floor/ceiling materials. A sector without a rendered ceiling still keeps a numeric ceiling height for collision, portal opening checks, and future sky rendering.
+Flat wall, floor, and ceiling colors are the material system today. There are no textures, no slopes, and no per-surface UVs. A sector without a rendered ceiling still keeps a numeric ceiling height for collision, portal opening checks, and future sky rendering.
 
 ## Runtime flow
 
@@ -97,7 +99,7 @@ Horizontal movement is resolved against sector walls and portal openings. A port
 The renderer is a software rasterizer over a fixed 320x240 buffer scaled to the window. The visual style is deliberately limited:
 
 - flat wall colors instead of textures
-- horizontal floor/ceiling bands
+- horizontal floor/ceiling bands colored per sector
 - optional black-sky sectors that skip ceiling rasterization entirely
 - quantized distance shading (`SHADE_BANDS = 16`)
 - explicit black outlines between materially or geometrically distinct surfaces
@@ -174,7 +176,7 @@ These are intentional current limits of the system:
 
 - sectors must be convex
 - floors and ceilings are flat per sector
-- walls use solid colors rather than textures
+- walls, floors, and ceilings use flat colors rather than textures
 - no native concept of doors, lifts, or moving geometry
 - no textured skybox support yet; `no_ceiling` sectors currently reveal black sky
 - no stacked sectors occupying the same 2D footprint with overlapping height ranges

@@ -1,6 +1,6 @@
 use crate::{
     player::{PLAYER_HEIGHT_METERS, PLAYER_RADIUS_METERS},
-    InitialSector, Length, Position2, RawColor, Sector, SectorId,
+    InitialSector, Length, Position2, RawColor, Sector, SectorId, CEILING_COLOR, FLOOR_COLOR,
 };
 
 use bevy::{
@@ -26,6 +26,16 @@ pub struct SectorMap {
 pub struct MapSector {
     pub floor: f32,
     pub ceil: f32,
+    #[serde(
+        default = "default_floor_color",
+        skip_serializing_if = "is_default_floor_color"
+    )]
+    pub floor_color: [u8; 3],
+    #[serde(
+        default = "default_ceil_color",
+        skip_serializing_if = "is_default_ceil_color"
+    )]
+    pub ceil_color: [u8; 3],
     #[serde(default, skip_serializing_if = "is_false")]
     pub no_ceiling: bool,
     pub vertices: Vec<MapVertex>,
@@ -69,6 +79,22 @@ fn is_true(value: &bool) -> bool {
 
 fn is_false(value: &bool) -> bool {
     !*value
+}
+
+fn default_floor_color() -> [u8; 3] {
+    FLOOR_COLOR.0
+}
+
+fn default_ceil_color() -> [u8; 3] {
+    CEILING_COLOR.0
+}
+
+fn is_default_floor_color(value: &[u8; 3]) -> bool {
+    *value == default_floor_color()
+}
+
+fn is_default_ceil_color(value: &[u8; 3]) -> bool {
+    *value == default_ceil_color()
 }
 
 #[non_exhaustive]
@@ -264,6 +290,8 @@ pub fn map_to_sectors(map: &SectorMap) -> Result<(InitialSector, Vec<Sector>), S
                 .collect(),
             floor: Length(sector.floor),
             ceil: Length(sector.ceil),
+            floor_color: RawColor(sector.floor_color),
+            ceil_color: RawColor(sector.ceil_color),
             no_ceiling: sector.no_ceiling,
         })
         .collect();
@@ -307,6 +335,8 @@ pub fn sectors_to_map_with_spawn(
             .map(|sector| MapSector {
                 floor: sector.floor.0,
                 ceil: sector.ceil.0,
+                floor_color: sector.floor_color.0,
+                ceil_color: sector.ceil_color.0,
                 vertices: sector
                     .vertices
                     .into_iter()
@@ -711,6 +741,8 @@ mod tests {
                 MapSector {
                     floor: 0.0,
                     ceil: 4.0,
+                    floor_color: [32, 48, 64],
+                    ceil_color: [128, 96, 80],
                     no_ceiling: false,
                     vertices: vec![
                         MapVertex(0.0, 4.0),
@@ -752,6 +784,8 @@ mod tests {
                 MapSector {
                     floor: 0.25,
                     ceil: 3.75,
+                    floor_color: [10, 20, 30],
+                    ceil_color: [180, 170, 90],
                     no_ceiling: true,
                     vertices: vec![
                         MapVertex(0.0, 8.0),
@@ -814,6 +848,8 @@ mod tests {
         assert_eq!(round_tripped.sectors.len(), map.sectors.len());
         assert_eq!(round_tripped.sectors[0].walls[0].portal, Some(1));
         assert!(!round_tripped.sectors[0].walls[0].walkable);
+        assert_eq!(round_tripped.sectors[0].floor_color, [32, 48, 64]);
+        assert_eq!(round_tripped.sectors[0].ceil_color, [128, 96, 80]);
         assert_eq!(
             round_tripped.sectors[0].walls[0].upper_color,
             Some([10, 20, 30])
@@ -822,6 +858,8 @@ mod tests {
             round_tripped.sectors[0].walls[0].lower_color,
             Some([40, 50, 60])
         );
+        assert_eq!(round_tripped.sectors[1].floor_color, [10, 20, 30]);
+        assert_eq!(round_tripped.sectors[1].ceil_color, [180, 170, 90]);
         assert!(round_tripped.sectors[1].no_ceiling);
     }
 

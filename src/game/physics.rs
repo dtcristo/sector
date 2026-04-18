@@ -578,7 +578,7 @@ mod tests {
     use crate::{
         game::{apply_player_look, Direction, PlayerInput},
         map::{map_to_sectors, SectorMap},
-        Length, Position2, RawColor,
+        Length, Position2, RawColor, CEILING_COLOR, FLOOR_COLOR,
     };
     use bevy::{
         app::App,
@@ -611,6 +611,8 @@ mod tests {
             portal_lower_colors: vec![None; vertices.len()],
             floor: Length(floor),
             ceil: Length(ceil),
+            floor_color: *FLOOR_COLOR,
+            ceil_color: *CEILING_COLOR,
             no_ceiling: false,
         }
     }

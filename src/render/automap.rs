@@ -179,7 +179,7 @@ fn portal_edge_key(left: Position2, right: Position2) -> PortalEdgeKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Length, Position3, RawColor, SectorId};
+    use crate::{Length, Position3, RawColor, SectorId, CEILING_COLOR, FLOOR_COLOR};
 
     fn sector(id: u32, vertices: &[(f32, f32)], portal_sectors: &[Option<u32>]) -> Sector {
         Sector {
@@ -198,6 +198,8 @@ mod tests {
             portal_lower_colors: vec![None; vertices.len()],
             floor: Length(0.0),
             ceil: Length(4.0),
+            floor_color: *FLOOR_COLOR,
+            ceil_color: *CEILING_COLOR,
             no_ceiling: false,
         }
     }
