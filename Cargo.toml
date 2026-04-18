@@ -11,6 +11,10 @@ publish = false
 
 [dependencies]
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_scene"] }
+earcutr = "0.5"
+geo = "0.32"
+geo-polygonize-core = "0.33"
+geo-types = "0.7"
 lazy_static = "1"
 palette = "0.6"
 ron = "0.12.0"

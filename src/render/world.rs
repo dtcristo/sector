@@ -209,7 +209,9 @@ fn render_sector_tree<'a>(
                         let view_portal_floor =
                             crate::Length(portal_sector.floor.0 - view.position.0.z);
 
-                        let y_portal_top = if view_portal_ceil.0 < view_ceil.0 {
+                        let y_portal_top = if sector.no_ceiling && portal_sector.no_ceiling {
+                            None
+                        } else if view_portal_ceil.0 < view_ceil.0 {
                             let portal_ceil_t =
                                 (view_portal_ceil.0 - view_ceil.0) / (view_floor.0 - view_ceil.0);
                             Some((

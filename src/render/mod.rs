@@ -553,6 +553,29 @@ mod tests {
     }
 
     #[test]
+    fn render_frame_skips_upper_trim_between_adjacent_sky_sectors() {
+        let mut sectors = connected_portal_sectors();
+        sectors[0].no_ceiling = true;
+        sectors[1].no_ceiling = true;
+        sectors[0].ceil = Length(8.0);
+        sectors[1].ceil = Length(4.0);
+
+        let baseline = render_connected_boundary_frame_for_sectors(
+            sectors.clone(),
+            0.5,
+            0.0,
+            SectorId(0),
+            false,
+        );
+
+        sectors[0].portal_upper_colors[0] = Some(RawColor([255, 0, 0]));
+        let with_upper_trim =
+            render_connected_boundary_frame_for_sectors(sectors, 0.5, 0.0, SectorId(0), false);
+
+        assert_eq!(with_upper_trim.as_slice(), baseline.as_slice());
+    }
+
+    #[test]
     fn render_frame_skips_vertical_outline_between_same_color_walls() {
         let mut player = Player::default();
         player.current_sector = Some(SectorId(0));

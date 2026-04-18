@@ -18,9 +18,9 @@
 
 ## Map format and tooling
 
-- Build reusable import/export tooling for external formats such as DOOM WAD data.
 - Add helpers that decompose complex shapes into valid convex sectors automatically.
 - Improve map validation diagnostics with clearer geometry context and suggested fixes.
+- Extend the DOOM importer to cover more source semantics such as linedef specials, more thing types, and richer metadata.
 - Teach the editor about `no_ceiling` sectors and view-only (`walkable: false`) portals.
 - Let the editor open and save arbitrary map files instead of centering everything on the default map.
 - Add map metadata for themes, authoring notes, and per-map tuning values.

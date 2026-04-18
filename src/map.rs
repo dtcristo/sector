@@ -1057,6 +1057,15 @@ mod tests {
         validate_map(&map).unwrap();
         assert!(map.sectors.len() >= 300);
         assert!(map.sectors.iter().any(|sector| sector.ceil >= 12.0));
+        assert!(map.sectors.iter().any(|sector| sector.no_ceiling));
+        assert!(map.sectors.iter().any(|sector| {
+            sector.floor_color != default_floor_color() || sector.ceil_color != default_ceil_color()
+        }));
+        assert!(map
+            .sectors
+            .iter()
+            .flat_map(|sector| sector.walls.iter())
+            .any(|wall| !wall.walkable));
     }
 
     #[test]

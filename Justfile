@@ -19,6 +19,9 @@ run BIN_NAME:
 validate MAP_NAME="default":
     cargo run --bin sector_validate -- assets/maps/{{MAP_NAME}}.map.ron
 
+import-doom WAD_PATH MAP_ID:
+    cargo run --bin sector_import_doom -- {{WAD_PATH}} {{MAP_ID}}
+
 serve-web: build-web
     miniserve --index index.html wasm
 

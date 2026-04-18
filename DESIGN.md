@@ -16,12 +16,13 @@ The codebase is organized around a small runtime, a shared map/world representat
 
 ## Top-level architecture
 
-The repository currently has three primary binaries:
+The repository currently has four primary binaries:
 
 | Binary | Entry point | Purpose |
 | --- | --- | --- |
 | `sector` | `src/bin/sector/main.rs` | Runtime/player application using the software renderer |
 | `sector_edit` | `src/bin/sector_edit/main.rs` | egui-based map editor for the shared sector data |
+| `sector_import_doom` | `src/bin/sector_import_doom/main.rs` | CLI importer that converts DOOM WAD maps into validated sector-map assets |
 | `sector_validate` | `src/bin/sector_validate/main.rs` | CLI validation pass for map assets |
 
 The shared library code lives in `src/`:
@@ -30,6 +31,7 @@ The shared library code lives in `src/`:
 - `src/world.rs`: runtime sector types and wall expansion helpers.
 - `src/game/`: player state, input, and physics/movement simulation.
 - `src/render/`: software renderer, automap, projection math, and frame utilities.
+- `src/bin/sector_import_doom/importer.rs`: WAD parsing, color extraction, geometry conversion, and map emission for imported DOOM levels.
 - `src/color.rs`, `src/geometry.rs`, `src/player.rs`: shared primitive types and gameplay constants.
 
 ## Data model
@@ -117,6 +119,8 @@ At a high level:
 
 The renderer is portal-based, not BSP-based. It depends on valid reciprocal portal topology and convex sectors to stay simple.
 
+When two adjacent portal-connected sectors both use `no_ceiling`, the renderer suppresses the upper trim between them so imported sky openings read as one continuous black-sky span instead of a floating wall band.
+
 ### Automap
 
 The automap shares the world data and projection helpers with the renderer. It supports:
@@ -151,6 +155,21 @@ Portal edges are deduplicated so a shared portal is only drawn once.
 
 The validator is a core design tool, not just a safety net. The renderer and movement code assume these invariants rather than defending against arbitrary malformed geometry at runtime.
 
+## DOOM import pipeline
+
+`sector_import_doom` is a content pipeline layered on top of the normal map format rather than a runtime feature path. It imports a WAD map, converts it to `SectorMap`, and saves through the same validation and serialization helpers as hand-authored maps.
+
+The importer currently:
+
+1. Parses the WAD directory and the selected map lumps directly.
+2. Reads the palette, patch tables, textures, and flats so it can average source art into flat wall/floor/ceiling colors.
+3. Builds plan-view polygons from Doom linedefs, then decomposes those shapes into convex cells acceptable to this engine.
+4. Scales XY and Z from Doom units so the current player radius and eye height line up with Doom's feel.
+5. Emits view-only portals for impassable linedefs, converts sky ceilings into `no_ceiling` sectors, and opens door sectors by lifting them to neighboring ceiling heights.
+6. Saves the generated RON map through the normal validation pipeline.
+
+This keeps imported maps honest: if the converted result cannot satisfy the same convexity, portal, overlap, spawn, and clearance rules as native content, the import fails instead of shipping a broken asset.
+
 ## Editor design
 
 The editor is intentionally secondary to the runtime. It is an egui-based direct manipulator over the shared sector data:
@@ -184,7 +203,7 @@ These are intentional current limits of the system:
 - no stacked sectors occupying the same 2D footprint with overlapping height ranges
 - editor support exists, but runtime/rendering quality and performance take priority
 
-Those constraints are why ports of more complex source material, like DOOM maps, need adaptation instead of a one-to-one feature translation.
+Those constraints are why ports of more complex source material, like DOOM maps, need convex decomposition and feature adaptation instead of a one-to-one feature translation.
 
 ## Operational workflow
 

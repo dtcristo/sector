@@ -24,6 +24,7 @@ The runtime and editor share the same RON map format in `assets/maps/*.map.ron`.
 
 - `src/bin/sector/main.rs`: runtime entry point
 - `src/bin/sector_edit/main.rs`: egui-based editor entry point
+- `src/bin/sector_import_doom/main.rs`: DOOM WAD to sector-map importer
 - `src/bin/sector_validate/main.rs`: standalone map validator
 - `src/game/`: player input and physics
 - `src/render/`: software renderer, automap, and projection math
@@ -38,6 +39,7 @@ cargo test --features "sector sector_edit"
 cargo run --features sector --bin sector -- assets/maps/default.map.ron
 cargo run --features sector --bin sector -- assets/maps/e1m1.map.ron
 cargo run --features sector_edit --bin sector_edit
+cargo run --bin sector_import_doom -- ../DOOM1.WAD E1M1
 cargo run --bin sector_validate -- assets/maps/default.map.ron
 ```
 
@@ -48,6 +50,7 @@ just play
 just play default
 just play e1m1
 just edit
+just import-doom ../DOOM1.WAD E1M1
 just validate
 just validate default
 just validate e1m1
@@ -58,7 +61,25 @@ just validate e1m1
 ## Shipped maps
 
 - `default`: hand-authored testbed map for movement, rendering, stairs, portals, crouch spaces, and overlapping-height rooms
-- `e1m1`: imported from the DOOM shareware WAD, with doors represented open, sky sectors approximated by high ceilings, and wall colors derived from the average colors of the source textures
+- `e1m1`: imported from the DOOM shareware WAD, with doors held open, sky sectors converted into black-sky `no_ceiling` spaces, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
+
+## DOOM import workflow
+
+`sector_import_doom` imports a WAD map by lump name and writes `assets/maps/<map-id-lowercase>.map.ron` by default:
+
+```sh
+cargo run --bin sector_import_doom -- ../DOOM1.WAD E1M1
+just import-doom ../DOOM1.WAD E1M1
+```
+
+The importer:
+
+- preserves the Doom player start position and facing direction relative to the current player model
+- decomposes Doom sectors into convex cells that satisfy this engine's validation rules
+- converts `F_SKY1` ceilings into `no_ceiling` sectors and keeps impassable linedefs as view-only portals
+- averages wall textures and flats into this engine's flat-color material model
+
+Pass a third argument to the binary if you want a different output path.
 
 ## Map authoring notes
 
