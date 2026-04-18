@@ -26,8 +26,13 @@
 
 - Always format code with `cargo fmt --all` after changes.
 - Always run `cargo check --all` after changes and fix issues.
+- Validate maps after making any map-related changes.
 - Never push commits. Leave pushing to the user.
 - Commit logical changes in discrete commits.
+- Each commit message should explain what changed and why, not just use a short one-line summary.
+- Update `README.md` whenever the user-facing workflow or project documentation should change.
+- Keep `DESIGN.md` updated as the architecture/design evolves.
+- Keep `TODO.md` up to date with future work and follow-up tasks.
 - When a prompt contains multiple task paragraphs separated by blank lines, execute them systematically in prompt order, one task/paragraph at a time, and commit after each task is complete.
 - Use internal todo tracking so no prompted task gets lost.
 - Compact the thread when necessary, including between major tasks when context usage is getting large.
