@@ -28,9 +28,9 @@
 - Always run `cargo check --all` after changes and fix issues.
 - Never push commits. Leave pushing to the user.
 - Commit logical changes in discrete commits.
-- When a prompt contains multiple task paragraphs separated by blank lines, execute them systematically in prompt order, one paragraph at a time, and commit after each paragraph is complete.
-- Use internal todo tracking so no prompted paragraph gets lost.
-- Compact the thread when necessary, including between major instructions when context usage is getting large.
+- When a prompt contains multiple task paragraphs separated by blank lines, execute them systematically in prompt order, one task/paragraph at a time, and commit after each task is complete.
+- Use internal todo tracking so no prompted task gets lost.
+- Compact the thread when necessary, including between major tasks when context usage is getting large.
 
 ## AGENTS.md maintenance
 
