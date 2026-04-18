@@ -8,17 +8,22 @@ use bevy::{
     window::{CursorGrabMode, CursorOptions, WindowResizeConstraints, WindowResolution},
 };
 use bevy_pixels::prelude::*;
+use ron::ser::PrettyConfig;
 use sector::{
     game::{
-        apply_player_look, player_render_view, sector_contains_player, setup_player_system,
-        simulate_player, Player, PlayerInput,
+        apply_player_look, player_render_view, resolve_current_sector, sector_contains_player,
+        setup_player_system, simulate_player, Player, PlayerInput,
     },
     map::{load_map_from_path, map_to_sectors},
     render::{render_frame, Automap, HEIGHT, WIDTH, WINDOW_SCALE},
     *,
 };
+use serde::Serialize;
 use std::time::Duration;
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 #[derive(Resource, Debug, PartialEq)]
 struct AutomapMode(Automap);
@@ -46,7 +51,12 @@ impl Plugin for SectorRuntimePlugin {
                     mouse_capture_system,
                     escape_system,
                     switch_automap_system,
-                    (player_look_system, player_simulation_system).chain(),
+                    (
+                        player_look_system,
+                        player_simulation_system,
+                        dump_runtime_state_system,
+                    )
+                        .chain(),
                 ),
             )
             .add_systems(Draw, draw_frame_system);
@@ -238,6 +248,188 @@ fn switch_automap_system(mut automap: ResMut<AutomapMode>, key: Res<ButtonInput<
     }
 }
 
+#[derive(Debug, Serialize, PartialEq)]
+struct RuntimeStateDump {
+    map_path: String,
+    sector_count: usize,
+    resolved_sector: Option<u32>,
+    player: PlayerStateDump,
+    current_sector: Option<SectorStateDump>,
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+struct PlayerStateDump {
+    feet_position: [f32; 3],
+    eye_position: [f32; 3],
+    velocity: [f32; 3],
+    horizontal_speed: f32,
+    vertical_speed: f32,
+    direction_radians: f32,
+    direction_degrees: f32,
+    grounded: bool,
+    crouching: bool,
+    current_sector: Option<u32>,
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+struct SectorStateDump {
+    id: u32,
+    floor: f32,
+    ceil: f32,
+    headroom: f32,
+    no_ceiling: bool,
+    floor_color: [u8; 3],
+    ceil_color: [u8; 3],
+    vertices: Vec<[f32; 2]>,
+    walls: Vec<WallStateDump>,
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+struct WallStateDump {
+    index: usize,
+    start: [f32; 2],
+    end: [f32; 2],
+    color: [u8; 3],
+    upper_color: Option<[u8; 3]>,
+    lower_color: Option<[u8; 3]>,
+    portal: Option<PortalStateDump>,
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+struct PortalStateDump {
+    target_sector: u32,
+    walkable: bool,
+    target_floor: f32,
+    target_ceil: f32,
+    target_no_ceiling: bool,
+}
+
+fn debug_dump_requested(keys: &ButtonInput<KeyCode>) -> bool {
+    keys.just_pressed(KeyCode::Slash)
+        && (keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight))
+}
+
+fn dump_runtime_state_system(
+    map_path: Res<RuntimeMapPath>,
+    key: Res<ButtonInput<KeyCode>>,
+    player_query: Query<&Player>,
+    sector_query: Query<&Sector>,
+) {
+    if !debug_dump_requested(&key) {
+        return;
+    }
+
+    let Ok(player) = player_query.single() else {
+        return;
+    };
+    let sectors = sector_query.iter().collect::<Vec<_>>();
+    let dump = build_runtime_state_dump(&map_path.0, player, &sectors);
+    let pretty = PrettyConfig::default()
+        .struct_names(true)
+        .enumerate_arrays(true)
+        .separate_tuple_members(true);
+    let ron = ron::ser::to_string_pretty(&dump, pretty)
+        .expect("runtime state dump should serialize to RON");
+    println!("runtime_state: {ron}");
+}
+
+fn build_runtime_state_dump(
+    map_path: &Path,
+    player: &Player,
+    sectors: &[&Sector],
+) -> RuntimeStateDump {
+    let resolved_sector = resolve_current_sector(
+        player.position,
+        player.current_sector,
+        sectors.iter().copied(),
+    )
+    .map(|sector_id| sector_id.0);
+    let current_sector = player
+        .current_sector
+        .and_then(|sector_id| {
+            sectors
+                .iter()
+                .copied()
+                .find(|sector| sector.id == sector_id)
+        })
+        .map(|sector| build_sector_state_dump(sector, sectors));
+
+    RuntimeStateDump {
+        map_path: map_path.display().to_string(),
+        sector_count: sectors.len(),
+        resolved_sector,
+        player: PlayerStateDump {
+            feet_position: vec3_components(player.position.0),
+            eye_position: vec3_components(player.eye_position().0),
+            velocity: vec3_components(player.velocity),
+            horizontal_speed: player.velocity.truncate().length(),
+            vertical_speed: player.velocity.z,
+            direction_radians: player.direction.0,
+            direction_degrees: player.direction.0.to_degrees(),
+            grounded: player.grounded,
+            crouching: player.crouching,
+            current_sector: player.current_sector.map(|sector_id| sector_id.0),
+        },
+        current_sector,
+    }
+}
+
+fn build_sector_state_dump(sector: &Sector, sectors: &[&Sector]) -> SectorStateDump {
+    let walls = (0..sector.vertices.len())
+        .map(|index| {
+            let start = sector.vertices[index].0;
+            let end = sector.vertices[(index + 1) % sector.vertices.len()].0;
+            let portal = sector.portal_sectors[index].and_then(|sector_id| {
+                sectors
+                    .iter()
+                    .copied()
+                    .find(|candidate| candidate.id == sector_id)
+                    .map(|target| PortalStateDump {
+                        target_sector: target.id.0,
+                        walkable: sector.portal_walkable[index],
+                        target_floor: target.floor.0,
+                        target_ceil: target.ceil.0,
+                        target_no_ceiling: target.no_ceiling,
+                    })
+            });
+
+            WallStateDump {
+                index,
+                start: vec2_components(start),
+                end: vec2_components(end),
+                color: sector.colors[index].0,
+                upper_color: sector.portal_upper_colors[index].map(|color| color.0),
+                lower_color: sector.portal_lower_colors[index].map(|color| color.0),
+                portal,
+            }
+        })
+        .collect();
+
+    SectorStateDump {
+        id: sector.id.0,
+        floor: sector.floor.0,
+        ceil: sector.ceil.0,
+        headroom: sector.ceil.0 - sector.floor.0,
+        no_ceiling: sector.no_ceiling,
+        floor_color: sector.floor_color.0,
+        ceil_color: sector.ceil_color.0,
+        vertices: sector
+            .vertices
+            .iter()
+            .map(|vertex| vec2_components(vertex.0))
+            .collect(),
+        walls,
+    }
+}
+
+fn vec2_components(vector: Vec2) -> [f32; 2] {
+    [vector.x, vector.y]
+}
+
+fn vec3_components(vector: Vec3) -> [f32; 3] {
+    [vector.x, vector.y, vector.z]
+}
+
 fn player_look_system(
     mut player_query: Query<&mut Player>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
@@ -292,4 +484,97 @@ fn draw_frame_system(
         sector_query.iter(),
         automap.0,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::math::{vec2, vec3};
+
+    fn sector(id: u32) -> Sector {
+        Sector {
+            id: SectorId(id),
+            vertices: vec![
+                Position2(vec2(-1.0, 1.0)),
+                Position2(vec2(1.0, 1.0)),
+                Position2(vec2(1.0, -1.0)),
+                Position2(vec2(-1.0, -1.0)),
+            ],
+            portal_sectors: vec![Some(SectorId(id + 1)), None, None, None],
+            portal_walkable: vec![false, true, true, true],
+            colors: vec![
+                RawColor([10, 20, 30]),
+                RawColor([40, 50, 60]),
+                RawColor([70, 80, 90]),
+                RawColor([100, 110, 120]),
+            ],
+            portal_upper_colors: vec![Some(RawColor([1, 2, 3])), None, None, None],
+            portal_lower_colors: vec![Some(RawColor([4, 5, 6])), None, None, None],
+            floor: Length(0.0),
+            ceil: Length(4.0),
+            floor_color: RawColor([11, 22, 33]),
+            ceil_color: RawColor([44, 55, 66]),
+            no_ceiling: true,
+        }
+    }
+
+    #[test]
+    fn debug_dump_requires_shift_slash() {
+        let mut keys = ButtonInput::<KeyCode>::default();
+        keys.press(KeyCode::Slash);
+        assert!(!debug_dump_requested(&keys));
+
+        let mut shifted_keys = ButtonInput::<KeyCode>::default();
+        shifted_keys.press(KeyCode::ShiftLeft);
+        shifted_keys.press(KeyCode::Slash);
+        assert!(debug_dump_requested(&shifted_keys));
+    }
+
+    #[test]
+    fn runtime_state_dump_includes_player_and_sector_details() {
+        let current = sector(3);
+        let mut target = sector(4);
+        target.portal_sectors = vec![Some(SectorId(3)), None, None, None];
+        target.portal_walkable = vec![false, true, true, true];
+        target.no_ceiling = false;
+        target.floor = Length(1.0);
+        target.ceil = Length(5.0);
+
+        let player = Player {
+            position: Position3(vec3(0.0, 0.0, 0.5)),
+            velocity: vec3(1.0, 2.0, 3.0),
+            direction: sector::game::Direction(std::f32::consts::FRAC_PI_2),
+            current_sector: Some(SectorId(3)),
+            grounded: false,
+            crouching: true,
+        };
+        let sectors = [&current, &target];
+
+        let dump =
+            build_runtime_state_dump(Path::new("assets/maps/test.map.ron"), &player, &sectors);
+
+        assert_eq!(dump.map_path, "assets/maps/test.map.ron");
+        assert_eq!(dump.sector_count, 2);
+        assert_eq!(dump.resolved_sector, Some(3));
+        assert_eq!(dump.player.current_sector, Some(3));
+        assert_eq!(dump.player.velocity, [1.0, 2.0, 3.0]);
+        assert!(dump.player.crouching);
+
+        let current_sector = dump
+            .current_sector
+            .expect("current sector dump should exist");
+        assert_eq!(current_sector.id, 3);
+        assert!(current_sector.no_ceiling);
+        assert_eq!(current_sector.floor_color, [11, 22, 33]);
+        assert_eq!(
+            current_sector.walls[0].portal,
+            Some(PortalStateDump {
+                target_sector: 4,
+                walkable: false,
+                target_floor: 1.0,
+                target_ceil: 5.0,
+                target_no_ceiling: false,
+            })
+        );
+    }
 }

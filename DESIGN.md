@@ -98,6 +98,8 @@ Horizontal movement is resolved against sector walls and portal openings. A port
 
 Airborne crouching is intentionally slightly gamey: the camera stays fixed while the collision capsule shortens upward, which allows limited crouch-jump behavior for ledges that are just out of reach with a normal jump.
 
+The runtime also exposes a lightweight console debug path: pressing `?` prints a RON-style snapshot of the player's movement state plus the current sector's geometry and portal connections so map and physics issues can be inspected without adding a heavyweight debug UI.
+
 ### Rendering
 
 The renderer is a software rasterizer over a fixed 320x240 buffer scaled to the window. The visual style is deliberately limited:

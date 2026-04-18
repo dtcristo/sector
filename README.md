@@ -58,6 +58,8 @@ just validate e1m1
 
 `just play` and `just validate` both default to the `default` map when no map name is provided.
 
+While playing, press `Shift+/` (`?`) to print a RON-style runtime state dump to the console with the player's position, velocity, facing, resolved sector, and current sector wall/portal data.
+
 ## Shipped maps
 
 - `default`: hand-authored testbed map for movement, rendering, stairs, portals, crouch spaces, and overlapping-height rooms

@@ -7,6 +7,7 @@
 - Add simple gameplay objects such as pickups, switches, keys, and scripted triggers.
 - Improve player interaction feedback for low ceilings, blocked portals, and invalid transitions.
 - Add optional noclip/debug movement for map inspection and regression triage.
+- Expand the `?` console dump into a toggleable in-game debug overlay and snapshot history.
 
 ## Renderer
 
