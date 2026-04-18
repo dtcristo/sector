@@ -11,7 +11,7 @@
 
 ## Overview
 
-`sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, and per-wall colors to produce a crisp retro look with banded shading and single-pixel seams.
+`sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional black-sky ceilings, and per-wall colors to produce a crisp retro look with banded shading and single-pixel seams.
 
 The runtime and editor share the same RON map format in `assets/maps/*.map.ron`.
 
@@ -65,7 +65,9 @@ just validate e1m1
 - Map coordinates are in meters.
 - Spawn position and facing direction live in the map asset.
 - Sectors must wind clockwise and remain convex.
-- Portals must be reciprocal and provide real vertical openings.
+- Set `no_ceiling: true` on a sector to leave its ceiling unrendered as black sky while still keeping its collision ceiling height.
+- Portal walls can be marked `walkable: false` to create windows or skybox openings that render through to another sector but block traversal.
+- Portals must be reciprocal, agree on walkability, and provide real vertical openings.
 - Wall colors are the current material system; there is no texture support yet.
 
 Run map validation after map changes to catch winding, overlap, portal, and spawn issues early.

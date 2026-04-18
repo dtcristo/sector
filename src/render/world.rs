@@ -266,16 +266,18 @@ fn render_sector_tree<'a>(
                     let y_top = y_top.clamp(y_min, y_max);
                     let y_bottom = y_bottom.clamp(y_min, y_max);
 
-                    draw_surface_column(
-                        frame,
-                        surfaces,
-                        x,
-                        y_min,
-                        y_top,
-                        ceiling_hsv,
-                        ceiling_tag,
-                        view_ceil.0,
-                    );
+                    if !sector.no_ceiling {
+                        draw_surface_column(
+                            frame,
+                            surfaces,
+                            x,
+                            y_min,
+                            y_top,
+                            ceiling_hsv,
+                            ceiling_tag,
+                            view_ceil.0,
+                        );
+                    }
 
                     if portal_sector.is_some() {
                         let portal_y_min = if let Some((y_portal_left_top, y_portal_right_top)) =
@@ -713,11 +715,13 @@ mod tests {
                 .iter()
                 .map(|portal| portal.map(SectorId))
                 .collect(),
+            portal_walkable: portal_sectors.iter().map(|_| true).collect(),
             colors: vec![RawColor([255, 255, 255]); vertices.len()],
             portal_upper_colors: vec![None; vertices.len()],
             portal_lower_colors: vec![None; vertices.len()],
             floor: Length(floor),
             ceil: Length(ceil),
+            no_ceiling: false,
         }
     }
 

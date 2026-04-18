@@ -192,11 +192,13 @@ mod tests {
                 .iter()
                 .map(|portal| portal.map(SectorId))
                 .collect(),
+            portal_walkable: portal_sectors.iter().map(|_| true).collect(),
             colors: vec![RawColor([0, 0, 0]); vertices.len()],
             portal_upper_colors: vec![None; vertices.len()],
             portal_lower_colors: vec![None; vertices.len()],
             floor: Length(0.0),
             ceil: Length(4.0),
+            no_ceiling: false,
         }
     }
 

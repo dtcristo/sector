@@ -143,11 +143,13 @@ mod tests {
                 .iter()
                 .map(|portal| portal.map(SectorId))
                 .collect(),
+            portal_walkable: portal_sectors.iter().map(|_| true).collect(),
             colors: colors.iter().copied().map(RawColor).collect(),
             portal_upper_colors: vec![None; vertices.len()],
             portal_lower_colors: vec![None; vertices.len()],
             floor: Length(floor),
             ceil: Length(ceil),
+            no_ceiling: false,
         }
     }
 
@@ -206,7 +208,22 @@ mod tests {
         initial_sector: SectorId,
         resolve_sector: bool,
     ) -> FrameBuffer {
-        let sectors = connected_portal_sectors();
+        render_connected_boundary_frame_for_sectors(
+            connected_portal_sectors(),
+            y,
+            direction,
+            initial_sector,
+            resolve_sector,
+        )
+    }
+
+    fn render_connected_boundary_frame_for_sectors(
+        sectors: Vec<Sector>,
+        y: f32,
+        direction: f32,
+        initial_sector: SectorId,
+        resolve_sector: bool,
+    ) -> FrameBuffer {
         let mut player = Player {
             position: Position3(Vec3::new(0.0, y, 0.0)),
             direction: Direction(direction),
@@ -480,6 +497,36 @@ mod tests {
         assert_eq!(ceiling_samples[1], ceiling_samples[2]);
         assert_eq!(floor_samples[0], floor_samples[1]);
         assert_eq!(floor_samples[1], floor_samples[2]);
+    }
+
+    #[test]
+    fn render_frame_without_ceiling_leaves_sky_black() {
+        let mut player = Player::default();
+        player.current_sector = Some(SectorId(0));
+        let view = player_render_view(&player);
+        let mut sector = room_with_front_wall(10.0);
+        sector.no_ceiling = true;
+        let sectors = [sector];
+        let mut frame = FrameBuffer::new();
+
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+
+        let center_x = WIDTH as usize / 2;
+        assert_eq!(frame.pixel(center_x, 10), [0, 0, 0, 255]);
+        assert_ne!(frame.pixel(center_x, HEIGHT as usize / 2), [0, 0, 0, 255]);
+        assert_ne!(frame.pixel(center_x, HEIGHT as usize - 10), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn render_frame_keeps_view_only_portals_visible() {
+        let mut sectors = connected_portal_sectors();
+        sectors[0].portal_walkable[0] = false;
+        sectors[1].portal_walkable[0] = false;
+
+        let frame =
+            render_connected_boundary_frame_for_sectors(sectors, 0.5, 0.0, SectorId(0), false);
+
+        assert_no_long_black_run_on_center_row(&frame);
     }
 
     #[test]

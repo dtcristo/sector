@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`sector` is a retro 2.5D sector/portal renderer built with Rust and Bevy. The project favors a software-rendered look over physical realism or modern rendering features: flat-shaded walls, banded distance falloff, crisp outlines, and low-resolution presentation are intentional parts of the design.
+`sector` is a retro 2.5D sector/portal renderer built with Rust and Bevy. The project favors a software-rendered look over physical realism or modern rendering features: flat-shaded walls, banded distance falloff, crisp outlines, low-resolution presentation, and black-sky voids are intentional parts of the design.
 
 The codebase is organized around a small runtime, a shared map/world representation, and fast headless tests that protect rendering and movement behavior.
 
@@ -38,7 +38,7 @@ The shared library code lives in `src/`:
 
 The runtime world is intentionally small:
 
-- `Sector` stores an id, clockwise convex polygon vertices, per-wall colors, optional per-wall portal targets, optional portal trim colors, and flat `floor`/`ceil` heights.
+- `Sector` stores an id, clockwise convex polygon vertices, per-wall colors, optional per-wall portal targets, per-portal walkability flags, optional portal trim colors, flat `floor`/`ceil` heights, and a `no_ceiling` render flag.
 - `WallSegment` is derived from `Sector` and expands the implicit polygon loop into explicit wall edges.
 - `InitialSector` marks the sector containing the spawn.
 
@@ -54,14 +54,16 @@ Maps are stored as RON in `assets/maps/*.map.ron`. `SectorMap` mirrors the runti
 - `sectors`
   - `floor`
   - `ceil`
+  - optional `no_ceiling`
   - `vertices`
   - `walls`
     - `color`
     - optional `portal`
+    - optional `walkable` (defaults to `true`)
     - optional `upper_color`
     - optional `lower_color`
 
-Wall colors are the only material system today. There are no textures, no slopes, no per-surface UVs, and no separate floor/ceiling materials.
+Wall colors are the only material system today. There are no textures, no slopes, no per-surface UVs, and no separate floor/ceiling materials. A sector without a rendered ceiling still keeps a numeric ceiling height for collision, portal opening checks, and future sky rendering.
 
 ## Runtime flow
 
@@ -88,7 +90,7 @@ The player simulation is built around a small first-person controller:
 - step-up support using `PLAYER_MAX_STEP_HEIGHT_METERS`
 - sector resolution that prefers the current or adjacent portal sector when possible
 
-Horizontal movement is resolved against sector walls and portal openings. A portal behaves like passable space only when the destination sector offers enough vertical clearance and acceptable step height. Otherwise it behaves like a solid wall.
+Horizontal movement is resolved against sector walls and portal openings. A portal behaves like passable space only when both sides mark it walkable and the destination sector offers enough vertical clearance and acceptable step height. Otherwise it behaves like a solid wall even though the renderer may still draw through it.
 
 ### Rendering
 
@@ -96,6 +98,7 @@ The renderer is a software rasterizer over a fixed 320x240 buffer scaled to the 
 
 - flat wall colors instead of textures
 - horizontal floor/ceiling bands
+- optional black-sky sectors that skip ceiling rasterization entirely
 - quantized distance shading (`SHADE_BANDS = 16`)
 - explicit black outlines between materially or geometrically distinct surfaces
 
@@ -104,7 +107,7 @@ At a high level:
 1. Determine root sectors from the current view position.
 2. Traverse visible sectors through a portal queue.
 3. Clip walls against the near plane and horizontal frustum.
-4. Project wall columns and flat floor/ceiling spans.
+4. Project wall columns and flat floor/ceiling spans, skipping ceiling spans for `no_ceiling` sectors.
 5. Shade by distance using a banded brightness curve.
 6. Apply a post-pass outline mask so seams stay crisp and single-pixel thick.
 
@@ -137,6 +140,7 @@ Portal edges are deduplicated so a shared portal is only drawn once.
 - sectors must be convex
 - portal targets must exist
 - portals must be reciprocal across the reversed edge
+- reciprocal portals must agree on walkability
 - portals must have overlapping vertical openings
 - non-portal shared edges cannot create zero-thickness solid walls
 - sectors cannot overlap in plan view while also overlapping vertically
@@ -172,7 +176,7 @@ These are intentional current limits of the system:
 - floors and ceilings are flat per sector
 - walls use solid colors rather than textures
 - no native concept of doors, lifts, or moving geometry
-- no native concept of sky/outdoor spaces; outdoor areas must be approximated by tall ceilings
+- no textured skybox support yet; `no_ceiling` sectors currently reveal black sky
 - no stacked sectors occupying the same 2D footprint with overlapping height ranges
 - editor support exists, but runtime/rendering quality and performance take priority
 

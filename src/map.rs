@@ -26,6 +26,8 @@ pub struct SectorMap {
 pub struct MapSector {
     pub floor: f32,
     pub ceil: f32,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub no_ceiling: bool,
     pub vertices: Vec<MapVertex>,
     pub walls: Vec<MapWall>,
 }
@@ -38,6 +40,8 @@ pub struct MapWall {
     pub color: [u8; 3],
     #[serde(default)]
     pub portal: Option<usize>,
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    pub walkable: bool,
     #[serde(default)]
     pub upper_color: Option<[u8; 3]>,
     #[serde(default)]
@@ -54,6 +58,18 @@ impl SectorMap {
 pub struct SectorMapLoader;
 
 const MAP_EPSILON: f32 = 0.0001;
+
+fn default_true() -> bool {
+    true
+}
+
+fn is_true(value: &bool) -> bool {
+    *value
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
 
 #[non_exhaustive]
 #[derive(Debug, Error)]
@@ -131,6 +147,14 @@ pub enum SectorMapError {
         "Sector {sector_index} wall {wall_index} portal to sector {target_sector} must match a reversed wall back to sector {sector_index}"
     )]
     NonReciprocalPortal {
+        sector_index: usize,
+        wall_index: usize,
+        target_sector: usize,
+    },
+    #[error(
+        "Sector {sector_index} wall {wall_index} portal to sector {target_sector} must agree with the reverse wall's walkability"
+    )]
+    PortalWalkabilityMismatch {
         sector_index: usize,
         wall_index: usize,
         target_sector: usize,
@@ -222,6 +246,7 @@ pub fn map_to_sectors(map: &SectorMap) -> Result<(InitialSector, Vec<Sector>), S
                 .iter()
                 .map(|wall| wall.portal.map(|portal| SectorId(portal as u32)))
                 .collect(),
+            portal_walkable: sector.walls.iter().map(|wall| wall.walkable).collect(),
             colors: sector
                 .walls
                 .iter()
@@ -239,6 +264,7 @@ pub fn map_to_sectors(map: &SectorMap) -> Result<(InitialSector, Vec<Sector>), S
                 .collect(),
             floor: Length(sector.floor),
             ceil: Length(sector.ceil),
+            no_ceiling: sector.no_ceiling,
         })
         .collect();
 
@@ -289,16 +315,21 @@ pub fn sectors_to_map_with_spawn(
                 walls: sector
                     .portal_sectors
                     .into_iter()
+                    .zip(sector.portal_walkable)
                     .zip(sector.colors)
                     .zip(sector.portal_upper_colors)
                     .zip(sector.portal_lower_colors)
-                    .map(|(((portal, color), upper_color), lower_color)| MapWall {
-                        color: color.0,
-                        portal: portal.map(|sector| sector.0 as usize),
-                        upper_color: upper_color.map(|color| color.0),
-                        lower_color: lower_color.map(|color| color.0),
-                    })
+                    .map(
+                        |((((portal, walkable), color), upper_color), lower_color)| MapWall {
+                            color: color.0,
+                            portal: portal.map(|sector| sector.0 as usize),
+                            walkable,
+                            upper_color: upper_color.map(|color| color.0),
+                            lower_color: lower_color.map(|color| color.0),
+                        },
+                    )
                     .collect(),
+                no_ceiling: sector.no_ceiling,
             })
             .collect(),
     };
@@ -398,8 +429,17 @@ pub fn validate_map(map: &SectorMap) -> Result<(), SectorMapError> {
                 }
 
                 let target = &map.sectors[target_sector];
-                if !has_matching_reverse_portal(map, sector_index, wall_index, target_sector) {
+                let Some((_reverse_wall_index, reverse_wall)) =
+                    find_matching_reverse_portal(map, sector_index, wall_index, target_sector)
+                else {
                     return Err(SectorMapError::NonReciprocalPortal {
+                        sector_index,
+                        wall_index,
+                        target_sector,
+                    });
+                };
+                if wall.walkable != reverse_wall.walkable {
+                    return Err(SectorMapError::PortalWalkabilityMismatch {
                         sector_index,
                         wall_index,
                         target_sector,
@@ -515,12 +555,12 @@ fn distance_to_segment(point: Vec2, start: Vec2, end: Vec2) -> f32 {
     point.distance(start + segment * t)
 }
 
-fn has_matching_reverse_portal(
-    map: &SectorMap,
+fn find_matching_reverse_portal<'a>(
+    map: &'a SectorMap,
     sector_index: usize,
     wall_index: usize,
     target_sector_index: usize,
-) -> bool {
+) -> Option<(usize, &'a MapWall)> {
     let sector = &map.sectors[sector_index];
     let start = sector.vertices[wall_index];
     let end = sector.vertices[(wall_index + 1) % sector.vertices.len()];
@@ -530,10 +570,10 @@ fn has_matching_reverse_portal(
         .walls
         .iter()
         .enumerate()
-        .any(|(target_wall_index, target_wall)| {
+        .find(|(target_wall_index, target_wall)| {
             target_wall.portal == Some(sector_index)
-                && target_sector.vertices[target_wall_index] == end
-                && target_sector.vertices[(target_wall_index + 1) % target_sector.vertices.len()]
+                && target_sector.vertices[*target_wall_index] == end
+                && target_sector.vertices[(*target_wall_index + 1) % target_sector.vertices.len()]
                     == start
         })
 }
@@ -671,6 +711,7 @@ mod tests {
                 MapSector {
                     floor: 0.0,
                     ceil: 4.0,
+                    no_ceiling: false,
                     vertices: vec![
                         MapVertex(0.0, 4.0),
                         MapVertex(4.0, 4.0),
@@ -681,24 +722,28 @@ mod tests {
                         MapWall {
                             color: [0, 0, 255],
                             portal: Some(1),
+                            walkable: false,
                             upper_color: Some([10, 20, 30]),
                             lower_color: Some([40, 50, 60]),
                         },
                         MapWall {
                             color: [0, 128, 0],
                             portal: None,
+                            walkable: true,
                             upper_color: None,
                             lower_color: None,
                         },
                         MapWall {
                             color: [255, 0, 0],
                             portal: None,
+                            walkable: true,
                             upper_color: None,
                             lower_color: None,
                         },
                         MapWall {
                             color: [255, 0, 255],
                             portal: None,
+                            walkable: true,
                             upper_color: None,
                             lower_color: None,
                         },
@@ -707,6 +752,7 @@ mod tests {
                 MapSector {
                     floor: 0.25,
                     ceil: 3.75,
+                    no_ceiling: true,
                     vertices: vec![
                         MapVertex(0.0, 8.0),
                         MapVertex(4.0, 8.0),
@@ -717,24 +763,28 @@ mod tests {
                         MapWall {
                             color: [255, 255, 0],
                             portal: None,
+                            walkable: true,
                             upper_color: None,
                             lower_color: None,
                         },
                         MapWall {
                             color: [255, 0, 255],
                             portal: None,
+                            walkable: true,
                             upper_color: None,
                             lower_color: None,
                         },
                         MapWall {
                             color: [0, 128, 0],
                             portal: Some(0),
+                            walkable: false,
                             upper_color: None,
                             lower_color: None,
                         },
                         MapWall {
                             color: [0, 255, 255],
                             portal: None,
+                            walkable: true,
                             upper_color: None,
                             lower_color: None,
                         },
@@ -763,6 +813,7 @@ mod tests {
         );
         assert_eq!(round_tripped.sectors.len(), map.sectors.len());
         assert_eq!(round_tripped.sectors[0].walls[0].portal, Some(1));
+        assert!(!round_tripped.sectors[0].walls[0].walkable);
         assert_eq!(
             round_tripped.sectors[0].walls[0].upper_color,
             Some([10, 20, 30])
@@ -771,6 +822,7 @@ mod tests {
             round_tripped.sectors[0].walls[0].lower_color,
             Some([40, 50, 60])
         );
+        assert!(round_tripped.sectors[1].no_ceiling);
     }
 
     #[test]
@@ -811,36 +863,42 @@ mod tests {
             MapWall {
                 color: [0, 0, 255],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },
             MapWall {
                 color: [0, 128, 0],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },
             MapWall {
                 color: [255, 0, 0],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },
             MapWall {
                 color: [255, 255, 0],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },
             MapWall {
                 color: [255, 0, 255],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },
             MapWall {
                 color: [0, 255, 255],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },
@@ -875,6 +933,17 @@ mod tests {
     }
 
     #[test]
+    fn rejects_mismatched_portal_walkability() {
+        let mut map = sample_map();
+        map.sectors[1].walls[2].walkable = true;
+
+        assert!(matches!(
+            validate_map(&map),
+            Err(SectorMapError::PortalWalkabilityMismatch { .. })
+        ));
+    }
+
+    #[test]
     fn rejects_zero_thickness_shared_solid_wall() {
         let mut map = sample_map();
         map.sectors[0].walls[0].portal = None;
@@ -902,24 +971,28 @@ mod tests {
             MapWall {
                 color: [255, 255, 0],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },
             MapWall {
                 color: [255, 0, 255],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },
             MapWall {
                 color: [0, 128, 0],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },
             MapWall {
                 color: [0, 255, 255],
                 portal: None,
+                walkable: true,
                 upper_color: None,
                 lower_color: None,
             },

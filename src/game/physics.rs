@@ -145,7 +145,7 @@ fn resolve_current_sector_with_height<'a>(
             if let Some(adjacent_sector_id) = sector
                 .wall_segments()
                 .into_iter()
-                .filter_map(|wall| wall.portal_sector)
+                .filter_map(|wall| wall.portal_walkable.then_some(wall.portal_sector).flatten())
                 .find(|portal_id| {
                     sectors_by_id
                         .get(portal_id)
@@ -327,6 +327,9 @@ fn find_portal_transition(
         .wall_segments()
         .into_iter()
         .filter_map(|wall| {
+            if !wall.portal_walkable {
+                return None;
+            }
             let target_sector = wall
                 .portal_sector
                 .and_then(|sector_id| sectors_by_id.get(&sector_id).copied())?;
@@ -349,13 +352,13 @@ fn clip_target_against_blocking_walls(
         let mut changed = false;
 
         for wall in sector.wall_segments() {
-            if let Some(target_sector) = wall
-                .portal_sector
-                .and_then(|sector_id| sectors_by_id.get(&sector_id).copied())
+            if wall.portal_walkable
+                && wall
+                    .portal_sector
+                    .and_then(|sector_id| sectors_by_id.get(&sector_id).copied())
+                    .is_some_and(|target_sector| portal_clearance(player, target_sector).is_some())
             {
-                if portal_clearance(player, target_sector).is_some() {
-                    continue;
-                }
+                continue;
             }
 
             let projection = segment_projection(clipped, wall.left.0, wall.right.0);
@@ -416,6 +419,10 @@ fn portal_transition_for_wall(
     wall: WallSegment,
     target_sector: &Sector,
 ) -> Option<PortalTransition> {
+    if !wall.portal_walkable {
+        return None;
+    }
+
     if !sector_contains_horizontal_point(target_sector, target)
         && !segments_intersect(start, target, wall.left.0, wall.right.0)
         && !position_on_portal_boundary(
@@ -561,7 +568,7 @@ fn position_on_portal_boundary(
     sector
         .wall_segments()
         .into_iter()
-        .filter(|wall| wall.portal_sector == Some(portal_sector_id))
+        .filter(|wall| wall.portal_walkable && wall.portal_sector == Some(portal_sector_id))
         .any(|wall| point_on_segment(point, wall.left.0, wall.right.0))
 }
 
@@ -598,11 +605,13 @@ mod tests {
                 .iter()
                 .map(|portal| portal.map(SectorId))
                 .collect(),
+            portal_walkable: portal_sectors.iter().map(|_| true).collect(),
             colors: colors.iter().copied().map(RawColor).collect(),
             portal_upper_colors: vec![None; vertices.len()],
             portal_lower_colors: vec![None; vertices.len()],
             floor: Length(floor),
             ceil: Length(ceil),
+            no_ceiling: false,
         }
     }
 
@@ -1010,6 +1019,48 @@ mod tests {
     }
 
     #[test]
+    fn non_walkable_portal_behaves_like_window() {
+        let mut sectors = portal_pair(0.0, 0.0);
+        sectors[0].portal_walkable[0] = false;
+        sectors[1].portal_walkable[0] = false;
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(0.0, 0.8, 0.0)),
+            ..Player::default()
+        };
+
+        for _ in 0..10 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                sectors.iter(),
+            );
+        }
+
+        assert_eq!(player.current_sector, Some(SectorId(0)));
+        assert!(player.position.0.y < 1.0);
+    }
+
+    #[test]
+    fn resolve_current_sector_does_not_switch_across_non_walkable_portal() {
+        let mut sectors = portal_pair(0.0, 0.2);
+        sectors[0].portal_walkable[0] = false;
+        sectors[1].portal_walkable[0] = false;
+
+        let resolved = resolve_current_sector(
+            Position3(vec3(0.0, 1.0, 0.2)),
+            Some(SectorId(0)),
+            sectors.iter(),
+        );
+
+        assert_eq!(resolved, Some(SectorId(0)));
+    }
+
+    #[test]
     fn descending_step_snaps_to_lower_floor_without_airborne_frame() {
         let sectors = portal_pair(0.0, 0.3);
         let mut player = Player {
@@ -1213,6 +1264,9 @@ mod tests {
         for source_sector in &sectors {
             let source_centroid = sector_centroid(source_sector);
             for wall in source_sector.wall_segments() {
+                if !wall.portal_walkable {
+                    continue;
+                }
                 let Some(target_sector_id) = wall.portal_sector else {
                     continue;
                 };
