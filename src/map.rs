@@ -939,6 +939,16 @@ mod tests {
     }
 
     #[test]
+    fn parses_e1m1_map_asset() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/e1m1.map.ron")).unwrap();
+
+        validate_map(&map).unwrap();
+        assert!(map.sectors.len() >= 300);
+        assert!(map.sectors.iter().any(|sector| sector.ceil >= 12.0));
+    }
+
+    #[test]
     fn default_map_has_walkable_steps_and_many_rooms() {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();

@@ -1,0 +1,5521 @@
+(
+  initial_sector: 219,
+  initial_position: (12.5, -50.5),
+  initial_direction_degrees: 0.0,
+  sectors: [
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (24.25, -40.0),
+        (24.25, -38.0),
+        (26.0, -38.0),
+        (26.0, -40.0),
+      ],
+      walls: [
+        (color: (93, 89, 87), portal: Some(16), upper_color: Some((93, 89, 87))),
+        (color: (107, 107, 107), portal: None),
+        (color: (102, 101, 100), portal: Some(71)),
+        (color: (107, 107, 107), portal: None),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (26.0, -37.0),
+        (25.0, -37.0),
+        (25.0, -33.0),
+      ],
+      walls: [
+        (color: (161, 161, 161), portal: None),
+        (color: (35, 36, 31), portal: None),
+        (color: (119, 119, 118), portal: Some(5)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (40.0, -39.0),
+        (39.0, -39.0),
+        (39.0, -33.0),
+      ],
+      walls: [
+        (color: (161, 161, 161), portal: None),
+        (color: (119, 119, 118), portal: Some(82)),
+        (color: (119, 119, 118), portal: Some(6)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (39.0, -32.0),
+        (40.0, -32.0),
+        (40.0, -33.0),
+      ],
+      walls: [
+        (color: (161, 161, 161), portal: None),
+        (color: (161, 161, 161), portal: None),
+        (color: (119, 119, 118), portal: Some(7)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (25.0, -33.0),
+        (25.0, -32.0),
+        (26.0, -32.0),
+      ],
+      walls: [
+        (color: (161, 161, 161), portal: None),
+        (color: (161, 161, 161), portal: None),
+        (color: (119, 119, 118), portal: Some(8)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (26.0, -33.0),
+        (26.0, -37.0),
+        (25.0, -33.0),
+      ],
+      walls: [
+        (color: (119, 119, 118), portal: Some(52)),
+        (color: (119, 119, 118), portal: Some(1)),
+        (color: (119, 119, 118), portal: Some(8)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (40.0, -33.0),
+        (40.0, -39.0),
+        (39.0, -33.0),
+      ],
+      walls: [
+        (color: (35, 36, 31), portal: None),
+        (color: (119, 119, 118), portal: Some(2)),
+        (color: (119, 119, 118), portal: Some(9)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (26.0, -32.0),
+        (39.0, -32.0),
+        (40.0, -33.0),
+      ],
+      walls: [
+        (color: (35, 36, 31), portal: None),
+        (color: (119, 119, 118), portal: Some(3)),
+        (color: (119, 119, 118), portal: Some(9)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (26.0, -33.0),
+        (25.0, -33.0),
+        (26.0, -32.0),
+      ],
+      walls: [
+        (color: (119, 119, 118), portal: Some(5)),
+        (color: (119, 119, 118), portal: Some(4)),
+        (color: (119, 119, 118), portal: Some(10)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (26.0, -32.0),
+        (40.0, -33.0),
+        (39.0, -33.0),
+      ],
+      walls: [
+        (color: (119, 119, 118), portal: Some(7)),
+        (color: (119, 119, 118), portal: Some(6)),
+        (color: (119, 119, 118), portal: Some(10)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (39.0, -33.0),
+        (26.0, -33.0),
+        (26.0, -32.0),
+      ],
+      walls: [
+        (color: (119, 119, 118), portal: Some(65)),
+        (color: (119, 119, 118), portal: Some(8)),
+        (color: (119, 119, 118), portal: Some(9)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 4.0,
+      vertices: [
+        (19.0, -45.0),
+        (19.5, -39.5),
+        (23.0, -38.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (110, 94, 79), portal: Some(14)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 4.0,
+      vertices: [
+        (21.625, -40.5),
+        (21.0, -45.0),
+        (19.0, -45.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(206), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (110, 94, 79), portal: Some(14)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 4.0,
+      vertices: [
+        (23.0, -38.0),
+        (23.0, -40.0),
+        (21.625, -40.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(15), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (111, 97, 85), portal: None),
+        (color: (110, 94, 79), portal: Some(14)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 4.0,
+      vertices: [
+        (21.625, -40.5),
+        (19.0, -45.0),
+        (23.0, -38.0),
+      ],
+      walls: [
+        (color: (110, 94, 79), portal: Some(12)),
+        (color: (110, 94, 79), portal: Some(11)),
+        (color: (110, 94, 79), portal: Some(13)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 4.0,
+      vertices: [
+        (23.0, -40.0),
+        (23.0, -38.0),
+        (24.0, -38.0),
+        (24.0, -40.0),
+      ],
+      walls: [
+        (color: (105, 94, 86), portal: Some(13)),
+        (color: (111, 97, 85), portal: None),
+        (color: (93, 89, 87), portal: Some(16), upper_color: Some((93, 89, 87))),
+        (color: (111, 97, 85), portal: None),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.4444,
+      vertices: [
+        (24.0, -40.0),
+        (24.0, -38.0),
+        (24.25, -38.0),
+        (24.25, -40.0),
+      ],
+      walls: [
+        (color: (43, 43, 43), portal: Some(15)),
+        (color: (43, 43, 43), portal: None),
+        (color: (43, 43, 43), portal: Some(0)),
+        (color: (43, 43, 43), portal: None),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (26.125, -48.5),
+        (23.75, -49.5),
+        (21.5, -50.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(103)),
+        (color: (111, 97, 85), portal: Some(18)),
+        (color: (111, 97, 85), portal: Some(25)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (21.5, -50.0),
+        (23.75, -49.5),
+        (24.125, -52.875),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(17)),
+        (color: (111, 97, 85), portal: Some(103)),
+        (color: (111, 97, 85), portal: Some(26)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (31.0, -57.0),
+        (21.5, -57.0),
+        (21.5, -52.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(114), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(27)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (42.75, -52.5),
+        (42.75, -57.0),
+        (35.0, -57.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(245), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (111, 97, 85), portal: Some(28)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (38.0, -48.625),
+        (42.75, -48.625),
+        (42.75, -52.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(244), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (111, 97, 85), portal: Some(28)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (30.0, -45.625),
+        (35.0, -45.625),
+        (35.5, -47.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(29)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (23.0, -45.0),
+        (29.0, -45.0),
+        (30.0, -45.625),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(30)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (21.5, -48.5),
+        (21.5, -46.0),
+        (23.0, -45.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(30)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (26.125, -48.5),
+        (21.5, -50.0),
+        (21.5, -48.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(17)),
+        (color: (111, 97, 85), portal: Some(105), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (111, 97, 85), portal: Some(32)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (21.5, -51.0),
+        (21.5, -50.0),
+        (24.125, -52.875),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(18)),
+        (color: (111, 97, 85), portal: Some(31)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (35.0, -57.0),
+        (31.0, -57.0),
+        (21.5, -52.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(121), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (111, 97, 85), portal: Some(19)),
+        (color: (111, 97, 85), portal: Some(35)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (38.0, -48.625),
+        (42.75, -52.5),
+        (35.0, -57.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(21)),
+        (color: (111, 97, 85), portal: Some(20)),
+        (color: (111, 97, 85), portal: Some(41)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (30.0, -45.625),
+        (35.5, -47.0),
+        (38.0, -48.625),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(22)),
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(36)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (21.5, -48.5),
+        (23.0, -45.0),
+        (30.0, -45.625),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(24)),
+        (color: (111, 97, 85), portal: Some(23)),
+        (color: (111, 97, 85), portal: Some(32)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (21.5, -52.5),
+        (21.5, -51.0),
+        (24.125, -52.875),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(104), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (111, 97, 85), portal: Some(26)),
+        (color: (111, 97, 85), portal: Some(33)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (26.125, -48.5),
+        (21.5, -48.5),
+        (30.0, -45.625),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(25)),
+        (color: (111, 97, 85), portal: Some(30)),
+        (color: (111, 97, 85), portal: Some(34)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (21.5, -52.5),
+        (24.125, -52.875),
+        (27.875, -53.875),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(31)),
+        (color: (111, 97, 85), portal: Some(103)),
+        (color: (111, 97, 85), portal: Some(35)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (29.625, -48.5),
+        (26.125, -48.5),
+        (30.0, -45.625),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(103)),
+        (color: (111, 97, 85), portal: Some(32)),
+        (color: (111, 97, 85), portal: Some(36)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (35.0, -57.0),
+        (21.5, -52.5),
+        (27.875, -53.875),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(27)),
+        (color: (111, 97, 85), portal: Some(33)),
+        (color: (111, 97, 85), portal: Some(37)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (29.625, -48.5),
+        (30.0, -45.625),
+        (38.0, -48.625),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(34)),
+        (color: (111, 97, 85), portal: Some(29)),
+        (color: (111, 97, 85), portal: Some(38)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (35.0, -57.0),
+        (27.875, -53.875),
+        (32.25, -53.25),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(35)),
+        (color: (111, 97, 85), portal: Some(103)),
+        (color: (111, 97, 85), portal: Some(39)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (31.875, -49.125),
+        (29.625, -48.5),
+        (38.0, -48.625),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(103)),
+        (color: (111, 97, 85), portal: Some(36)),
+        (color: (111, 97, 85), portal: Some(40)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (35.0, -57.0),
+        (32.25, -53.25),
+        (33.25, -51.125),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(37)),
+        (color: (111, 97, 85), portal: Some(103)),
+        (color: (111, 97, 85), portal: Some(41)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (33.25, -51.125),
+        (31.875, -49.125),
+        (38.0, -48.625),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(103)),
+        (color: (111, 97, 85), portal: Some(38)),
+        (color: (111, 97, 85), portal: Some(41)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (38.0, -48.625),
+        (35.0, -57.0),
+        (33.25, -51.125),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(28)),
+        (color: (111, 97, 85), portal: Some(39)),
+        (color: (111, 97, 85), portal: Some(40)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (25.0, -41.0),
+        (26.0, -41.0),
+        (26.0, -43.0),
+      ],
+      walls: [
+        (color: (161, 161, 161), portal: None),
+        (color: (119, 119, 118), portal: Some(54)),
+        (color: (119, 119, 118), portal: Some(45)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (26.0, -44.0),
+        (25.0, -44.0),
+        (25.0, -43.0),
+      ],
+      walls: [
+        (color: (161, 161, 161), portal: None),
+        (color: (161, 161, 161), portal: None),
+        (color: (119, 119, 118), portal: Some(47)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (34.0, -43.0),
+        (34.0, -44.0),
+        (26.0, -44.0),
+      ],
+      walls: [
+        (color: (161, 161, 161), portal: None),
+        (color: (35, 36, 31), portal: None),
+        (color: (119, 119, 118), portal: Some(46)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (25.0, -43.0),
+        (25.0, -41.0),
+        (26.0, -43.0),
+      ],
+      walls: [
+        (color: (35, 36, 31), portal: None),
+        (color: (119, 119, 118), portal: Some(42)),
+        (color: (119, 119, 118), portal: Some(47)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (26.0, -43.0),
+        (34.0, -43.0),
+        (26.0, -44.0),
+      ],
+      walls: [
+        (color: (119, 119, 118), portal: Some(63)),
+        (color: (119, 119, 118), portal: Some(44)),
+        (color: (119, 119, 118), portal: Some(47)),
+      ],
+    ),
+    (
+      floor: 0.8889,
+      ceil: 2.7889,
+      vertices: [
+        (26.0, -44.0),
+        (25.0, -43.0),
+        (26.0, -43.0),
+      ],
+      walls: [
+        (color: (119, 119, 118), portal: Some(43)),
+        (color: (119, 119, 118), portal: Some(45)),
+        (color: (119, 119, 118), portal: Some(46)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (33.5, -36.0),
+        (33.5, -40.0),
+        (33.0, -40.0),
+      ],
+      walls: [
+        (color: (17, 17, 56), portal: Some(84), upper_color: Some((17, 17, 56)), lower_color: Some((80, 60, 41))),
+        (color: (98, 98, 98), portal: None),
+        (color: (72, 70, 74), portal: Some(56)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.125, -41.125),
+        (33.0, -40.5),
+        (36.5, -40.5),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(55)),
+        (color: (17, 17, 56), portal: None),
+        (color: (72, 70, 74), portal: Some(57)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (26.0, -43.0),
+        (27.875, -41.125),
+        (31.125, -41.125),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(54)),
+        (color: (68, 62, 59), portal: Some(97), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(57)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (39.0, -42.0),
+        (39.0, -43.0),
+        (34.375, -43.0),
+      ],
+      walls: [
+        (color: (107, 107, 107), portal: None),
+        (color: (107, 107, 107), portal: None),
+        (color: (72, 70, 74), portal: Some(58)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -36.125),
+        (26.0, -37.0),
+        (26.0, -33.0),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(53)),
+        (color: (39, 39, 37), portal: Some(5), upper_color: Some((39, 39, 37)), lower_color: Some((39, 39, 39))),
+        (color: (72, 70, 74), portal: Some(59)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (26.0, -37.0),
+        (27.875, -36.125),
+        (31.125, -36.125),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(52)),
+        (color: (68, 62, 59), portal: Some(88), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(60)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -41.125),
+        (26.0, -43.0),
+        (26.0, -41.0),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(50)),
+        (color: (39, 39, 37), portal: Some(42), upper_color: Some((39, 39, 37)), lower_color: Some((39, 39, 39))),
+        (color: (72, 70, 74), portal: Some(61)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (33.0, -40.5),
+        (31.125, -41.125),
+        (31.125, -39.875),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(49)),
+        (color: (68, 62, 59), portal: Some(101), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(62)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (33.0, -36.0),
+        (33.5, -36.0),
+        (33.0, -40.0),
+      ],
+      walls: [
+        (color: (98, 98, 98), portal: None),
+        (color: (72, 70, 74), portal: Some(48)),
+        (color: (72, 70, 74), portal: Some(68)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (26.0, -43.0),
+        (31.125, -41.125),
+        (36.5, -40.5),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(50)),
+        (color: (72, 70, 74), portal: Some(49)),
+        (color: (72, 70, 74), portal: Some(63)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (39.0, -42.0),
+        (34.375, -43.0),
+        (34.0, -43.0),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(51)),
+        (color: (98, 98, 98), portal: None),
+        (color: (72, 70, 74), portal: Some(64)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -34.875),
+        (27.875, -36.125),
+        (26.0, -33.0),
+      ],
+      walls: [
+        (color: (68, 62, 59), portal: Some(87), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(52)),
+        (color: (72, 70, 74), portal: Some(65)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (26.0, -37.375),
+        (26.0, -37.0),
+        (31.125, -36.125),
+      ],
+      walls: [
+        (color: (98, 98, 98), portal: None),
+        (color: (72, 70, 74), portal: Some(53)),
+        (color: (72, 70, 74), portal: Some(66)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -41.125),
+        (26.0, -41.0),
+        (26.0, -40.625),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(54)),
+        (color: (98, 98, 98), portal: None),
+        (color: (72, 70, 74), portal: Some(67)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (33.0, -40.0),
+        (33.0, -40.5),
+        (31.125, -39.875),
+      ],
+      walls: [
+        (color: (17, 17, 56), portal: None),
+        (color: (72, 70, 74), portal: Some(55)),
+        (color: (72, 70, 74), portal: Some(68)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (34.0, -43.0),
+        (26.0, -43.0),
+        (36.5, -40.5),
+      ],
+      walls: [
+        (color: (39, 39, 37), portal: Some(46), upper_color: Some((39, 39, 37)), lower_color: Some((39, 39, 39))),
+        (color: (72, 70, 74), portal: Some(57)),
+        (color: (72, 70, 74), portal: Some(69)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (39.0, -40.0),
+        (39.0, -42.0),
+        (34.0, -43.0),
+      ],
+      walls: [
+        (color: (107, 107, 107), portal: Some(256), upper_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(58)),
+        (color: (72, 70, 74), portal: Some(69)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -34.875),
+        (26.0, -33.0),
+        (39.0, -33.0),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(59)),
+        (color: (39, 39, 37), portal: Some(10), upper_color: Some((39, 39, 37)), lower_color: Some((39, 39, 39))),
+        (color: (72, 70, 74), portal: Some(70)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (26.0, -38.0),
+        (26.0, -37.375),
+        (31.125, -36.125),
+      ],
+      walls: [
+        (color: (107, 107, 107), portal: None),
+        (color: (72, 70, 74), portal: Some(60)),
+        (color: (72, 70, 74), portal: Some(71)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -41.125),
+        (26.0, -40.625),
+        (26.0, -40.0),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(61)),
+        (color: (107, 107, 107), portal: None),
+        (color: (72, 70, 74), portal: Some(72)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (33.0, -36.0),
+        (33.0, -40.0),
+        (31.125, -39.875),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(56)),
+        (color: (72, 70, 74), portal: Some(62)),
+        (color: (72, 70, 74), portal: Some(73)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (39.0, -40.0),
+        (34.0, -43.0),
+        (36.5, -40.5),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(64)),
+        (color: (72, 70, 74), portal: Some(63)),
+        (color: (72, 70, 74), portal: Some(74)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.125, -34.875),
+        (27.875, -34.875),
+        (39.0, -33.0),
+      ],
+      walls: [
+        (color: (68, 62, 59), portal: Some(89), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(65)),
+        (color: (72, 70, 74), portal: Some(75)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (26.0, -40.0),
+        (26.0, -38.0),
+        (31.125, -36.125),
+      ],
+      walls: [
+        (color: (107, 107, 107), portal: Some(0), upper_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(66)),
+        (color: (72, 70, 74), portal: Some(76)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -39.875),
+        (27.875, -41.125),
+        (26.0, -40.0),
+      ],
+      walls: [
+        (color: (68, 62, 59), portal: Some(96), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(67)),
+        (color: (72, 70, 74), portal: Some(76)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (33.0, -36.0),
+        (31.125, -39.875),
+        (27.875, -39.875),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(68)),
+        (color: (68, 62, 59), portal: Some(98), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(77)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (39.0, -40.0),
+        (36.5, -40.5),
+        (36.5, -35.5),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(69)),
+        (color: (17, 17, 56), portal: None),
+        (color: (72, 70, 74), portal: Some(78)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.125, -36.125),
+        (31.125, -34.875),
+        (39.0, -33.0),
+      ],
+      walls: [
+        (color: (68, 62, 59), portal: Some(92), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (72, 70, 74), portal: Some(70)),
+        (color: (72, 70, 74), portal: Some(81)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -39.875),
+        (26.0, -40.0),
+        (31.125, -36.125),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(72)),
+        (color: (72, 70, 74), portal: Some(71)),
+        (color: (72, 70, 74), portal: Some(79)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (33.0, -35.5),
+        (33.0, -36.0),
+        (27.875, -39.875),
+      ],
+      walls: [
+        (color: (17, 17, 56), portal: None),
+        (color: (72, 70, 74), portal: Some(73)),
+        (color: (72, 70, 74), portal: Some(79)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (39.0, -39.375),
+        (39.0, -40.0),
+        (36.5, -35.5),
+      ],
+      walls: [
+        (color: (107, 107, 107), portal: None),
+        (color: (72, 70, 74), portal: Some(74)),
+        (color: (72, 70, 74), portal: Some(80)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (33.0, -35.5),
+        (27.875, -39.875),
+        (31.125, -36.125),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(77)),
+        (color: (72, 70, 74), portal: Some(76)),
+        (color: (72, 70, 74), portal: Some(81)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (39.0, -39.0),
+        (39.0, -39.375),
+        (36.5, -35.5),
+      ],
+      walls: [
+        (color: (98, 98, 98), portal: None),
+        (color: (72, 70, 74), portal: Some(78)),
+        (color: (72, 70, 74), portal: Some(82)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (33.0, -35.5),
+        (31.125, -36.125),
+        (39.0, -33.0),
+      ],
+      walls: [
+        (color: (72, 70, 74), portal: Some(79)),
+        (color: (72, 70, 74), portal: Some(75)),
+        (color: (72, 70, 74), portal: Some(83)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (39.0, -33.0),
+        (39.0, -39.0),
+        (36.5, -35.5),
+      ],
+      walls: [
+        (color: (39, 39, 37), portal: Some(2), upper_color: Some((39, 39, 37)), lower_color: Some((39, 39, 39))),
+        (color: (72, 70, 74), portal: Some(80)),
+        (color: (72, 70, 74), portal: Some(83)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (36.5, -35.5),
+        (33.0, -35.5),
+        (39.0, -33.0),
+      ],
+      walls: [
+        (color: (17, 17, 56), portal: None),
+        (color: (72, 70, 74), portal: Some(81)),
+        (color: (72, 70, 74), portal: Some(82)),
+      ],
+    ),
+    (
+      floor: 0.2222,
+      ceil: 4.2222,
+      vertices: [
+        (33.5, -36.0),
+        (34.0, -36.0),
+        (34.0, -40.0),
+        (33.5, -40.0),
+      ],
+      walls: [
+        (color: (17, 17, 56), portal: None),
+        (color: (80, 60, 41), portal: Some(252), lower_color: Some((80, 60, 41))),
+        (color: (17, 17, 56), portal: None),
+        (color: (38, 31, 51), portal: Some(48)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (28.0, -35.0),
+        (28.0, -36.0),
+        (27.875, -36.125),
+      ],
+      walls: [
+        (color: (68, 62, 59), portal: Some(93), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (88, 84, 83), portal: Some(86)),
+        (color: (88, 84, 83), portal: Some(87)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -36.125),
+        (28.0, -36.0),
+        (31.0, -36.0),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(85)),
+        (color: (68, 62, 59), portal: Some(93), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (88, 84, 83), portal: Some(88)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (28.0, -35.0),
+        (27.875, -36.125),
+        (27.875, -34.875),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(85)),
+        (color: (88, 84, 83), portal: Some(59)),
+        (color: (88, 84, 83), portal: Some(89)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.125, -36.125),
+        (27.875, -36.125),
+        (31.0, -36.0),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(53)),
+        (color: (88, 84, 83), portal: Some(86)),
+        (color: (88, 84, 83), portal: Some(90)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (28.0, -35.0),
+        (27.875, -34.875),
+        (31.125, -34.875),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(87)),
+        (color: (88, 84, 83), portal: Some(70)),
+        (color: (88, 84, 83), portal: Some(91)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.125, -36.125),
+        (31.0, -36.0),
+        (31.0, -35.0),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(88)),
+        (color: (68, 62, 59), portal: Some(93), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (88, 84, 83), portal: Some(92)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.0, -35.0),
+        (28.0, -35.0),
+        (31.125, -34.875),
+      ],
+      walls: [
+        (color: (68, 62, 59), portal: Some(93), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (88, 84, 83), portal: Some(89)),
+        (color: (88, 84, 83), portal: Some(92)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.125, -34.875),
+        (31.125, -36.125),
+        (31.0, -35.0),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(75)),
+        (color: (88, 84, 83), portal: Some(90)),
+        (color: (88, 84, 83), portal: Some(91)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.6667,
+      vertices: [
+        (31.0, -35.0),
+        (31.0, -36.0),
+        (28.0, -36.0),
+        (28.0, -35.0),
+      ],
+      walls: [
+        (color: (96, 96, 104), portal: Some(90)),
+        (color: (96, 96, 104), portal: Some(86)),
+        (color: (96, 96, 104), portal: Some(85)),
+        (color: (96, 96, 104), portal: Some(91)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (28.0, -40.0),
+        (28.0, -41.0),
+        (27.875, -41.125),
+      ],
+      walls: [
+        (color: (68, 62, 59), portal: Some(102), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (88, 84, 83), portal: Some(95)),
+        (color: (88, 84, 83), portal: Some(96)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (27.875, -41.125),
+        (28.0, -41.0),
+        (31.0, -41.0),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(94)),
+        (color: (68, 62, 59), portal: Some(102), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (88, 84, 83), portal: Some(97)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (28.0, -40.0),
+        (27.875, -41.125),
+        (27.875, -39.875),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(94)),
+        (color: (88, 84, 83), portal: Some(72)),
+        (color: (88, 84, 83), portal: Some(98)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.125, -41.125),
+        (27.875, -41.125),
+        (31.0, -41.0),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(50)),
+        (color: (88, 84, 83), portal: Some(95)),
+        (color: (88, 84, 83), portal: Some(99)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (28.0, -40.0),
+        (27.875, -39.875),
+        (31.125, -39.875),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(96)),
+        (color: (88, 84, 83), portal: Some(73)),
+        (color: (88, 84, 83), portal: Some(100)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.125, -41.125),
+        (31.0, -41.0),
+        (31.0, -40.0),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(97)),
+        (color: (68, 62, 59), portal: Some(102), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (88, 84, 83), portal: Some(101)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.0, -40.0),
+        (28.0, -40.0),
+        (31.125, -39.875),
+      ],
+      walls: [
+        (color: (68, 62, 59), portal: Some(102), upper_color: Some((68, 62, 59)), lower_color: Some((107, 107, 107))),
+        (color: (88, 84, 83), portal: Some(98)),
+        (color: (88, 84, 83), portal: Some(101)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.2222,
+      vertices: [
+        (31.125, -39.875),
+        (31.125, -41.125),
+        (31.0, -40.0),
+      ],
+      walls: [
+        (color: (88, 84, 83), portal: Some(55)),
+        (color: (88, 84, 83), portal: Some(99)),
+        (color: (88, 84, 83), portal: Some(100)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.6667,
+      vertices: [
+        (31.0, -40.0),
+        (31.0, -41.0),
+        (28.0, -41.0),
+        (28.0, -40.0),
+      ],
+      walls: [
+        (color: (96, 96, 104), portal: Some(99)),
+        (color: (96, 96, 104), portal: Some(95)),
+        (color: (96, 96, 104), portal: Some(94)),
+        (color: (96, 96, 104), portal: Some(100)),
+      ],
+    ),
+    (
+      floor: -2.2222,
+      ceil: 12.0,
+      vertices: [
+        (23.75, -49.5),
+        (26.125, -48.5),
+        (29.625, -48.5),
+        (31.875, -49.125),
+        (33.25, -51.125),
+        (32.25, -53.25),
+        (27.875, -53.875),
+        (24.125, -52.875),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: Some(17), lower_color: Some((48, 43, 29))),
+        (color: (48, 43, 29), portal: Some(34), lower_color: Some((48, 43, 29))),
+        (color: (48, 43, 29), portal: Some(38), lower_color: Some((48, 43, 29))),
+        (color: (48, 43, 29), portal: Some(40), lower_color: Some((48, 43, 29))),
+        (color: (48, 43, 29), portal: Some(39), lower_color: Some((48, 43, 29))),
+        (color: (48, 43, 29), portal: Some(37), lower_color: Some((48, 43, 29))),
+        (color: (48, 43, 29), portal: Some(33), lower_color: Some((48, 43, 29))),
+        (color: (48, 43, 29), portal: Some(18), lower_color: Some((48, 43, 29))),
+      ],
+    ),
+    (
+      floor: 0.2222,
+      ceil: 6.0,
+      vertices: [
+        (21.0, -52.5),
+        (21.0, -51.0),
+        (21.5, -51.0),
+        (21.5, -52.5),
+      ],
+      walls: [
+        (color: (88, 88, 88), portal: Some(224)),
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(31)),
+        (color: (88, 88, 88), portal: None),
+      ],
+    ),
+    (
+      floor: 0.2222,
+      ceil: 6.0,
+      vertices: [
+        (21.0, -50.0),
+        (21.0, -48.5),
+        (21.5, -48.5),
+        (21.5, -50.0),
+      ],
+      walls: [
+        (color: (88, 88, 88), portal: Some(222)),
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(25)),
+        (color: (88, 88, 88), portal: None),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -1.1111,
+      vertices: [
+        (35.0, -64.0),
+        (33.0, -63.0),
+        (32.0, -61.25),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: None),
+        (color: (106, 87, 68), portal: Some(109)),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -1.1111,
+      vertices: [
+        (34.0, -61.25),
+        (35.0, -62.0),
+        (35.0, -64.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (106, 87, 68), portal: Some(353)),
+        (color: (106, 87, 68), portal: Some(110)),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -1.1111,
+      vertices: [
+        (32.0, -61.0),
+        (34.0, -61.0),
+        (34.0, -61.25),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(111), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (98, 98, 98), portal: None),
+        (color: (106, 87, 68), portal: Some(110)),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -1.1111,
+      vertices: [
+        (35.0, -64.0),
+        (32.0, -61.25),
+        (32.0, -61.0),
+      ],
+      walls: [
+        (color: (106, 87, 68), portal: Some(106)),
+        (color: (98, 98, 98), portal: None),
+        (color: (106, 87, 68), portal: Some(110)),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -1.1111,
+      vertices: [
+        (32.0, -61.0),
+        (34.0, -61.25),
+        (35.0, -64.0),
+      ],
+      walls: [
+        (color: (106, 87, 68), portal: Some(108)),
+        (color: (106, 87, 68), portal: Some(107)),
+        (color: (106, 87, 68), portal: Some(109)),
+      ],
+    ),
+    (
+      floor: -3.3333,
+      ceil: 0.4444,
+      vertices: [
+        (32.0, -61.0),
+        (32.0, -60.5),
+        (34.0, -60.5),
+        (34.0, -61.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(112), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(108), upper_color: Some((109, 83, 56))),
+      ],
+    ),
+    (
+      floor: -2.8889,
+      ceil: 0.4444,
+      vertices: [
+        (32.0, -60.5),
+        (32.0, -60.0),
+        (34.0, -60.0),
+        (34.0, -60.5),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(113), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(111)),
+      ],
+    ),
+    (
+      floor: -2.4444,
+      ceil: 0.4444,
+      vertices: [
+        (34.0, -59.5),
+        (34.0, -60.0),
+        (32.0, -60.0),
+        (32.0, -59.5),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(112)),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(117), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (23.875, -57.5),
+        (21.5, -57.0),
+        (31.0, -57.0),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: None),
+        (color: (73, 65, 51), portal: Some(19)),
+        (color: (73, 65, 51), portal: Some(116)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (31.0, -59.0),
+        (26.125, -58.5),
+        (23.875, -57.5),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: None),
+        (color: (48, 43, 29), portal: None),
+        (color: (73, 65, 51), portal: Some(116)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (23.875, -57.5),
+        (31.0, -57.0),
+        (31.0, -59.0),
+      ],
+      walls: [
+        (color: (73, 65, 51), portal: Some(114)),
+        (color: (111, 97, 85), portal: Some(119), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (73, 65, 51), portal: Some(115)),
+      ],
+    ),
+    (
+      floor: -2.0,
+      ceil: 0.4444,
+      vertices: [
+        (34.0, -59.0),
+        (34.0, -59.5),
+        (32.0, -59.5),
+        (32.0, -59.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(113)),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(124), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (35.0, -57.0),
+        (35.0, -59.0),
+        (34.5, -57.5),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(245)),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(120)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (31.5, -57.5),
+        (31.0, -59.0),
+        (31.0, -57.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(116)),
+        (color: (109, 83, 56), portal: Some(121)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (35.0, -57.0),
+        (34.5, -57.5),
+        (34.0, -57.5),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(118)),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(122)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (31.5, -57.5),
+        (31.0, -57.0),
+        (35.0, -57.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(119)),
+        (color: (109, 83, 56), portal: Some(27)),
+        (color: (109, 83, 56), portal: Some(123)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (35.0, -57.0),
+        (34.0, -57.5),
+        (32.0, -57.5),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(120)),
+        (color: (109, 83, 56), portal: Some(124), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: Some(123)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (32.0, -57.5),
+        (31.5, -57.5),
+        (35.0, -57.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(121)),
+        (color: (109, 83, 56), portal: Some(122)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 0.4444,
+      vertices: [
+        (32.0, -57.5),
+        (34.0, -57.5),
+        (34.0, -57.875),
+        (34.0, -59.0),
+        (32.0, -59.0),
+        (32.0, -57.875),
+      ],
+      walls: [
+        (color: (104, 90, 77), portal: Some(122)),
+        (color: (98, 98, 98), portal: None),
+        (color: (109, 83, 56), portal: None),
+        (color: (104, 90, 77), portal: Some(117)),
+        (color: (109, 83, 56), portal: None),
+        (color: (98, 98, 98), portal: None),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (4.0, -52.0),
+        (4.0, -53.0),
+        (1.0, -53.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(242)),
+        (color: (88, 84, 71), portal: None),
+        (color: (88, 84, 71), portal: Some(135)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (2.0, -54.0),
+        (1.0, -53.0),
+        (5.0, -53.0),
+      ],
+      walls: [
+        (color: (103, 105, 90), portal: None),
+        (color: (88, 84, 71), portal: None),
+        (color: (88, 84, 71), portal: Some(131)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (7.75, -49.0),
+        (7.75, -52.0),
+        (7.0, -54.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: None),
+        (color: (103, 105, 90), portal: None),
+        (color: (88, 84, 71), portal: Some(132)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (1.0, -48.0),
+        (2.0, -47.0),
+        (7.0, -47.0),
+      ],
+      walls: [
+        (color: (103, 105, 90), portal: None),
+        (color: (103, 105, 90), portal: None),
+        (color: (88, 84, 71), portal: Some(137)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (2.0, -50.0),
+        (1.0, -48.0),
+        (4.0, -49.0),
+      ],
+      walls: [
+        (color: (103, 105, 90), portal: Some(191), upper_color: Some((103, 105, 90)), lower_color: Some((103, 105, 90))),
+        (color: (88, 84, 71), portal: Some(133)),
+        (color: (88, 84, 71), portal: Some(134)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (1.0, -53.0),
+        (2.0, -51.0),
+        (5.0, -51.0),
+      ],
+      walls: [
+        (color: (103, 105, 90), portal: Some(191), upper_color: Some((103, 105, 90)), lower_color: Some((103, 105, 90))),
+        (color: (88, 84, 71), portal: None),
+        (color: (88, 84, 71), portal: Some(135)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (7.0, -54.0),
+        (2.0, -54.0),
+        (5.0, -53.0),
+      ],
+      walls: [
+        (color: (103, 105, 90), portal: None),
+        (color: (88, 84, 71), portal: Some(126)),
+        (color: (88, 84, 71), portal: Some(136)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (7.0, -47.0),
+        (7.75, -49.0),
+        (7.0, -54.0),
+      ],
+      walls: [
+        (color: (103, 105, 90), portal: None),
+        (color: (88, 84, 71), portal: Some(127)),
+        (color: (88, 84, 71), portal: Some(140)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (4.0, -48.0),
+        (4.0, -49.0),
+        (1.0, -48.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(243)),
+        (color: (88, 84, 71), portal: Some(129)),
+        (color: (88, 84, 71), portal: Some(137)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (2.0, -50.0),
+        (4.0, -49.0),
+        (5.0, -49.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(129)),
+        (color: (88, 84, 71), portal: Some(243)),
+        (color: (88, 84, 71), portal: Some(138)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (4.0, -52.0),
+        (1.0, -53.0),
+        (5.0, -51.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(125)),
+        (color: (88, 84, 71), portal: Some(130)),
+        (color: (88, 84, 71), portal: Some(139)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (7.0, -54.0),
+        (5.0, -53.0),
+        (5.0, -52.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(131)),
+        (color: (88, 84, 71), portal: Some(242)),
+        (color: (88, 84, 71), portal: Some(140)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (4.0, -48.0),
+        (1.0, -48.0),
+        (7.0, -47.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(133)),
+        (color: (88, 84, 71), portal: Some(128)),
+        (color: (88, 84, 71), portal: Some(141)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (5.0, -50.0),
+        (2.0, -50.0),
+        (5.0, -49.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: None),
+        (color: (88, 84, 71), portal: Some(134)),
+        (color: (88, 84, 71), portal: Some(145)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (5.0, -52.0),
+        (4.0, -52.0),
+        (5.0, -51.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(242)),
+        (color: (88, 84, 71), portal: Some(135)),
+        (color: (88, 84, 71), portal: Some(142)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (7.0, -47.0),
+        (7.0, -54.0),
+        (5.0, -52.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(132)),
+        (color: (88, 84, 71), portal: Some(136)),
+        (color: (88, 84, 71), portal: Some(142)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (5.0, -48.0),
+        (4.0, -48.0),
+        (7.0, -47.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(243)),
+        (color: (88, 84, 71), portal: Some(137)),
+        (color: (88, 84, 71), portal: Some(143)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (7.0, -47.0),
+        (5.0, -52.0),
+        (5.0, -51.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(140)),
+        (color: (88, 84, 71), portal: Some(139)),
+        (color: (88, 84, 71), portal: Some(144)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (5.0, -49.0),
+        (5.0, -48.0),
+        (7.0, -47.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(243)),
+        (color: (88, 84, 71), portal: Some(141)),
+        (color: (88, 84, 71), portal: Some(145)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (7.0, -47.0),
+        (5.0, -51.0),
+        (5.0, -50.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(142)),
+        (color: (111, 97, 85), portal: Some(240), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (88, 84, 71), portal: Some(145)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (5.0, -50.0),
+        (5.0, -49.0),
+        (7.0, -47.0),
+      ],
+      walls: [
+        (color: (88, 84, 71), portal: Some(138)),
+        (color: (88, 84, 71), portal: Some(143)),
+        (color: (88, 84, 71), portal: Some(144)),
+      ],
+    ),
+    (
+      floor: 1.1111,
+      ceil: 6.2222,
+      vertices: [
+        (4.0, -51.0),
+        (3.5, -51.0),
+        (3.5, -50.0),
+        (4.0, -50.0),
+      ],
+      walls: [
+        (color: (108, 90, 74), portal: None),
+        (color: (111, 97, 85), portal: Some(147), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (108, 90, 74), portal: None),
+        (color: (108, 90, 74), portal: Some(241)),
+      ],
+    ),
+    (
+      floor: 1.5556,
+      ceil: 6.2222,
+      vertices: [
+        (3.5, -51.0),
+        (3.0, -51.0),
+        (3.0, -50.0),
+        (3.5, -50.0),
+      ],
+      walls: [
+        (color: (108, 90, 74), portal: None),
+        (color: (111, 97, 85), portal: Some(148), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (108, 90, 74), portal: None),
+        (color: (108, 90, 74), portal: Some(146)),
+      ],
+    ),
+    (
+      floor: 2.0,
+      ceil: 6.2222,
+      vertices: [
+        (3.0, -51.0),
+        (2.5, -51.0),
+        (2.5, -50.0),
+        (3.0, -50.0),
+      ],
+      walls: [
+        (color: (108, 90, 74), portal: None),
+        (color: (111, 97, 85), portal: Some(192), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (108, 90, 74), portal: None),
+        (color: (108, 90, 74), portal: Some(147)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (1.0, -57.0),
+        (-10.0, -57.0),
+        (-12.0, -55.0),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: None),
+        (color: (48, 43, 29), portal: None),
+        (color: (48, 43, 29), portal: Some(152)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-10.0, -44.0),
+        (1.0, -44.0),
+        (-10.0, -46.0),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: None),
+        (color: (48, 43, 29), portal: Some(174)),
+        (color: (48, 43, 29), portal: Some(153)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-12.0, -55.0),
+        (-12.0, -46.0),
+        (-10.0, -44.0),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: None),
+        (color: (48, 43, 29), portal: None),
+        (color: (48, 43, 29), portal: Some(153)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-10.0, -55.0),
+        (1.0, -57.0),
+        (-12.0, -55.0),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: Some(175)),
+        (color: (48, 43, 29), portal: Some(149)),
+        (color: (48, 43, 29), portal: Some(154)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-12.0, -55.0),
+        (-10.0, -44.0),
+        (-10.0, -46.0),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: Some(151)),
+        (color: (48, 43, 29), portal: Some(150)),
+        (color: (48, 43, 29), portal: Some(154)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-10.0, -46.0),
+        (-10.0, -55.0),
+        (-12.0, -55.0),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: Some(184)),
+        (color: (48, 43, 29), portal: Some(152)),
+        (color: (48, 43, 29), portal: Some(153)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-4.0, -50.25),
+        (-4.0, -50.75),
+        (-5.0, -51.5),
+      ],
+      walls: [
+        (color: (47, 45, 40), portal: Some(188), upper_color: Some((47, 45, 40)), lower_color: Some((47, 45, 40))),
+        (color: (75, 70, 62), portal: Some(156)),
+        (color: (75, 70, 62), portal: Some(160)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-5.0, -51.5),
+        (-4.0, -50.75),
+        (-3.75, -51.0),
+      ],
+      walls: [
+        (color: (75, 70, 62), portal: Some(155)),
+        (color: (47, 45, 40), portal: Some(188), upper_color: Some((47, 45, 40)), lower_color: Some((47, 45, 40))),
+        (color: (75, 70, 62), portal: Some(161)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-2.0, -52.0),
+        (-4.0, -52.0),
+        (-5.0, -51.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(190), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (111, 97, 85), portal: None),
+        (color: (75, 70, 62), portal: Some(162)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-1.0, -49.0),
+        (-1.0, -52.0),
+        (-1.375, -52.0),
+      ],
+      walls: [
+        (color: (103, 105, 90), portal: Some(191), upper_color: Some((103, 105, 90)), lower_color: Some((103, 105, 90))),
+        (color: (98, 98, 98), portal: None),
+        (color: (75, 70, 62), portal: Some(163)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-5.0, -49.5),
+        (-4.0, -49.0),
+        (-2.0, -49.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: Some(187), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (75, 70, 62), portal: Some(164)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-4.0, -50.25),
+        (-5.0, -51.5),
+        (-5.0, -49.5),
+      ],
+      walls: [
+        (color: (75, 70, 62), portal: Some(155)),
+        (color: (111, 97, 85), portal: Some(189), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (75, 70, 62), portal: Some(165)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-5.0, -51.5),
+        (-3.75, -51.0),
+        (-3.25, -51.0),
+      ],
+      walls: [
+        (color: (75, 70, 62), portal: Some(156)),
+        (color: (47, 45, 40), portal: Some(188), upper_color: Some((47, 45, 40)), lower_color: Some((47, 45, 40))),
+        (color: (75, 70, 62), portal: Some(166)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-1.375, -52.0),
+        (-2.0, -52.0),
+        (-5.0, -51.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (75, 70, 62), portal: Some(157)),
+        (color: (75, 70, 62), portal: Some(166)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-1.375, -49.0),
+        (-1.0, -49.0),
+        (-1.375, -52.0),
+      ],
+      walls: [
+        (color: (98, 98, 98), portal: None),
+        (color: (75, 70, 62), portal: Some(158)),
+        (color: (75, 70, 62), portal: Some(172)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-5.0, -49.5),
+        (-2.0, -49.0),
+        (-1.375, -49.0),
+      ],
+      walls: [
+        (color: (75, 70, 62), portal: Some(159)),
+        (color: (111, 97, 85), portal: None),
+        (color: (75, 70, 62), portal: Some(167)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-3.75, -50.0),
+        (-4.0, -50.25),
+        (-5.0, -49.5),
+      ],
+      walls: [
+        (color: (47, 45, 40), portal: Some(188), upper_color: Some((47, 45, 40)), lower_color: Some((47, 45, 40))),
+        (color: (75, 70, 62), portal: Some(160)),
+        (color: (75, 70, 62), portal: Some(167)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-1.375, -52.0),
+        (-5.0, -51.5),
+        (-3.25, -51.0),
+      ],
+      walls: [
+        (color: (75, 70, 62), portal: Some(162)),
+        (color: (75, 70, 62), portal: Some(161)),
+        (color: (75, 70, 62), portal: Some(168)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-3.75, -50.0),
+        (-5.0, -49.5),
+        (-1.375, -49.0),
+      ],
+      walls: [
+        (color: (75, 70, 62), portal: Some(165)),
+        (color: (75, 70, 62), portal: Some(164)),
+        (color: (75, 70, 62), portal: Some(169)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-1.375, -52.0),
+        (-3.25, -51.0),
+        (-3.0, -50.75),
+      ],
+      walls: [
+        (color: (75, 70, 62), portal: Some(166)),
+        (color: (47, 45, 40), portal: Some(188), upper_color: Some((47, 45, 40)), lower_color: Some((47, 45, 40))),
+        (color: (75, 70, 62), portal: Some(170)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-3.25, -50.0),
+        (-3.75, -50.0),
+        (-1.375, -49.0),
+      ],
+      walls: [
+        (color: (47, 45, 40), portal: Some(188), upper_color: Some((47, 45, 40)), lower_color: Some((47, 45, 40))),
+        (color: (75, 70, 62), portal: Some(167)),
+        (color: (75, 70, 62), portal: Some(171)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-1.375, -52.0),
+        (-3.0, -50.75),
+        (-3.0, -50.25),
+      ],
+      walls: [
+        (color: (75, 70, 62), portal: Some(168)),
+        (color: (47, 45, 40), portal: Some(188), upper_color: Some((47, 45, 40)), lower_color: Some((47, 45, 40))),
+        (color: (75, 70, 62), portal: Some(172)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-3.0, -50.25),
+        (-3.25, -50.0),
+        (-1.375, -49.0),
+      ],
+      walls: [
+        (color: (47, 45, 40), portal: Some(188), upper_color: Some((47, 45, 40)), lower_color: Some((47, 45, 40))),
+        (color: (75, 70, 62), portal: Some(169)),
+        (color: (75, 70, 62), portal: Some(172)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 7.3333,
+      vertices: [
+        (-1.375, -49.0),
+        (-1.375, -52.0),
+        (-3.0, -50.25),
+      ],
+      walls: [
+        (color: (75, 70, 62), portal: Some(163)),
+        (color: (75, 70, 62), portal: Some(170)),
+        (color: (75, 70, 62), portal: Some(171)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (1.0, -46.0),
+        (-1.5, -48.75),
+        (-2.0, -48.75),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (109, 99, 86), portal: Some(177)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-10.0, -46.0),
+        (1.0, -44.0),
+        (1.0, -46.0),
+      ],
+      walls: [
+        (color: (103, 105, 90), portal: Some(150), upper_color: Some((103, 105, 90)), lower_color: Some((103, 105, 90))),
+        (color: (111, 97, 85), portal: None),
+        (color: (109, 99, 86), portal: Some(181)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (1.0, -55.0),
+        (1.0, -57.0),
+        (-10.0, -55.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (103, 105, 90), portal: Some(152), upper_color: Some((103, 105, 90)), lower_color: Some((103, 105, 90))),
+        (color: (109, 99, 86), portal: Some(178)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-2.0, -52.25),
+        (-1.5, -52.25),
+        (1.0, -55.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (109, 99, 86), portal: Some(178)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (1.0, -46.0),
+        (-2.0, -48.75),
+        (-4.0, -48.75),
+      ],
+      walls: [
+        (color: (109, 99, 86), portal: Some(173)),
+        (color: (111, 97, 85), portal: Some(187), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (109, 99, 86), portal: Some(179)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-2.0, -52.25),
+        (1.0, -55.0),
+        (-10.0, -55.0),
+      ],
+      walls: [
+        (color: (109, 99, 86), portal: Some(176)),
+        (color: (109, 99, 86), portal: Some(175)),
+        (color: (109, 99, 86), portal: Some(180)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (1.0, -46.0),
+        (-4.0, -48.75),
+        (-5.25, -48.75),
+      ],
+      walls: [
+        (color: (109, 99, 86), portal: Some(177)),
+        (color: (111, 97, 85), portal: None),
+        (color: (109, 99, 86), portal: Some(181)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-4.0, -52.25),
+        (-2.0, -52.25),
+        (-10.0, -55.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(190), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (109, 99, 86), portal: Some(178)),
+        (color: (109, 99, 86), portal: Some(182)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-10.0, -46.0),
+        (1.0, -46.0),
+        (-5.25, -48.75),
+      ],
+      walls: [
+        (color: (109, 99, 86), portal: Some(174)),
+        (color: (109, 99, 86), portal: Some(179)),
+        (color: (109, 99, 86), portal: Some(183)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-5.25, -52.25),
+        (-4.0, -52.25),
+        (-10.0, -55.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (109, 99, 86), portal: Some(180)),
+        (color: (109, 99, 86), portal: Some(184)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-10.0, -46.0),
+        (-5.25, -48.75),
+        (-5.25, -49.5),
+      ],
+      walls: [
+        (color: (109, 99, 86), portal: Some(181)),
+        (color: (111, 97, 85), portal: None),
+        (color: (109, 99, 86), portal: Some(185)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-5.25, -52.25),
+        (-10.0, -55.0),
+        (-10.0, -46.0),
+      ],
+      walls: [
+        (color: (109, 99, 86), portal: Some(182)),
+        (color: (103, 105, 90), portal: Some(154), upper_color: Some((103, 105, 90)), lower_color: Some((103, 105, 90))),
+        (color: (109, 99, 86), portal: Some(186)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-10.0, -46.0),
+        (-5.25, -49.5),
+        (-5.25, -51.5),
+      ],
+      walls: [
+        (color: (109, 99, 86), portal: Some(183)),
+        (color: (111, 97, 85), portal: Some(189), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (109, 99, 86), portal: Some(186)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 12.0,
+      vertices: [
+        (-5.25, -51.5),
+        (-5.25, -52.25),
+        (-10.0, -46.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (109, 99, 86), portal: Some(184)),
+        (color: (109, 99, 86), portal: Some(185)),
+      ],
+    ),
+    (
+      floor: 3.7778,
+      ceil: 7.3333,
+      vertices: [
+        (-2.0, -48.75),
+        (-2.0, -49.0),
+        (-4.0, -49.0),
+        (-4.0, -48.75),
+      ],
+      walls: [
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(159)),
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(177)),
+      ],
+    ),
+    (
+      floor: 3.5556,
+      ceil: 7.3333,
+      vertices: [
+        (-3.25, -51.0),
+        (-3.75, -51.0),
+        (-4.0, -50.75),
+        (-4.0, -50.25),
+        (-3.75, -50.0),
+        (-3.25, -50.0),
+        (-3.0, -50.25),
+        (-3.0, -50.75),
+      ],
+      walls: [
+        (color: (96, 96, 104), portal: Some(161)),
+        (color: (96, 96, 104), portal: Some(156)),
+        (color: (96, 96, 104), portal: Some(155)),
+        (color: (96, 96, 104), portal: Some(165)),
+        (color: (96, 96, 104), portal: Some(169)),
+        (color: (96, 96, 104), portal: Some(171)),
+        (color: (96, 96, 104), portal: Some(170)),
+        (color: (96, 96, 104), portal: Some(168)),
+      ],
+    ),
+    (
+      floor: 3.7778,
+      ceil: 7.3333,
+      vertices: [
+        (-5.0, -51.5),
+        (-5.25, -51.5),
+        (-5.25, -49.5),
+        (-5.0, -49.5),
+      ],
+      walls: [
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(185)),
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(160)),
+      ],
+    ),
+    (
+      floor: 3.7778,
+      ceil: 7.3333,
+      vertices: [
+        (-4.0, -52.25),
+        (-4.0, -52.0),
+        (-2.0, -52.0),
+        (-2.0, -52.25),
+      ],
+      walls: [
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(157)),
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(180)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.3333,
+      vertices: [
+        (2.0, -50.0),
+        (2.0, -51.0),
+        (1.0, -53.0),
+        (0.75, -53.0),
+        (-1.0, -52.0),
+        (-1.0, -49.0),
+        (0.75, -48.0),
+        (1.0, -48.0),
+      ],
+      walls: [
+        (color: (100, 102, 94), portal: Some(192)),
+        (color: (100, 102, 94), portal: Some(130)),
+        (color: (98, 98, 98), portal: None),
+        (color: (103, 105, 90), portal: None),
+        (color: (100, 102, 94), portal: Some(158)),
+        (color: (103, 105, 90), portal: None),
+        (color: (98, 98, 98), portal: None),
+        (color: (100, 102, 94), portal: Some(129)),
+      ],
+    ),
+    (
+      floor: 2.4444,
+      ceil: 6.2222,
+      vertices: [
+        (2.5, -51.0),
+        (2.0, -51.0),
+        (2.0, -50.0),
+        (2.5, -50.0),
+      ],
+      walls: [
+        (color: (103, 105, 90), portal: None),
+        (color: (103, 105, 90), portal: Some(191), upper_color: Some((103, 105, 90)), lower_color: Some((103, 105, 90))),
+        (color: (103, 105, 90), portal: None),
+        (color: (103, 105, 90), portal: Some(148)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 3.3333,
+      vertices: [
+        (14.5, -53.0),
+        (14.5, -52.5),
+        (18.5, -52.5),
+        (18.5, -53.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (90, 71, 51), portal: Some(229)),
+        (color: (109, 83, 56), portal: None),
+        (color: (35, 36, 31), portal: Some(213), upper_color: Some((35, 36, 31)), lower_color: Some((105, 83, 62))),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 3.3333,
+      vertices: [
+        (14.5, -52.5),
+        (14.0, -52.5),
+        (14.0, -48.5),
+        (14.5, -48.5),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (35, 36, 31), portal: Some(218), upper_color: Some((35, 36, 31)), lower_color: Some((105, 83, 62))),
+        (color: (109, 83, 56), portal: None),
+        (color: (90, 71, 51), portal: Some(223)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 3.3333,
+      vertices: [
+        (14.5, -48.5),
+        (14.5, -48.0),
+        (18.5, -48.0),
+        (18.5, -48.5),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (35, 36, 31), portal: Some(210), upper_color: Some((35, 36, 31)), lower_color: Some((105, 83, 62))),
+        (color: (109, 83, 56), portal: None),
+        (color: (90, 71, 51), portal: Some(223)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (20.0, -55.5),
+        (18.0, -57.0),
+        (17.0, -57.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (110, 93, 77), portal: Some(203)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (21.0, -52.5),
+        (21.0, -55.5),
+        (20.0, -55.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (110, 93, 77), portal: Some(204)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (21.0, -45.0),
+        (21.0, -48.5),
+        (19.0, -48.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (110, 93, 77), portal: Some(222)),
+        (color: (110, 93, 77), portal: Some(205)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (13.0, -46.0),
+        (15.125, -45.0),
+        (19.0, -45.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (110, 93, 77), portal: Some(206)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (11.0, -48.5),
+        (11.0, -46.0),
+        (13.0, -46.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (110, 93, 77), portal: Some(207)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (13.0, -55.5),
+        (11.0, -55.5),
+        (11.0, -52.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (110, 93, 77), portal: Some(208)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (16.0, -57.0),
+        (15.0, -57.0),
+        (13.0, -55.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (110, 93, 77), portal: Some(208)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (20.0, -55.5),
+        (17.0, -57.0),
+        (16.0, -57.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(196)),
+        (color: (111, 97, 85), portal: Some(231), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (110, 93, 77), portal: Some(209)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (19.0, -53.0),
+        (21.0, -52.5),
+        (20.0, -55.5),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(221)),
+        (color: (110, 93, 77), portal: Some(197)),
+        (color: (110, 93, 77), portal: Some(209)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (21.0, -45.0),
+        (19.0, -48.0),
+        (18.5, -48.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(198)),
+        (color: (109, 83, 56), portal: None),
+        (color: (110, 93, 77), portal: Some(210)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (13.0, -46.0),
+        (19.0, -45.0),
+        (21.0, -45.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(199)),
+        (color: (110, 93, 77), portal: Some(12)),
+        (color: (110, 93, 77), portal: Some(214)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (11.0, -52.5),
+        (11.0, -48.5),
+        (13.0, -46.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(232)),
+        (color: (110, 93, 77), portal: Some(200)),
+        (color: (110, 93, 77), portal: Some(219)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (16.0, -57.0),
+        (13.0, -55.5),
+        (11.0, -52.5),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(202)),
+        (color: (110, 93, 77), portal: Some(201)),
+        (color: (110, 93, 77), portal: Some(217)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (19.0, -53.0),
+        (20.0, -55.5),
+        (16.0, -57.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(204)),
+        (color: (110, 93, 77), portal: Some(203)),
+        (color: (110, 93, 77), portal: Some(211)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (21.0, -45.0),
+        (18.5, -48.0),
+        (14.5, -48.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(205)),
+        (color: (110, 93, 77), portal: Some(195)),
+        (color: (110, 93, 77), portal: Some(212)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (18.5, -53.0),
+        (19.0, -53.0),
+        (16.0, -57.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (110, 93, 77), portal: Some(209)),
+        (color: (110, 93, 77), portal: Some(213)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (21.0, -45.0),
+        (14.5, -48.0),
+        (14.0, -48.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(210)),
+        (color: (109, 83, 56), portal: None),
+        (color: (110, 93, 77), portal: Some(214)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (14.5, -53.0),
+        (18.5, -53.0),
+        (16.0, -57.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(193)),
+        (color: (110, 93, 77), portal: Some(211)),
+        (color: (110, 93, 77), portal: Some(215)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (13.0, -46.0),
+        (21.0, -45.0),
+        (14.0, -48.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(206)),
+        (color: (110, 93, 77), portal: Some(212)),
+        (color: (110, 93, 77), portal: Some(216)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (14.0, -53.0),
+        (14.5, -53.0),
+        (16.0, -57.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (110, 93, 77), portal: Some(213)),
+        (color: (110, 93, 77), portal: Some(217)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (13.0, -46.0),
+        (14.0, -48.0),
+        (14.0, -48.5),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(214)),
+        (color: (109, 83, 56), portal: None),
+        (color: (110, 93, 77), portal: Some(218)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (14.0, -53.0),
+        (16.0, -57.0),
+        (11.0, -52.5),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(215)),
+        (color: (110, 93, 77), portal: Some(208)),
+        (color: (110, 93, 77), portal: Some(219)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (13.0, -46.0),
+        (14.0, -48.5),
+        (14.0, -52.5),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(216)),
+        (color: (110, 93, 77), portal: Some(194)),
+        (color: (110, 93, 77), portal: Some(220)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (14.0, -53.0),
+        (11.0, -52.5),
+        (13.0, -46.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(217)),
+        (color: (110, 93, 77), portal: Some(207)),
+        (color: (110, 93, 77), portal: Some(220)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (13.0, -46.0),
+        (14.0, -52.5),
+        (14.0, -53.0),
+      ],
+      walls: [
+        (color: (110, 93, 77), portal: Some(218)),
+        (color: (109, 83, 56), portal: None),
+        (color: (110, 93, 77), portal: Some(219)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (21.0, -52.5),
+        (19.0, -53.0),
+        (19.0, -52.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(204), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 90, 73), portal: Some(224)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (19.0, -48.0),
+        (21.0, -48.5),
+        (21.0, -50.0),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(198), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (111, 97, 85), portal: Some(105), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (109, 90, 73), portal: Some(225)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (14.5, -52.5),
+        (14.5, -48.5),
+        (18.5, -48.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(194), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (111, 97, 85), portal: Some(195), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (109, 90, 73), portal: Some(226)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (21.0, -51.0),
+        (21.0, -52.5),
+        (19.0, -52.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(104), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (109, 90, 73), portal: Some(221)),
+        (color: (109, 90, 73), portal: Some(227)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (19.0, -48.0),
+        (21.0, -50.0),
+        (21.0, -51.0),
+      ],
+      walls: [
+        (color: (109, 90, 73), portal: Some(222)),
+        (color: (111, 97, 85), portal: None),
+        (color: (109, 90, 73), portal: Some(228)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (14.5, -52.5),
+        (18.5, -48.5),
+        (19.0, -48.5),
+      ],
+      walls: [
+        (color: (109, 90, 73), portal: Some(223)),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 90, 73), portal: Some(229)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (21.0, -51.0),
+        (19.0, -52.5),
+        (18.5, -52.5),
+      ],
+      walls: [
+        (color: (109, 90, 73), portal: Some(224)),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 90, 73), portal: Some(230)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (19.0, -48.5),
+        (19.0, -48.0),
+        (21.0, -51.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 90, 73), portal: Some(225)),
+        (color: (109, 90, 73), portal: Some(230)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (18.5, -52.5),
+        (14.5, -52.5),
+        (19.0, -48.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(193), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (109, 90, 73), portal: Some(226)),
+        (color: (109, 90, 73), portal: Some(230)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 5.5556,
+      vertices: [
+        (19.0, -48.5),
+        (21.0, -51.0),
+        (18.5, -52.5),
+      ],
+      walls: [
+        (color: (109, 90, 73), portal: Some(228)),
+        (color: (109, 90, 73), portal: Some(227)),
+        (color: (109, 90, 73), portal: Some(229)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 2.0,
+      vertices: [
+        (17.0, -57.5),
+        (16.0, -57.5),
+        (16.0, -57.0),
+        (17.0, -57.0),
+      ],
+      walls: [
+        (color: (101, 101, 101), portal: None),
+        (color: (161, 161, 161), portal: None),
+        (color: (141, 141, 141), portal: Some(203)),
+        (color: (161, 161, 161), portal: None),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (11.0, -48.5),
+        (11.0, -52.5),
+        (10.625, -52.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: Some(207), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (98, 98, 98), portal: None),
+        (color: (94, 85, 77), portal: Some(236)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (8.0, -49.0),
+        (10.625, -48.5),
+        (11.0, -48.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (98, 98, 98), portal: None),
+        (color: (94, 85, 77), portal: Some(236)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (7.75, -51.625),
+        (7.75, -49.375),
+        (8.0, -49.375),
+      ],
+      walls: [
+        (color: (94, 85, 77), portal: None),
+        (color: (43, 43, 43), portal: None),
+        (color: (94, 85, 77), portal: Some(237)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (10.625, -52.5),
+        (8.0, -52.0),
+        (8.0, -51.625),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (111, 97, 85), portal: None),
+        (color: (94, 85, 77), portal: Some(239)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (8.0, -49.0),
+        (11.0, -48.5),
+        (10.625, -52.5),
+      ],
+      walls: [
+        (color: (94, 85, 77), portal: Some(233)),
+        (color: (94, 85, 77), portal: Some(232)),
+        (color: (94, 85, 77), portal: Some(238)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (8.0, -51.625),
+        (7.75, -51.625),
+        (8.0, -49.375),
+      ],
+      walls: [
+        (color: (43, 43, 43), portal: None),
+        (color: (94, 85, 77), portal: Some(234)),
+        (color: (94, 85, 77), portal: Some(239)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (8.0, -49.375),
+        (8.0, -49.0),
+        (10.625, -52.5),
+      ],
+      walls: [
+        (color: (111, 97, 85), portal: None),
+        (color: (94, 85, 77), portal: Some(236)),
+        (color: (94, 85, 77), portal: Some(239)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (10.625, -52.5),
+        (8.0, -51.625),
+        (8.0, -49.375),
+      ],
+      walls: [
+        (color: (94, 85, 77), portal: Some(235)),
+        (color: (94, 85, 77), portal: Some(237)),
+        (color: (94, 85, 77), portal: Some(238)),
+      ],
+    ),
+    (
+      floor: 0.2222,
+      ceil: 6.2222,
+      vertices: [
+        (5.0, -51.0),
+        (4.5, -51.0),
+        (4.5, -50.0),
+        (5.0, -50.0),
+      ],
+      walls: [
+        (color: (108, 90, 74), portal: None),
+        (color: (111, 97, 85), portal: Some(241), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (108, 90, 74), portal: None),
+        (color: (108, 90, 74), portal: Some(144)),
+      ],
+    ),
+    (
+      floor: 0.6667,
+      ceil: 6.2222,
+      vertices: [
+        (4.5, -51.0),
+        (4.0, -51.0),
+        (4.0, -50.0),
+        (4.5, -50.0),
+      ],
+      walls: [
+        (color: (108, 90, 74), portal: None),
+        (color: (111, 97, 85), portal: Some(146), upper_color: Some((111, 97, 85)), lower_color: Some((105, 83, 62))),
+        (color: (108, 90, 74), portal: None),
+        (color: (108, 90, 74), portal: Some(240)),
+      ],
+    ),
+    (
+      floor: 1.1111,
+      ceil: 5.1111,
+      vertices: [
+        (5.0, -53.0),
+        (4.0, -53.0),
+        (4.0, -52.0),
+        (5.0, -52.0),
+      ],
+      walls: [
+        (color: (96, 96, 104), portal: None),
+        (color: (96, 96, 104), portal: Some(125)),
+        (color: (96, 96, 104), portal: Some(139)),
+        (color: (96, 96, 104), portal: Some(136)),
+      ],
+    ),
+    (
+      floor: 1.1111,
+      ceil: 5.1111,
+      vertices: [
+        (5.0, -49.0),
+        (4.0, -49.0),
+        (4.0, -48.0),
+        (5.0, -48.0),
+      ],
+      walls: [
+        (color: (96, 96, 104), portal: Some(134)),
+        (color: (96, 96, 104), portal: Some(133)),
+        (color: (96, 96, 104), portal: Some(141)),
+        (color: (96, 96, 104), portal: Some(143)),
+      ],
+    ),
+    (
+      floor: 0.0,
+      ceil: 6.0,
+      vertices: [
+        (43.0, -52.5),
+        (42.75, -52.5),
+        (42.75, -48.625),
+        (43.0, -48.625),
+      ],
+      walls: [
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(21)),
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(300)),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 12.0,
+      vertices: [
+        (42.75, -57.0),
+        (38.875, -58.5),
+        (35.0, -59.0),
+        (35.0, -57.0),
+      ],
+      walls: [
+        (color: (48, 43, 29), portal: None),
+        (color: (48, 43, 29), portal: None),
+        (color: (111, 97, 85), portal: Some(118), upper_color: Some((111, 97, 85)), lower_color: Some((111, 97, 85))),
+        (color: (80, 70, 57), portal: Some(20)),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -1.1111,
+      vertices: [
+        (37.0, -64.0),
+        (37.0, -62.0),
+        (40.875, -59.25),
+      ],
+      walls: [
+        (color: (105, 88, 70), portal: Some(353)),
+        (color: (109, 83, 56), portal: None),
+        (color: (105, 88, 70), portal: Some(248)),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -1.1111,
+      vertices: [
+        (41.125, -59.25),
+        (42.0, -61.25),
+        (41.75, -61.25),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(250), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (98, 98, 98), portal: None),
+        (color: (105, 88, 70), portal: Some(249)),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -1.1111,
+      vertices: [
+        (37.0, -64.0),
+        (40.875, -59.25),
+        (41.125, -59.25),
+      ],
+      walls: [
+        (color: (105, 88, 70), portal: Some(246)),
+        (color: (98, 98, 98), portal: None),
+        (color: (105, 88, 70), portal: Some(249)),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -1.1111,
+      vertices: [
+        (41.125, -59.25),
+        (41.75, -61.25),
+        (37.0, -64.0),
+      ],
+      walls: [
+        (color: (105, 88, 70), portal: Some(247)),
+        (color: (109, 83, 56), portal: None),
+        (color: (105, 88, 70), portal: Some(248)),
+      ],
+    ),
+    (
+      floor: -3.3333,
+      ceil: 1.3333,
+      vertices: [
+        (42.0, -59.0),
+        (42.5, -61.0),
+        (42.0, -61.25),
+        (41.125, -59.25),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(251), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(247), upper_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+      ],
+    ),
+    (
+      floor: -2.8889,
+      ceil: 1.3333,
+      vertices: [
+        (43.0, -59.0),
+        (43.0, -61.0),
+        (42.5, -61.0),
+        (42.0, -59.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(318), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(250)),
+        (color: (109, 83, 56), portal: None),
+      ],
+    ),
+    (
+      floor: 0.4444,
+      ceil: 4.2222,
+      vertices: [
+        (34.0, -36.0),
+        (34.5, -36.0),
+        (34.5, -40.0),
+        (34.0, -40.0),
+      ],
+      walls: [
+        (color: (17, 17, 56), portal: None),
+        (color: (80, 60, 41), portal: Some(253), lower_color: Some((80, 60, 41))),
+        (color: (17, 17, 56), portal: None),
+        (color: (38, 31, 51), portal: Some(84)),
+      ],
+    ),
+    (
+      floor: 0.6667,
+      ceil: 4.2222,
+      vertices: [
+        (34.5, -36.0),
+        (36.0, -36.0),
+        (36.0, -40.0),
+        (34.5, -40.0),
+      ],
+      walls: [
+        (color: (17, 17, 56), portal: None),
+        (color: (17, 17, 56), portal: None),
+        (color: (17, 17, 56), portal: None),
+        (color: (17, 17, 56), portal: Some(252)),
+      ],
+    ),
+    (
+      floor: -0.4444,
+      ceil: 2.0,
+      vertices: [
+        (43.0, -43.5),
+        (41.0, -43.5),
+        (43.0, -40.0),
+        (46.0, -41.5),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(255), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(328)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 2.0,
+      vertices: [
+        (39.375, -40.0),
+        (43.0, -40.0),
+        (41.0, -43.5),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: None),
+        (color: (105, 89, 73), portal: Some(254)),
+        (color: (105, 89, 73), portal: Some(257)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 2.0,
+      vertices: [
+        (39.0, -42.0),
+        (39.0, -40.0),
+        (39.375, -40.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(64), lower_color: Some((109, 83, 56))),
+        (color: (98, 98, 98), portal: None),
+        (color: (105, 89, 73), portal: Some(258)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 2.0,
+      vertices: [
+        (39.375, -40.0),
+        (41.0, -43.5),
+        (39.375, -42.0),
+      ],
+      walls: [
+        (color: (105, 89, 73), portal: Some(255)),
+        (color: (109, 83, 56), portal: None),
+        (color: (105, 89, 73), portal: Some(258)),
+      ],
+    ),
+    (
+      floor: -0.2222,
+      ceil: 2.0,
+      vertices: [
+        (39.375, -42.0),
+        (39.0, -42.0),
+        (39.375, -40.0),
+      ],
+      walls: [
+        (color: (98, 98, 98), portal: None),
+        (color: (105, 89, 73), portal: Some(256)),
+        (color: (105, 89, 73), portal: Some(257)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (43.0, -56.0),
+        (43.0, -52.5),
+        (46.0, -55.25),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (58, 77, 34), portal: Some(296), lower_color: Some((58, 77, 34))),
+        (color: (58, 77, 34), portal: Some(260), lower_color: Some((58, 77, 34))),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (46.0, -57.0),
+        (43.0, -56.0),
+        (46.0, -55.25),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (41, 45, 27), portal: Some(259)),
+        (color: (41, 45, 27), portal: Some(264)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (48.0, -62.5),
+        (46.0, -62.5),
+        (46.0, -61.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(351), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (33, 39, 26), portal: None),
+        (color: (41, 45, 27), portal: Some(263)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (46.0, -55.25),
+        (48.0, -57.0),
+        (48.0, -62.5),
+      ],
+      walls: [
+        (color: (58, 77, 34), portal: Some(285), lower_color: Some((58, 77, 34))),
+        (color: (33, 39, 26), portal: None),
+        (color: (41, 45, 27), portal: Some(264)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (48.0, -62.5),
+        (46.0, -61.0),
+        (46.0, -59.0),
+      ],
+      walls: [
+        (color: (41, 45, 27), portal: Some(261)),
+        (color: (55, 45, 27), portal: Some(323), upper_color: Some((55, 45, 27)), lower_color: Some((55, 45, 27))),
+        (color: (41, 45, 27), portal: Some(265)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (46.0, -57.0),
+        (46.0, -55.25),
+        (48.0, -62.5),
+      ],
+      walls: [
+        (color: (41, 45, 27), portal: Some(260)),
+        (color: (41, 45, 27), portal: Some(262)),
+        (color: (41, 45, 27), portal: Some(265)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (48.0, -62.5),
+        (46.0, -59.0),
+        (46.0, -57.0),
+      ],
+      walls: [
+        (color: (41, 45, 27), portal: Some(263)),
+        (color: (33, 39, 26), portal: None),
+        (color: (41, 45, 27), portal: Some(264)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (49.0, -48.0),
+        (51.625, -47.5),
+        (53.125, -49.25),
+      ],
+      walls: [
+        (color: (58, 77, 34), portal: Some(287), lower_color: Some((58, 77, 34))),
+        (color: (33, 39, 26), portal: Some(305), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (41, 51, 28), portal: Some(271)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (51.25, -51.875),
+        (46.625, -50.0),
+        (49.0, -48.0),
+      ],
+      walls: [
+        (color: (58, 77, 34), portal: Some(295), lower_color: Some((58, 77, 34))),
+        (color: (58, 77, 34), portal: Some(290), lower_color: Some((58, 77, 34))),
+        (color: (41, 51, 28), portal: Some(271)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (51.0, -56.5),
+        (48.5, -55.5),
+        (51.25, -51.875),
+      ],
+      walls: [
+        (color: (58, 77, 34), portal: Some(286), lower_color: Some((58, 77, 34))),
+        (color: (58, 77, 34), portal: Some(291), lower_color: Some((58, 77, 34))),
+        (color: (41, 51, 28), portal: Some(272)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (51.75, -54.625),
+        (52.375, -55.75),
+        (51.0, -56.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(283), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (33, 39, 26), portal: None),
+        (color: (41, 51, 28), portal: Some(272)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (53.125, -49.25),
+        (54.25, -53.625),
+        (53.25, -53.625),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(283), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (41, 51, 28), portal: Some(273)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (51.25, -51.875),
+        (49.0, -48.0),
+        (53.125, -49.25),
+      ],
+      walls: [
+        (color: (41, 51, 28), portal: Some(267)),
+        (color: (41, 51, 28), portal: Some(266)),
+        (color: (41, 51, 28), portal: Some(274)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (51.75, -54.625),
+        (51.0, -56.5),
+        (51.25, -51.875),
+      ],
+      walls: [
+        (color: (41, 51, 28), portal: Some(269)),
+        (color: (41, 51, 28), portal: Some(268)),
+        (color: (41, 51, 28), portal: Some(274)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (53.125, -49.25),
+        (53.25, -53.625),
+        (51.75, -54.625),
+      ],
+      walls: [
+        (color: (41, 51, 28), portal: Some(270)),
+        (color: (33, 39, 26), portal: Some(283), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (41, 51, 28), portal: Some(274)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (51.75, -54.625),
+        (51.25, -51.875),
+        (53.125, -49.25),
+      ],
+      walls: [
+        (color: (41, 51, 28), portal: Some(272)),
+        (color: (41, 51, 28), portal: Some(271)),
+        (color: (41, 51, 28), portal: Some(273)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 2.9389,
+      vertices: [
+        (52.375, -55.75),
+        (53.875, -55.0),
+        (54.25, -55.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(283), lower_color: Some((33, 39, 26))),
+        (color: (98, 98, 98), portal: None),
+        (color: (44, 49, 38), portal: Some(280)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 2.9389,
+      vertices: [
+        (52.5, -57.0),
+        (52.375, -56.125),
+        (52.375, -55.75),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (98, 98, 98), portal: None),
+        (color: (44, 49, 38), portal: Some(280)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 2.9389,
+      vertices: [
+        (52.0, -62.0),
+        (52.0, -58.5),
+        (52.5, -57.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(324), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (33, 39, 26), portal: None),
+        (color: (44, 49, 38), portal: Some(281)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 2.9389,
+      vertices: [
+        (55.0, -60.0),
+        (55.0, -61.0),
+        (52.0, -62.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(325), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (33, 39, 26), portal: None),
+        (color: (44, 49, 38), portal: Some(281)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 2.9389,
+      vertices: [
+        (54.25, -55.0),
+        (55.0, -56.0),
+        (55.0, -60.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (44, 49, 38), portal: Some(282)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 2.9389,
+      vertices: [
+        (52.5, -57.0),
+        (52.375, -55.75),
+        (54.25, -55.0),
+      ],
+      walls: [
+        (color: (44, 49, 38), portal: Some(276)),
+        (color: (44, 49, 38), portal: Some(275)),
+        (color: (44, 49, 38), portal: Some(282)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 2.9389,
+      vertices: [
+        (55.0, -60.0),
+        (52.0, -62.0),
+        (52.5, -57.0),
+      ],
+      walls: [
+        (color: (44, 49, 38), portal: Some(278)),
+        (color: (44, 49, 38), portal: Some(277)),
+        (color: (44, 49, 38), portal: Some(282)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 2.9389,
+      vertices: [
+        (52.5, -57.0),
+        (54.25, -55.0),
+        (55.0, -60.0),
+      ],
+      walls: [
+        (color: (44, 49, 38), portal: Some(280)),
+        (color: (44, 49, 38), portal: Some(279)),
+        (color: (44, 49, 38), portal: Some(281)),
+      ],
+    ),
+    (
+      floor: 2.6667,
+      ceil: 4.8889,
+      vertices: [
+        (53.25, -53.625),
+        (54.25, -53.625),
+        (53.875, -55.0),
+        (52.375, -55.75),
+        (51.75, -54.625),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(270)),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(275), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (33, 39, 26), portal: Some(269)),
+        (color: (33, 39, 26), portal: Some(273)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (43.0, -47.625),
+        (47.625, -45.0),
+        (47.625, -46.0),
+      ],
+      walls: [
+        (color: (58, 77, 34), portal: Some(329), lower_color: Some((58, 77, 34))),
+        (color: (33, 39, 26), portal: None),
+        (color: (39, 48, 28), portal: Some(288)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (48.0, -57.0),
+        (46.0, -55.25),
+        (48.625, -52.5),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(262)),
+        (color: (39, 48, 28), portal: Some(296)),
+        (color: (39, 48, 28), portal: Some(289)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (48.5, -55.5),
+        (51.0, -56.5),
+        (48.0, -57.0),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(268)),
+        (color: (33, 39, 26), portal: None),
+        (color: (39, 48, 28), portal: Some(289)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (47.625, -46.0),
+        (51.625, -47.5),
+        (49.0, -48.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (39, 48, 28), portal: Some(266)),
+        (color: (39, 48, 28), portal: Some(290)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (46.5, -48.0),
+        (43.0, -47.625),
+        (47.625, -46.0),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(297)),
+        (color: (39, 48, 28), portal: Some(284)),
+        (color: (39, 48, 28), portal: Some(292)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (48.5, -55.5),
+        (48.0, -57.0),
+        (48.625, -52.5),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(286)),
+        (color: (39, 48, 28), portal: Some(285)),
+        (color: (39, 48, 28), portal: Some(291)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (47.625, -46.0),
+        (49.0, -48.0),
+        (46.625, -50.0),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(287)),
+        (color: (39, 48, 28), portal: Some(267)),
+        (color: (39, 48, 28), portal: Some(292)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (51.25, -51.875),
+        (48.5, -55.5),
+        (48.625, -52.5),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(268)),
+        (color: (39, 48, 28), portal: Some(289)),
+        (color: (39, 48, 28), portal: Some(293)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (46.5, -48.0),
+        (47.625, -46.0),
+        (46.625, -50.0),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(288)),
+        (color: (39, 48, 28), portal: Some(290)),
+        (color: (39, 48, 28), portal: Some(294)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (51.25, -51.875),
+        (48.625, -52.5),
+        (44.0, -50.5),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(291)),
+        (color: (39, 48, 28), portal: Some(298)),
+        (color: (39, 48, 28), portal: Some(295)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (44.0, -50.5),
+        (46.5, -48.0),
+        (46.625, -50.0),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(297)),
+        (color: (39, 48, 28), portal: Some(292)),
+        (color: (39, 48, 28), portal: Some(295)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (46.625, -50.0),
+        (51.25, -51.875),
+        (44.0, -50.5),
+      ],
+      walls: [
+        (color: (39, 48, 28), portal: Some(267)),
+        (color: (39, 48, 28), portal: Some(293)),
+        (color: (39, 48, 28), portal: Some(294)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (48.625, -52.5),
+        (46.0, -55.25),
+        (43.0, -52.5),
+      ],
+      walls: [
+        (color: (58, 77, 34), portal: Some(285), lower_color: Some((58, 77, 34))),
+        (color: (47, 61, 31), portal: Some(259)),
+        (color: (47, 61, 31), portal: Some(298)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (43.0, -47.625),
+        (46.5, -48.0),
+        (44.0, -50.5),
+      ],
+      walls: [
+        (color: (58, 77, 34), portal: Some(288), lower_color: Some((58, 77, 34))),
+        (color: (58, 77, 34), portal: Some(294), lower_color: Some((58, 77, 34))),
+        (color: (47, 61, 31), portal: Some(299)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (44.0, -50.5),
+        (48.625, -52.5),
+        (43.0, -52.5),
+      ],
+      walls: [
+        (color: (58, 77, 34), portal: Some(293), lower_color: Some((58, 77, 34))),
+        (color: (47, 61, 31), portal: Some(296)),
+        (color: (47, 61, 31), portal: Some(300)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (43.0, -48.625),
+        (43.0, -47.625),
+        (44.0, -50.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (47, 61, 31), portal: Some(297)),
+        (color: (47, 61, 31), portal: Some(300)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 4.8889,
+      vertices: [
+        (44.0, -50.5),
+        (43.0, -52.5),
+        (43.0, -48.625),
+      ],
+      walls: [
+        (color: (47, 61, 31), portal: Some(298)),
+        (color: (33, 39, 26), portal: Some(244), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (47, 61, 31), portal: Some(299)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (57.5, -61.0),
+        (56.0, -61.0),
+        (56.0, -60.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(325)),
+        (color: (40, 46, 34), portal: Some(308)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (57.5, -55.5),
+        (58.5, -59.5),
+        (57.5, -61.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(311)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (56.0, -45.0),
+        (59.5, -51.0),
+        (57.5, -53.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(317)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (51.875, -47.5),
+        (52.5, -45.0),
+        (56.0, -45.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(312)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (53.125, -49.25),
+        (51.625, -47.5),
+        (51.875, -47.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(266), upper_color: Some((33, 39, 26))),
+        (color: (98, 98, 98), portal: None),
+        (color: (40, 46, 34), portal: Some(309)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (54.0, -47.375),
+        (53.375, -49.25),
+        (53.125, -49.25),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (98, 98, 98), portal: None),
+        (color: (40, 46, 34), portal: Some(309)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (55.5, -55.5),
+        (55.5, -53.0),
+        (57.0, -51.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(310)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (57.5, -61.0),
+        (56.0, -60.0),
+        (56.5, -59.0),
+      ],
+      walls: [
+        (color: (40, 46, 34), portal: Some(301)),
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(311)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (54.0, -47.375),
+        (53.125, -49.25),
+        (51.875, -47.5),
+      ],
+      walls: [
+        (color: (40, 46, 34), portal: Some(306)),
+        (color: (40, 46, 34), portal: Some(305)),
+        (color: (40, 46, 34), portal: Some(312)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (56.5, -59.0),
+        (55.5, -55.5),
+        (57.0, -51.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(307)),
+        (color: (40, 46, 34), portal: Some(313)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (57.5, -55.5),
+        (57.5, -61.0),
+        (56.5, -59.0),
+      ],
+      walls: [
+        (color: (40, 46, 34), portal: Some(302)),
+        (color: (40, 46, 34), portal: Some(308)),
+        (color: (40, 46, 34), portal: Some(313)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (54.0, -47.375),
+        (51.875, -47.5),
+        (56.0, -45.0),
+      ],
+      walls: [
+        (color: (40, 46, 34), portal: Some(309)),
+        (color: (40, 46, 34), portal: Some(304)),
+        (color: (40, 46, 34), portal: Some(314)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (57.5, -55.5),
+        (56.5, -59.0),
+        (57.0, -51.0),
+      ],
+      walls: [
+        (color: (40, 46, 34), portal: Some(311)),
+        (color: (40, 46, 34), portal: Some(310)),
+        (color: (40, 46, 34), portal: Some(315)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (54.625, -47.375),
+        (54.0, -47.375),
+        (56.0, -45.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(312)),
+        (color: (40, 46, 34), portal: Some(316)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (57.5, -53.0),
+        (57.5, -55.5),
+        (57.0, -51.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(313)),
+        (color: (40, 46, 34), portal: Some(317)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (57.0, -51.0),
+        (54.625, -47.375),
+        (56.0, -45.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (40, 46, 34), portal: Some(314)),
+        (color: (40, 46, 34), portal: Some(317)),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (56.0, -45.0),
+        (57.5, -53.0),
+        (57.0, -51.0),
+      ],
+      walls: [
+        (color: (40, 46, 34), portal: Some(303)),
+        (color: (40, 46, 34), portal: Some(315)),
+        (color: (40, 46, 34), portal: Some(316)),
+      ],
+    ),
+    (
+      floor: -2.4444,
+      ceil: 1.3333,
+      vertices: [
+        (43.5, -59.0),
+        (43.5, -61.0),
+        (43.0, -61.0),
+        (43.0, -59.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(319), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(251)),
+        (color: (109, 83, 56), portal: None),
+      ],
+    ),
+    (
+      floor: -2.0,
+      ceil: 1.3333,
+      vertices: [
+        (44.0, -59.0),
+        (44.0, -61.0),
+        (43.5, -61.0),
+        (43.5, -59.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(320), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(318)),
+        (color: (109, 83, 56), portal: None),
+      ],
+    ),
+    (
+      floor: -1.5556,
+      ceil: 1.3333,
+      vertices: [
+        (44.5, -59.0),
+        (44.5, -61.0),
+        (44.0, -61.0),
+        (44.0, -59.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(321), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(319)),
+        (color: (109, 83, 56), portal: None),
+      ],
+    ),
+    (
+      floor: -1.1111,
+      ceil: 1.3333,
+      vertices: [
+        (45.0, -59.0),
+        (45.0, -61.0),
+        (44.5, -61.0),
+        (44.5, -59.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(322), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (109, 83, 56), portal: None),
+        (color: (109, 83, 56), portal: Some(320)),
+        (color: (109, 83, 56), portal: None),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (45.0, -61.0),
+        (45.0, -59.0),
+        (45.5, -59.0),
+        (45.5, -61.0),
+      ],
+      walls: [
+        (color: (82, 64, 42), portal: Some(321)),
+        (color: (109, 83, 56), portal: None),
+        (color: (55, 45, 27), portal: Some(323), upper_color: Some((55, 45, 27)), lower_color: Some((55, 45, 27))),
+        (color: (109, 83, 56), portal: None),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (46.0, -61.0),
+        (45.5, -61.0),
+        (45.5, -59.0),
+        (46.0, -59.0),
+      ],
+      walls: [
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(322)),
+        (color: (88, 88, 88), portal: None),
+        (color: (88, 88, 88), portal: Some(263)),
+      ],
+    ),
+    (
+      floor: -1.3333,
+      ceil: 0.8889,
+      vertices: [
+        (50.0, -62.0),
+        (50.0, -58.5),
+        (51.625, -58.5),
+        (52.0, -58.5),
+        (52.0, -62.0),
+        (51.625, -62.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (98, 98, 98), portal: None),
+        (color: (59, 63, 55), portal: Some(277)),
+        (color: (98, 98, 98), portal: None),
+        (color: (33, 39, 26), portal: None),
+      ],
+    ),
+    (
+      floor: 2.8889,
+      ceil: 5.1111,
+      vertices: [
+        (55.0, -61.0),
+        (55.0, -60.0),
+        (55.25, -60.0),
+        (56.0, -60.0),
+        (56.0, -61.0),
+        (55.25, -61.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(278), upper_color: Some((33, 39, 26))),
+        (color: (98, 98, 98), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(301), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (33, 39, 26), portal: None),
+        (color: (98, 98, 98), portal: None),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (43.0, -47.625),
+        (43.0, -45.5),
+        (45.0, -45.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (64, 62, 49), portal: Some(329)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (46.0, -41.5),
+        (46.25, -41.5),
+        (47.625, -45.0),
+      ],
+      walls: [
+        (color: (98, 98, 98), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (64, 62, 49), portal: Some(330)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (43.0, -43.75),
+        (43.0, -43.5),
+        (46.0, -41.5),
+      ],
+      walls: [
+        (color: (98, 98, 98), portal: None),
+        (color: (109, 83, 56), portal: Some(254), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (64, 62, 49), portal: Some(330)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (47.625, -45.0),
+        (43.0, -47.625),
+        (45.0, -45.5),
+      ],
+      walls: [
+        (color: (64, 62, 49), portal: Some(284)),
+        (color: (64, 62, 49), portal: Some(326)),
+        (color: (64, 62, 49), portal: Some(331)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (43.0, -43.75),
+        (46.0, -41.5),
+        (47.625, -45.0),
+      ],
+      walls: [
+        (color: (64, 62, 49), portal: Some(328)),
+        (color: (64, 62, 49), portal: Some(327)),
+        (color: (64, 62, 49), portal: Some(332)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (47.625, -45.0),
+        (45.0, -45.5),
+        (45.0, -45.0),
+      ],
+      walls: [
+        (color: (64, 62, 49), portal: Some(329)),
+        (color: (33, 39, 26), portal: None),
+        (color: (64, 62, 49), portal: Some(332)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (45.0, -45.0),
+        (43.0, -43.75),
+        (47.625, -45.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (64, 62, 49), portal: Some(330)),
+        (color: (64, 62, 49), portal: Some(331)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.8889,
+      vertices: [
+        (44.625, -65.0),
+        (45.125, -65.0),
+        (45.5, -65.0),
+        (48.5, -65.0),
+        (48.875, -65.0),
+        (49.375, -65.0),
+        (49.375, -68.0),
+        (48.875, -68.0),
+        (48.5, -68.0),
+        (45.5, -68.0),
+        (45.125, -68.0),
+        (44.625, -68.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(334), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(336), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(337), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(338), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.8889,
+      vertices: [
+        (45.5, -65.0),
+        (45.5, -64.5),
+        (46.0, -63.0),
+        (48.0, -63.0),
+        (48.5, -64.5),
+        (48.5, -65.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (91, 70, 48), portal: Some(352), upper_color: Some((91, 70, 48))),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (45, 45, 30), portal: Some(333)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (50.0, -64.5),
+        (52.0, -64.5),
+        (52.0, -71.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(340)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (49.375, -68.0),
+        (49.375, -65.0),
+        (50.0, -64.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(333)),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(340)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (45.5, -68.0),
+        (48.5, -68.0),
+        (48.5, -68.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(333)),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(341)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (44.0, -64.5),
+        (44.625, -65.0),
+        (44.625, -68.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(333)),
+        (color: (33, 39, 26), portal: Some(342)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (42.0, -71.0),
+        (42.0, -64.5),
+        (44.0, -64.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(344)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (49.375, -68.0),
+        (50.0, -64.5),
+        (52.0, -71.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(336)),
+        (color: (33, 39, 26), portal: Some(335)),
+        (color: (33, 39, 26), portal: Some(343)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (45.5, -68.5),
+        (45.5, -68.0),
+        (48.5, -68.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(337)),
+        (color: (33, 39, 26), portal: Some(348)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (44.0, -64.5),
+        (44.625, -68.0),
+        (44.625, -68.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(338)),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(344)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (49.375, -68.5),
+        (49.375, -68.0),
+        (52.0, -71.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(340)),
+        (color: (33, 39, 26), portal: Some(345)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (42.0, -71.0),
+        (44.0, -64.5),
+        (44.625, -68.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(339)),
+        (color: (33, 39, 26), portal: Some(342)),
+        (color: (33, 39, 26), portal: Some(346)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (49.375, -68.5),
+        (52.0, -71.0),
+        (48.0, -71.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(343)),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(347)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (42.0, -71.0),
+        (44.625, -68.5),
+        (45.5, -68.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(344)),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(348)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (49.375, -68.5),
+        (48.0, -71.0),
+        (46.0, -71.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(345)),
+        (color: (33, 39, 26), portal: Some(357)),
+        (color: (33, 39, 26), portal: Some(349)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (42.0, -71.0),
+        (45.5, -68.5),
+        (48.5, -68.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(346)),
+        (color: (33, 39, 26), portal: Some(341)),
+        (color: (33, 39, 26), portal: Some(350)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (49.375, -68.5),
+        (46.0, -71.0),
+        (42.0, -71.0),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(347)),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(350)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (42.0, -71.0),
+        (48.5, -68.5),
+        (49.375, -68.5),
+      ],
+      walls: [
+        (color: (33, 39, 26), portal: Some(348)),
+        (color: (33, 39, 26), portal: None),
+        (color: (33, 39, 26), portal: Some(349)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 4.8889,
+      vertices: [
+        (46.0, -62.5),
+        (48.0, -62.5),
+        (48.0, -62.75),
+        (46.0, -62.75),
+      ],
+      walls: [
+        (color: (52, 49, 33), portal: Some(261)),
+        (color: (33, 39, 26), portal: None),
+        (color: (91, 70, 48), portal: Some(352), upper_color: Some((91, 70, 48))),
+        (color: (33, 39, 26), portal: None),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (46.0, -63.0),
+        (46.0, -62.75),
+        (48.0, -62.75),
+        (48.0, -63.0),
+      ],
+      walls: [
+        (color: (43, 43, 43), portal: None),
+        (color: (43, 43, 43), portal: Some(351)),
+        (color: (43, 43, 43), portal: None),
+        (color: (43, 43, 43), portal: Some(334)),
+      ],
+    ),
+    (
+      floor: -3.7778,
+      ceil: -0.6667,
+      vertices: [
+        (35.0, -64.0),
+        (35.0, -62.0),
+        (35.375, -62.0),
+        (36.625, -62.0),
+        (37.0, -62.0),
+        (37.0, -64.0),
+        (36.625, -64.0),
+        (35.375, -64.0),
+      ],
+      walls: [
+        (color: (109, 83, 56), portal: Some(107), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (98, 98, 98), portal: None),
+        (color: (109, 83, 56), portal: None),
+        (color: (98, 98, 98), portal: None),
+        (color: (109, 83, 56), portal: Some(246), upper_color: Some((109, 83, 56)), lower_color: Some((109, 83, 56))),
+        (color: (98, 98, 98), portal: None),
+        (color: (109, 83, 56), portal: None),
+        (color: (98, 98, 98), portal: None),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (46.75, -71.75),
+        (46.75, -71.875),
+        (46.0, -72.0),
+      ],
+      walls: [
+        (color: (67, 40, 40), portal: Some(364), upper_color: Some((67, 40, 40))),
+        (color: (89, 75, 67), portal: Some(355)),
+        (color: (89, 75, 67), portal: Some(359)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (46.0, -72.0),
+        (46.75, -71.875),
+        (47.25, -71.875),
+      ],
+      walls: [
+        (color: (89, 75, 67), portal: Some(354)),
+        (color: (67, 40, 40), portal: Some(364), upper_color: Some((67, 40, 40))),
+        (color: (89, 75, 67), portal: Some(358)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (48.0, -71.0),
+        (48.0, -72.0),
+        (47.5, -72.0),
+      ],
+      walls: [
+        (color: (161, 161, 161), portal: None),
+        (color: (109, 87, 66), portal: None),
+        (color: (89, 75, 67), portal: Some(363)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (46.0, -72.0),
+        (46.0, -71.0),
+        (48.0, -71.0),
+      ],
+      walls: [
+        (color: (161, 161, 161), portal: None),
+        (color: (33, 39, 26), portal: Some(347), upper_color: Some((33, 39, 26)), lower_color: Some((33, 39, 26))),
+        (color: (89, 75, 67), portal: Some(359)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (46.5, -72.0),
+        (46.0, -72.0),
+        (47.25, -71.875),
+      ],
+      walls: [
+        (color: (109, 87, 66), portal: None),
+        (color: (89, 75, 67), portal: Some(355)),
+        (color: (89, 75, 67), portal: Some(360)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (46.75, -71.75),
+        (46.0, -72.0),
+        (48.0, -71.0),
+      ],
+      walls: [
+        (color: (89, 75, 67), portal: Some(354)),
+        (color: (89, 75, 67), portal: Some(357)),
+        (color: (89, 75, 67), portal: Some(361)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (47.5, -72.0),
+        (46.5, -72.0),
+        (47.25, -71.875),
+      ],
+      walls: [
+        (color: (109, 87, 66), portal: Some(365), upper_color: Some((109, 87, 66))),
+        (color: (89, 75, 67), portal: Some(358)),
+        (color: (89, 75, 67), portal: Some(362)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (47.25, -71.75),
+        (46.75, -71.75),
+        (48.0, -71.0),
+      ],
+      walls: [
+        (color: (67, 40, 40), portal: Some(364), upper_color: Some((67, 40, 40))),
+        (color: (89, 75, 67), portal: Some(359)),
+        (color: (89, 75, 67), portal: Some(363)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (47.5, -72.0),
+        (47.25, -71.875),
+        (47.25, -71.75),
+      ],
+      walls: [
+        (color: (89, 75, 67), portal: Some(360)),
+        (color: (67, 40, 40), portal: Some(364), upper_color: Some((67, 40, 40))),
+        (color: (89, 75, 67), portal: Some(363)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (47.25, -71.75),
+        (48.0, -71.0),
+        (47.5, -72.0),
+      ],
+      walls: [
+        (color: (89, 75, 67), portal: Some(361)),
+        (color: (89, 75, 67), portal: Some(356)),
+        (color: (89, 75, 67), portal: Some(362)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.5556,
+      vertices: [
+        (46.75, -71.75),
+        (47.25, -71.75),
+        (47.25, -71.875),
+        (46.75, -71.875),
+      ],
+      walls: [
+        (color: (96, 96, 104), portal: Some(361)),
+        (color: (96, 96, 104), portal: Some(362)),
+        (color: (96, 96, 104), portal: Some(355)),
+        (color: (96, 96, 104), portal: Some(354)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (46.5, -72.375),
+        (46.5, -72.0),
+        (47.5, -72.0),
+        (47.5, -72.375),
+      ],
+      walls: [
+        (color: (71, 67, 56), portal: None),
+        (color: (71, 67, 56), portal: Some(360)),
+        (color: (71, 67, 56), portal: None),
+        (color: (71, 67, 56), portal: Some(366), upper_color: Some((71, 67, 56))),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 1.3333,
+      vertices: [
+        (47.5, -72.375),
+        (47.5, -72.625),
+        (46.5, -72.625),
+        (46.5, -72.375),
+      ],
+      walls: [
+        (color: (43, 43, 43), portal: None),
+        (color: (43, 43, 43), portal: Some(380)),
+        (color: (43, 43, 43), portal: None),
+        (color: (43, 43, 43), portal: Some(365)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (46.75, -75.625),
+        (46.75, -75.75),
+        (45.5, -76.0),
+      ],
+      walls: [
+        (color: (67, 40, 40), portal: Some(379), upper_color: Some((67, 40, 40))),
+        (color: (95, 71, 58), portal: Some(368)),
+        (color: (95, 71, 58), portal: Some(371)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (45.5, -76.0),
+        (46.75, -75.75),
+        (47.25, -75.75),
+      ],
+      walls: [
+        (color: (95, 71, 58), portal: Some(367)),
+        (color: (67, 40, 40), portal: Some(379), upper_color: Some((67, 40, 40))),
+        (color: (95, 71, 58), portal: Some(372)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (47.5, -73.0),
+        (48.5, -73.0),
+        (48.5, -76.0),
+      ],
+      walls: [
+        (color: (109, 87, 66), portal: None),
+        (color: (109, 87, 66), portal: None),
+        (color: (95, 71, 58), portal: Some(373)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (45.5, -74.0),
+        (45.5, -73.0),
+        (46.5, -73.0),
+      ],
+      walls: [
+        (color: (109, 87, 66), portal: None),
+        (color: (109, 87, 66), portal: None),
+        (color: (95, 71, 58), portal: Some(374)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (46.75, -75.625),
+        (45.5, -76.0),
+        (45.5, -75.0),
+      ],
+      walls: [
+        (color: (95, 71, 58), portal: Some(367)),
+        (color: (109, 87, 66), portal: None),
+        (color: (95, 71, 58), portal: Some(375)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (48.5, -76.0),
+        (45.5, -76.0),
+        (47.25, -75.75),
+      ],
+      walls: [
+        (color: (109, 87, 66), portal: None),
+        (color: (95, 71, 58), portal: Some(368)),
+        (color: (95, 71, 58), portal: Some(376)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (46.5, -73.0),
+        (47.5, -73.0),
+        (48.5, -76.0),
+      ],
+      walls: [
+        (color: (109, 87, 66), portal: Some(380), upper_color: Some((109, 87, 66))),
+        (color: (95, 71, 58), portal: Some(369)),
+        (color: (95, 71, 58), portal: Some(377)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (45.5, -75.0),
+        (45.5, -74.0),
+        (46.5, -73.0),
+      ],
+      walls: [
+        (color: (108, 87, 69), portal: None),
+        (color: (95, 71, 58), portal: Some(370)),
+        (color: (95, 71, 58), portal: Some(377)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (47.25, -75.625),
+        (46.75, -75.625),
+        (45.5, -75.0),
+      ],
+      walls: [
+        (color: (67, 40, 40), portal: Some(379), upper_color: Some((67, 40, 40))),
+        (color: (95, 71, 58), portal: Some(371)),
+        (color: (95, 71, 58), portal: Some(378)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (48.5, -76.0),
+        (47.25, -75.75),
+        (47.25, -75.625),
+      ],
+      walls: [
+        (color: (95, 71, 58), portal: Some(372)),
+        (color: (67, 40, 40), portal: Some(379), upper_color: Some((67, 40, 40))),
+        (color: (95, 71, 58), portal: Some(378)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (45.5, -75.0),
+        (46.5, -73.0),
+        (48.5, -76.0),
+      ],
+      walls: [
+        (color: (95, 71, 58), portal: Some(374)),
+        (color: (95, 71, 58), portal: Some(373)),
+        (color: (95, 71, 58), portal: Some(378)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (48.5, -76.0),
+        (47.25, -75.625),
+        (45.5, -75.0),
+      ],
+      walls: [
+        (color: (95, 71, 58), portal: Some(376)),
+        (color: (95, 71, 58), portal: Some(375)),
+        (color: (95, 71, 58), portal: Some(377)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.0,
+      vertices: [
+        (46.75, -75.625),
+        (47.25, -75.625),
+        (47.25, -75.75),
+        (46.75, -75.75),
+      ],
+      walls: [
+        (color: (96, 96, 104), portal: Some(375)),
+        (color: (96, 96, 104), portal: Some(376)),
+        (color: (96, 96, 104), portal: Some(368)),
+        (color: (96, 96, 104), portal: Some(367)),
+      ],
+    ),
+    (
+      floor: -0.6667,
+      ceil: 2.4444,
+      vertices: [
+        (47.5, -72.625),
+        (47.5, -73.0),
+        (46.5, -73.0),
+        (46.5, -72.625),
+      ],
+      walls: [
+        (color: (71, 67, 56), portal: None),
+        (color: (71, 67, 56), portal: Some(373)),
+        (color: (71, 67, 56), portal: None),
+        (color: (71, 67, 56), portal: Some(366), upper_color: Some((71, 67, 56))),
+      ],
+    ),
+  ],
+)
