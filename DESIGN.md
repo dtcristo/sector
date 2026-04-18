@@ -75,7 +75,7 @@ The runtime:
 4. Spawns one `Player` entity and one entity per sector.
 5. Uses the map's explicit spawn position and facing direction.
 
-The default map path is exposed through `DEFAULT_MAP_FILE_PATH` in `src/lib.rs`.
+The runtime accepts an optional map path argument and otherwise falls back to `DEFAULT_MAP_FILE_PATH` from `src/lib.rs`.
 
 ### Player and movement
 

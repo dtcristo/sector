@@ -1,5 +1,5 @@
-play:
-    @just dev sector
+play MAP_NAME="default":
+    cargo run --bin sector --features "sector bevy/dynamic_linking" -- assets/maps/{{MAP_NAME}}.map.ron
 
 edit:
     @just dev sector_edit
@@ -16,8 +16,8 @@ dev BIN_NAME:
 run BIN_NAME:
     cargo run --bin {{BIN_NAME}} --features {{BIN_NAME}} --release
 
-validate-map MAP_PATH="assets/maps/default.map.ron":
-    cargo run --bin sector_validate -- {{MAP_PATH}}
+validate MAP_NAME="default":
+    cargo run --bin sector_validate -- assets/maps/{{MAP_NAME}}.map.ron
 
 serve-web: build-web
     miniserve --index index.html wasm

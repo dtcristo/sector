@@ -35,7 +35,8 @@ The runtime and editor share the same RON map format in `assets/maps/*.map.ron`.
 
 ```sh
 cargo test --features "sector sector_edit"
-cargo run --features sector --bin sector
+cargo run --features sector --bin sector -- assets/maps/default.map.ron
+cargo run --features sector --bin sector -- assets/maps/e1m1.map.ron
 cargo run --features sector_edit --bin sector_edit
 cargo run --bin sector_validate -- assets/maps/default.map.ron
 ```
@@ -44,9 +45,20 @@ If you use `just`, the current shortcuts are:
 
 ```sh
 just play
+just play default
+just play e1m1
 just edit
-just validate-map
+just validate
+just validate default
+just validate e1m1
 ```
+
+`just play` and `just validate` both default to the `default` map when no map name is provided.
+
+## Shipped maps
+
+- `default`: hand-authored testbed map for movement, rendering, stairs, portals, crouch spaces, and overlapping-height rooms
+- `e1m1`: imported from the DOOM shareware WAD, with doors represented open, sky sectors approximated by high ceilings, and wall colors derived from the average colors of the source textures
 
 ## Map authoring notes
 

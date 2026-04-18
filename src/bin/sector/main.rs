@@ -17,14 +17,17 @@ use sector::{
     render::{render_frame, Automap, HEIGHT, WIDTH, WINDOW_SCALE},
     *,
 };
-use std::path::PathBuf;
 use std::time::Duration;
+use std::{env, path::PathBuf};
 
 #[derive(Resource, Debug, PartialEq)]
 struct AutomapMode(Automap);
 
 #[derive(Resource, Debug)]
 struct WindowTitleTimer(Timer);
+
+#[derive(Resource, Debug, Clone)]
+struct RuntimeMapPath(PathBuf);
 
 struct SectorRuntimePlugin;
 
@@ -54,6 +57,8 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
+    let map_path = runtime_map_path_from_args();
+
     App::new()
         .register_type::<SectorId>()
         .register_type::<Option<SectorId>>()
@@ -66,6 +71,7 @@ fn main() {
         .register_type::<RawColor>()
         .register_type::<Vec<RawColor>>()
         .register_type::<[u8; 3]>()
+        .insert_resource(RuntimeMapPath(map_path))
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
@@ -103,8 +109,19 @@ fn main() {
         .run();
 }
 
+fn runtime_map_path_from_args() -> PathBuf {
+    let mut args = env::args_os();
+    let _ = args.next();
+    let map_path = args.next().map(PathBuf::from);
+    if args.next().is_some() {
+        panic!("usage: cargo run --features sector --bin sector -- [map-path]");
+    }
+
+    map_path.unwrap_or_else(|| PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH))
+}
+
 fn init_runtime_system(world: &mut World) {
-    let map_path = PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH);
+    let map_path = world.resource::<RuntimeMapPath>().0.clone();
     println!("sector: loading map from {}", map_path.display());
 
     let map = load_map_from_path(&map_path)
