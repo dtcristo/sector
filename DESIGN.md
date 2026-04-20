@@ -220,5 +220,6 @@ The working conventions tied to the current design are:
 - check with `cargo check --all --features "sector sector_edit doom_import"`
 - run the existing tests with `cargo test --features "sector sector_edit doom_import"`
 - validate map assets after map changes
+- CI/CD should mirror that native verification set before building and deploying the wasm runtime bundle
 
 `README.md` should describe the user-facing workflow, while this file should remain the durable source of truth for architecture and design intent.

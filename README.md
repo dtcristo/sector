@@ -74,6 +74,10 @@ While playing, press `Shift+/` (`?`) to print a RON-style runtime state dump to 
 
 Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` at build time and embeds every shipped map so new maps can be exposed by route after rebuilding the web output.
 
+## CI/CD
+
+`.github/workflows/ci-cd.yml` runs formatting, native checks, tests, shipped-map validation, and the web bundle build on pushes and pull requests. Pushes to `main` then deploy the generated `wasm/` bundle to Cloudflare Pages project `sector`.
+
 ## Shipped maps
 
 - `default`: hand-authored testbed map for movement, rendering, stairs, portals, crouch spaces, and overlapping-height rooms
