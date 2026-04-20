@@ -34,6 +34,15 @@ struct WindowTitleTimer(Timer);
 #[derive(Resource, Debug, Clone)]
 struct RuntimeMapPath(PathBuf);
 
+#[derive(Resource, Debug, Clone)]
+struct RuntimeSectors(Vec<Sector>);
+
+impl RuntimeSectors {
+    fn as_slice(&self) -> &[Sector] {
+        &self.0
+    }
+}
+
 struct SectorRuntimePlugin;
 
 impl Plugin for SectorRuntimePlugin {
@@ -222,10 +231,7 @@ fn init_runtime_system(world: &mut World) {
         map.initial_direction_degrees,
     );
 
-    world.spawn(initial_sector);
-    for sector in sectors {
-        world.spawn(sector);
-    }
+    world.insert_resource(RuntimeSectors(sectors));
 
     println!("sector: runtime ready");
 }
@@ -358,9 +364,9 @@ fn debug_dump_requested(keys: &ButtonInput<KeyCode>) -> bool {
 
 fn dump_runtime_state_system(
     map_path: Res<RuntimeMapPath>,
+    runtime_sectors: Res<RuntimeSectors>,
     key: Res<ButtonInput<KeyCode>>,
     player_query: Query<&Player>,
-    sector_query: Query<&Sector>,
 ) {
     if !debug_dump_requested(&key) {
         return;
@@ -369,8 +375,7 @@ fn dump_runtime_state_system(
     let Ok(player) = player_query.single() else {
         return;
     };
-    let sectors = sector_query.iter().collect::<Vec<_>>();
-    let dump = build_runtime_state_dump(&map_path.0, player, &sectors);
+    let dump = build_runtime_state_dump(&map_path.0, player, runtime_sectors.as_slice());
     let pretty = PrettyConfig::default()
         .struct_names(true)
         .enumerate_arrays(true)
@@ -383,22 +388,13 @@ fn dump_runtime_state_system(
 fn build_runtime_state_dump(
     map_path: &Path,
     player: &Player,
-    sectors: &[&Sector],
+    sectors: &[Sector],
 ) -> RuntimeStateDump {
-    let resolved_sector = resolve_current_sector(
-        player.position,
-        player.current_sector,
-        sectors.iter().copied(),
-    )
-    .map(|sector_id| sector_id.0);
+    let resolved_sector = resolve_current_sector(player.position, player.current_sector, sectors)
+        .map(|sector_id| sector_id.0);
     let current_sector = player
         .current_sector
-        .and_then(|sector_id| {
-            sectors
-                .iter()
-                .copied()
-                .find(|sector| sector.id == sector_id)
-        })
+        .and_then(|sector_id| sectors.iter().find(|sector| sector.id == sector_id))
         .map(|sector| build_sector_state_dump(sector, sectors));
 
     RuntimeStateDump {
@@ -421,7 +417,7 @@ fn build_runtime_state_dump(
     }
 }
 
-fn build_sector_state_dump(sector: &Sector, sectors: &[&Sector]) -> SectorStateDump {
+fn build_sector_state_dump(sector: &Sector, sectors: &[Sector]) -> SectorStateDump {
     let walls = (0..sector.vertices.len())
         .map(|index| {
             let start = sector.vertices[index].0;
@@ -429,7 +425,6 @@ fn build_sector_state_dump(sector: &Sector, sectors: &[&Sector]) -> SectorStateD
             let portal = sector.portal_sectors[index].and_then(|sector_id| {
                 sectors
                     .iter()
-                    .copied()
                     .find(|candidate| candidate.id == sector_id)
                     .map(|target| PortalStateDump {
                         target_sector: target.id.0,
@@ -505,19 +500,24 @@ fn player_simulation_system(
     mut player_query: Query<&mut Player>,
     key: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    sector_query: Query<&Sector>,
+    runtime_sectors: Res<RuntimeSectors>,
 ) {
     let Ok(mut player) = player_query.single_mut() else {
         return;
     };
     let input = PlayerInput::from_keys(&key, key.just_pressed(KeyCode::Space));
-    simulate_player(&mut player, input, time.delta_secs(), sector_query.iter());
+    simulate_player(
+        &mut player,
+        input,
+        time.delta_secs(),
+        runtime_sectors.as_slice(),
+    );
 }
 
 fn draw_frame_system(
     automap: Res<AutomapMode>,
     player_query: Query<&Player>,
-    sector_query: Query<&Sector>,
+    runtime_sectors: Res<RuntimeSectors>,
     mut wrapper_query: Query<&mut PixelsWrapper>,
 ) {
     let Ok(player) = player_query.single() else {
@@ -529,7 +529,7 @@ fn draw_frame_system(
     render_frame(
         wrapper.pixels.frame_mut(),
         &player_render_view(player),
-        sector_query.iter(),
+        runtime_sectors.as_slice(),
         automap.0,
     );
 }
@@ -597,7 +597,7 @@ mod tests {
             grounded: false,
             crouching: true,
         };
-        let sectors = [&current, &target];
+        let sectors = [current, target];
 
         let dump =
             build_runtime_state_dump(Path::new("assets/maps/test.map.ron"), &player, &sectors);

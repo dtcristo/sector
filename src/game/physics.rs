@@ -12,24 +12,25 @@ use super::{
 const POSITION_EPSILON: f32 = 0.0001;
 const AIR_CROUCH_FEET_LIFT: f32 = PLAYER_EYE_HEIGHT_METERS - PLAYER_CROUCH_EYE_HEIGHT_METERS;
 
-pub fn simulate_player<'a>(
+pub fn simulate_player(
     player: &mut Player,
     input: PlayerInput,
     dt_seconds: f32,
-    sectors: impl IntoIterator<Item = &'a Sector>,
+    sectors: &[Sector],
 ) {
-    let sectors: Vec<_> = sectors.into_iter().collect();
     if sectors.is_empty() {
         return;
     }
 
+    let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, sector)).collect();
     player.current_sector = resolve_current_sector_with_height(
         player.position,
         player.current_sector,
-        sectors.iter().copied(),
+        sectors,
+        &sectors_by_id,
         player.height(),
     );
-    update_crouch_state(&mut *player, input, &sectors);
+    update_crouch_state(&mut *player, input, &sectors_by_id);
 
     let horizontal_velocity = desired_horizontal_velocity(player, input);
     player.velocity.x = horizontal_velocity.x;
@@ -37,7 +38,7 @@ pub fn simulate_player<'a>(
 
     let movement_delta = horizontal_velocity.truncate() * dt_seconds;
     let (horizontal_position, sector_id, stepped_floor) =
-        move_player_horizontally(player, movement_delta, &sectors);
+        move_player_horizontally(player, movement_delta, sectors, &sectors_by_id);
     player.position.0.x = horizontal_position.x;
     player.position.0.y = horizontal_position.y;
     player.current_sector = sector_id.or(player.current_sector);
@@ -48,12 +49,9 @@ pub fn simulate_player<'a>(
         player.grounded = true;
     }
 
-    let current_sector = player.current_sector.and_then(|sector_id| {
-        sectors
-            .iter()
-            .find(|sector| sector.id == sector_id)
-            .copied()
-    });
+    let current_sector = player
+        .current_sector
+        .and_then(|sector_id| sectors_by_id.get(&sector_id).copied());
 
     if let Some(current_sector) = current_sector {
         if player.position.0.z > current_sector.floor.0 + POSITION_EPSILON {
@@ -80,17 +78,16 @@ pub fn simulate_player<'a>(
     player.current_sector = resolve_current_sector_with_height(
         player.position,
         player.current_sector,
-        sectors.iter().copied(),
+        sectors,
+        &sectors_by_id,
         player.height(),
     );
-    update_crouch_state(&mut *player, input, &sectors);
+    update_crouch_state(&mut *player, input, &sectors_by_id);
 
-    if let Some(current_sector) = player.current_sector.and_then(|sector_id| {
-        sectors
-            .iter()
-            .find(|sector| sector.id == sector_id)
-            .copied()
-    }) {
+    if let Some(current_sector) = player
+        .current_sector
+        .and_then(|sector_id| sectors_by_id.get(&sector_id).copied())
+    {
         let max_feet_z = current_sector.ceil.0 - player.height();
         if player.position.0.z > max_feet_z {
             player.position.0.z = max_feet_z;
@@ -109,29 +106,40 @@ pub fn simulate_player<'a>(
     }
 }
 
-pub fn resolve_current_sector<'a>(
+pub fn resolve_current_sector(
     position: Position3,
     current_sector: Option<SectorId>,
-    sectors: impl IntoIterator<Item = &'a Sector>,
+    sectors: &[Sector],
 ) -> Option<SectorId> {
-    resolve_current_sector_with_height(position, current_sector, sectors, PLAYER_HEIGHT_METERS)
+    let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, sector)).collect();
+    resolve_current_sector_with_height(
+        position,
+        current_sector,
+        sectors,
+        &sectors_by_id,
+        PLAYER_HEIGHT_METERS,
+    )
 }
 
-fn resolve_current_sector_with_height<'a>(
+fn resolve_current_sector_with_height(
     position: Position3,
     current_sector: Option<SectorId>,
-    sectors: impl IntoIterator<Item = &'a Sector>,
+    sectors: &[Sector],
+    sectors_by_id: &HashMap<SectorId, &Sector>,
     player_height: f32,
 ) -> Option<SectorId> {
-    let sectors: Vec<_> = sectors.into_iter().collect();
-    let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
-    let matching_sectors = sectors
-        .iter()
-        .copied()
-        .filter(|sector| sector_matches_position_for_resolution(sector, position, player_height))
-        .collect::<Vec<_>>();
+    let mut first_matching_sector = None;
+    let mut current_sector_matches = false;
+    for sector in sectors {
+        if sector_matches_position_for_resolution(sector, position, player_height) {
+            first_matching_sector.get_or_insert(sector.id);
+            if Some(sector.id) == current_sector {
+                current_sector_matches = true;
+            }
+        }
+    }
 
-    if matching_sectors.is_empty() {
+    if first_matching_sector.is_none() {
         if let Some(current_sector_id) = current_sector {
             if let Some(sector) = sectors_by_id.get(&current_sector_id).copied() {
                 if sector_contains_horizontal_point(sector, position.truncate().0) {
@@ -145,8 +153,7 @@ fn resolve_current_sector_with_height<'a>(
     if let Some(current_sector_id) = current_sector {
         if let Some(sector) = sectors_by_id.get(&current_sector_id).copied() {
             if let Some(adjacent_sector_id) = sector
-                .wall_segments()
-                .into_iter()
+                .wall_segments_iter()
                 .filter_map(|wall| wall.portal_walkable.then_some(wall.portal_sector).flatten())
                 .find(|portal_id| {
                     sectors_by_id
@@ -168,16 +175,13 @@ fn resolve_current_sector_with_height<'a>(
                 return Some(adjacent_sector_id);
             }
 
-            if matching_sectors
-                .iter()
-                .any(|matching_sector| matching_sector.id == current_sector_id)
-            {
+            if current_sector_matches {
                 return Some(current_sector_id);
             }
         }
     }
 
-    matching_sectors.first().map(|sector| sector.id)
+    first_matching_sector
 }
 
 pub fn sector_contains_player(sector: &Sector, position: Position3) -> bool {
@@ -248,15 +252,16 @@ fn sector_contains_horizontal_point(sector: &Sector, point: Vec2) -> bool {
 fn move_player_horizontally(
     player: &Player,
     desired_delta: Vec2,
-    sectors: &[&Sector],
+    sectors: &[Sector],
+    sectors_by_id: &HashMap<SectorId, &Sector>,
 ) -> (Vec2, Option<SectorId>, Option<f32>) {
-    let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
     let mut position = player.position.truncate().0;
     let sector_id = player.current_sector.or_else(|| {
         resolve_current_sector_with_height(
             player.position,
             None,
-            sectors.iter().copied(),
+            sectors,
+            sectors_by_id,
             player.height(),
         )
     });
@@ -269,7 +274,8 @@ fn move_player_horizontally(
         let target_sector = resolve_current_sector_with_height(
             target_position,
             None,
-            sectors.iter().copied(),
+            sectors,
+            sectors_by_id,
             player.height(),
         );
         return (target, target_sector, None);
@@ -326,8 +332,7 @@ fn find_portal_transition(
     sectors_by_id: &HashMap<SectorId, &Sector>,
 ) -> Option<PortalTransition> {
     sector
-        .wall_segments()
-        .into_iter()
+        .wall_segments_iter()
         .filter_map(|wall| {
             if !wall.portal_walkable {
                 return None;
@@ -353,7 +358,7 @@ fn clip_target_against_blocking_walls(
     for _ in 0..sector.vertices.len().max(1) {
         let mut changed = false;
 
-        for wall in sector.wall_segments() {
+        for wall in sector.wall_segments_iter() {
             if wall.portal_walkable
                 && wall
                     .portal_sector
@@ -470,7 +475,11 @@ fn portal_clearance(player: &Player, target_sector: &Sector) -> Option<f32> {
     Some(feet_z)
 }
 
-fn update_crouch_state(player: &mut Player, input: PlayerInput, sectors: &[&Sector]) {
+fn update_crouch_state(
+    player: &mut Player,
+    input: PlayerInput,
+    sectors_by_id: &HashMap<SectorId, &Sector>,
+) {
     if input.crouch_pressed {
         if !player.crouching {
             if !player.grounded {
@@ -485,12 +494,10 @@ fn update_crouch_state(player: &mut Player, input: PlayerInput, sectors: &[&Sect
         return;
     }
 
-    let Some(current_sector) = player.current_sector.and_then(|sector_id| {
-        sectors
-            .iter()
-            .find(|sector| sector.id == sector_id)
-            .copied()
-    }) else {
+    let Some(current_sector) = player
+        .current_sector
+        .and_then(|sector_id| sectors_by_id.get(&sector_id).copied())
+    else {
         if !player.grounded {
             player.position.0.z -= AIR_CROUCH_FEET_LIFT;
         }
@@ -588,8 +595,7 @@ fn position_on_portal_boundary(
 ) -> bool {
     let point = position.truncate().0;
     sector
-        .wall_segments()
-        .into_iter()
+        .wall_segments_iter()
         .filter(|wall| wall.portal_walkable && wall.portal_sector == Some(portal_sector_id))
         .any(|wall| point_on_segment(point, wall.left.0, wall.right.0))
 }
@@ -750,7 +756,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -790,33 +796,24 @@ mod tests {
     #[test]
     fn resolve_current_sector_prefers_adjacent_portal_sector() {
         let sectors = portal_pair(0.0, 0.2);
-        let resolved = resolve_current_sector(
-            Position3(vec3(0.0, 2.0, 0.2)),
-            Some(SectorId(0)),
-            sectors.iter(),
-        );
+        let resolved =
+            resolve_current_sector(Position3(vec3(0.0, 2.0, 0.2)), Some(SectorId(0)), &sectors);
         assert_eq!(resolved, Some(SectorId(1)));
     }
 
     #[test]
     fn resolve_current_sector_switches_on_shared_portal_boundary() {
         let sectors = portal_pair(0.0, 0.2);
-        let resolved = resolve_current_sector(
-            Position3(vec3(0.0, 1.0, 0.2)),
-            Some(SectorId(0)),
-            sectors.iter(),
-        );
+        let resolved =
+            resolve_current_sector(Position3(vec3(0.0, 1.0, 0.2)), Some(SectorId(0)), &sectors);
         assert_eq!(resolved, Some(SectorId(1)));
     }
 
     #[test]
     fn resolve_current_sector_returns_none_when_outside_all_geometry() {
         let sectors = [simple_room()];
-        let resolved = resolve_current_sector(
-            Position3(vec3(5.0, 0.0, 0.0)),
-            Some(SectorId(0)),
-            sectors.iter(),
-        );
+        let resolved =
+            resolve_current_sector(Position3(vec3(5.0, 0.0, 0.0)), Some(SectorId(0)), &sectors);
         assert_eq!(resolved, None);
     }
 
@@ -835,17 +832,12 @@ mod tests {
                 ..PlayerInput::default()
             },
             1.0 / 60.0,
-            sectors.iter(),
+            &sectors,
         );
 
         let mut peak = player.position.0.z;
         for _ in 0..240 {
-            simulate_player(
-                &mut player,
-                PlayerInput::default(),
-                1.0 / 60.0,
-                sectors.iter(),
-            );
+            simulate_player(&mut player, PlayerInput::default(), 1.0 / 60.0, &sectors);
             peak = peak.max(player.position.0.z);
         }
 
@@ -871,7 +863,7 @@ mod tests {
                 ..PlayerInput::default()
             },
             1.0 / 60.0,
-            sectors.iter(),
+            &sectors,
         );
 
         assert!(player.grounded);
@@ -897,7 +889,7 @@ mod tests {
                 ..PlayerInput::default()
             },
             0.0,
-            sectors.iter(),
+            &sectors,
         );
 
         assert!(player.crouching);
@@ -923,7 +915,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
             eprintln!(
                 "player pos=({:.3},{:.3},{:.3}) sector={:?}",
@@ -956,7 +948,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -982,7 +974,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1010,7 +1002,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1036,7 +1028,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1061,7 +1053,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1088,7 +1080,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1102,11 +1094,8 @@ mod tests {
         sectors[0].portal_walkable[0] = false;
         sectors[1].portal_walkable[0] = false;
 
-        let resolved = resolve_current_sector(
-            Position3(vec3(0.0, 1.0, 0.2)),
-            Some(SectorId(0)),
-            sectors.iter(),
-        );
+        let resolved =
+            resolve_current_sector(Position3(vec3(0.0, 1.0, 0.2)), Some(SectorId(0)), &sectors);
 
         assert_eq!(resolved, Some(SectorId(0)));
     }
@@ -1128,7 +1117,7 @@ mod tests {
                 ..PlayerInput::default()
             },
             1.0 / 60.0,
-            sectors.iter(),
+            &sectors,
         );
 
         assert_eq!(player.current_sector, Some(SectorId(0)));
@@ -1156,7 +1145,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1184,7 +1173,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1210,7 +1199,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1225,7 +1214,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1252,7 +1241,7 @@ mod tests {
                 ..PlayerInput::default()
             },
             1.0 / 60.0,
-            sectors.iter(),
+            &sectors,
         );
         simulate_player(
             &mut crouch_jump,
@@ -1262,7 +1251,7 @@ mod tests {
                 ..PlayerInput::default()
             },
             1.0 / 60.0,
-            sectors.iter(),
+            &sectors,
         );
 
         for frame in 0..45 {
@@ -1273,7 +1262,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
             simulate_player(
                 &mut crouch_jump,
@@ -1283,7 +1272,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 1.0 / 60.0,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -1302,7 +1291,8 @@ mod tests {
             let mut player = player_query.single_mut().unwrap();
             let input = PlayerInput::from_keys(&keys, keys.just_pressed(KeyCode::Space));
             apply_player_look(&mut player, input);
-            simulate_player(&mut player, input, 1.0 / 60.0, sector_query.iter());
+            let sectors = sector_query.iter().cloned().collect::<Vec<_>>();
+            simulate_player(&mut player, input, 1.0 / 60.0, &sectors);
         }
 
         let mut app = App::new();
@@ -1351,12 +1341,7 @@ mod tests {
         player.current_sector = Some(initial_sector.0);
 
         for _ in 0..120 {
-            simulate_player(
-                &mut player,
-                PlayerInput::default(),
-                1.0 / 60.0,
-                sectors.iter(),
-            );
+            simulate_player(&mut player, PlayerInput::default(), 1.0 / 60.0, &sectors);
         }
 
         assert_eq!(player.current_sector, Some(initial_sector.0));

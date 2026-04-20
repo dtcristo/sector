@@ -101,16 +101,10 @@ impl RenderView {
     }
 }
 
-pub fn render_frame<'a>(
-    frame: &mut [u8],
-    view: &RenderView,
-    sectors: impl IntoIterator<Item = &'a Sector>,
-    automap: Automap,
-) {
+pub fn render_frame(frame: &mut [u8], view: &RenderView, sectors: &[Sector], automap: Automap) {
     clear_frame(frame);
-    let sectors: Vec<_> = sectors.into_iter().collect();
-    world::render_world(frame, view, &sectors);
-    automap::render_automap(frame, view, &sectors, automap);
+    world::render_world(frame, view, sectors);
+    automap::render_automap(frame, view, sectors, automap);
 }
 
 #[cfg(test)]
@@ -235,12 +229,12 @@ mod tests {
         };
         if resolve_sector {
             player.current_sector =
-                resolve_current_sector(player.position, player.current_sector, sectors.iter());
+                resolve_current_sector(player.position, player.current_sector, &sectors);
         }
         let view = player_render_view(&player);
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         frame
     }
@@ -339,7 +333,7 @@ mod tests {
             render_frame(
                 frame.as_mut_slice(),
                 &player_render_view(&player),
-                sectors.iter(),
+                &sectors,
                 Automap::Off,
             );
             frames.push(frame);
@@ -351,7 +345,7 @@ mod tests {
                     ..PlayerInput::default()
                 },
                 0.001,
-                sectors.iter(),
+                &sectors,
             );
         }
 
@@ -368,7 +362,7 @@ mod tests {
         let sectors = [room_with_front_wall(10.0)];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         assert!(frame
             .as_slice()
@@ -386,7 +380,7 @@ mod tests {
         let sectors = [room_with_front_wall(10.0)];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         assert!(frame
             .as_slice()
@@ -402,7 +396,7 @@ mod tests {
         let sectors = [room_with_front_wall(10.0)];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         let ceiling_pixel = frame.pixel(center_x, 10);
@@ -426,18 +420,8 @@ mod tests {
         let mut near_frame = FrameBuffer::new();
         let mut far_frame = FrameBuffer::new();
 
-        render_frame(
-            near_frame.as_mut_slice(),
-            &view,
-            near_room.iter(),
-            Automap::Off,
-        );
-        render_frame(
-            far_frame.as_mut_slice(),
-            &view,
-            far_room.iter(),
-            Automap::Off,
-        );
+        render_frame(near_frame.as_mut_slice(), &view, &near_room, Automap::Off);
+        render_frame(far_frame.as_mut_slice(), &view, &far_room, Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         let center_y = HEIGHT as usize / 2;
@@ -454,18 +438,8 @@ mod tests {
         let mut near_frame = FrameBuffer::new();
         let mut far_frame = FrameBuffer::new();
 
-        render_frame(
-            near_frame.as_mut_slice(),
-            &view,
-            near_room.iter(),
-            Automap::Off,
-        );
-        render_frame(
-            far_frame.as_mut_slice(),
-            &view,
-            far_room.iter(),
-            Automap::Off,
-        );
+        render_frame(near_frame.as_mut_slice(), &view, &near_room, Automap::Off);
+        render_frame(far_frame.as_mut_slice(), &view, &far_room, Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         assert!(near_frame.pixel(center_x, 10)[0] > far_frame.pixel(center_x, 10)[0]);
@@ -483,7 +457,7 @@ mod tests {
         let sectors = [room_with_front_wall(10.0)];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         let sample_xs = [48_usize, WIDTH as usize / 2, WIDTH as usize - 48];
         let ceiling_samples = sample_xs.map(|x| frame.pixel(x, 20));
@@ -512,7 +486,7 @@ mod tests {
         let sectors = [sector];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         assert_eq!(frame.pixel(center_x, 10), [0, 0, 0, 255]);
@@ -531,7 +505,7 @@ mod tests {
         let sectors = [sector];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         assert_eq!(frame.pixel(center_x, 10), [72, 96, 140, 255]);
@@ -548,7 +522,7 @@ mod tests {
         let sectors = [sector];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         let ceiling_pixel = frame.pixel(center_x, 10);
@@ -609,7 +583,7 @@ mod tests {
         ])];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         let center_y = HEIGHT as usize / 2;
@@ -630,7 +604,7 @@ mod tests {
         ])];
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         let center_x = WIDTH as usize / 2;
         let center_y = HEIGHT as usize / 2;
@@ -649,12 +623,7 @@ mod tests {
         let sectors = [room_with_front_wall(10.0)];
         let mut frame = FrameBuffer::new();
 
-        render_frame(
-            frame.as_mut_slice(),
-            &view,
-            sectors.iter(),
-            Automap::NorthUpFull,
-        );
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::NorthUpFull);
 
         assert_eq!(
             frame.pixel(WIDTH as usize / 2, HEIGHT as usize / 2),
@@ -697,11 +666,11 @@ mod tests {
         player.position = Position3(Vec3::new(0.0, 1.0, 0.2));
         player.current_sector = Some(SectorId(0));
         player.current_sector =
-            resolve_current_sector(player.position, player.current_sector, sectors.iter());
+            resolve_current_sector(player.position, player.current_sector, &sectors);
         let view = player_render_view(&player);
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         assert!(frame
             .as_slice()
@@ -789,7 +758,7 @@ mod tests {
         render_frame(
             frame.as_mut_slice(),
             &player_render_view(&player),
-            sectors.iter(),
+            &sectors,
             Automap::Off,
         );
 
@@ -819,7 +788,7 @@ mod tests {
         let view = player_render_view(&player);
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         assert!(frame
             .as_slice()
@@ -845,7 +814,7 @@ mod tests {
         let view = player_render_view(&player);
         let mut frame = FrameBuffer::new();
 
-        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+        render_frame(frame.as_mut_slice(), &view, &sectors, Automap::Off);
 
         assert_no_long_black_run_on_center_row(&frame);
     }

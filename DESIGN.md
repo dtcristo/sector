@@ -28,7 +28,7 @@ The repository currently has four primary binaries:
 The shared library code lives in `src/`:
 
 - `src/map.rs`: RON/MessagePack map asset formats, load/save helpers, wasm embedded-map lookup, and structural validation.
-- `src/world.rs`: runtime sector types and wall expansion helpers.
+- `src/world.rs`: runtime sector types and allocation-free wall expansion helpers.
 - `src/game/`: player state, input, and physics/movement simulation.
 - `src/render/`: software renderer, automap, projection math, and frame utilities.
 - `src/bin/sector_import_doom/importer.rs`: WAD parsing, color extraction, geometry conversion, and map emission for imported DOOM levels.
@@ -42,7 +42,7 @@ The shared library code lives in `src/`:
 The runtime world is intentionally small:
 
 - `Sector` stores an id, clockwise convex polygon vertices, per-wall colors, optional per-wall portal targets, per-portal walkability flags, optional portal trim colors, flat `floor`/`ceil` heights, per-sector `floor_color`/`ceil_color`, and a `no_ceiling` render flag.
-- `WallSegment` is derived from `Sector` and expands the implicit polygon loop into explicit wall edges.
+- `WallSegment` is derived from `Sector` and expands the implicit polygon loop into explicit wall edges through an allocation-free iterator used by the hot render and physics paths.
 - `InitialSector` marks the sector containing the spawn.
 
 This is a classic sector graph rather than a general polygon soup. Each sector is a flat-prism volume with a single floor height and single ceiling height.
@@ -78,8 +78,8 @@ The runtime:
 
 1. Resolves a map source.
 2. Validates it through `src/map.rs`.
-3. Converts `SectorMap` into runtime `Sector` components.
-4. Spawns one `Player` entity and one entity per sector.
+3. Converts `SectorMap` into runtime `Sector` values stored in a dedicated runtime resource.
+4. Spawns one `Player` entity and keeps static sector data out of the per-frame ECS query path.
 5. Uses the map's explicit spawn position and facing direction.
 
 On native builds, the runtime accepts an optional map path argument and otherwise falls back to `DEFAULT_MAP_FILE_PATH` from `src/lib.rs`.
@@ -103,6 +103,8 @@ Airborne crouching is intentionally slightly gamey: the camera stays fixed while
 
 The runtime also exposes a lightweight console debug path: pressing `?` prints a RON-style snapshot of the player's movement state plus the current sector's geometry and portal connections so map and physics issues can be inspected without adding a heavyweight debug UI.
 
+For performance, the movement code operates directly on the static runtime sector slice, builds sector-id lookup tables once per simulation step, and avoids per-wall temporary `Vec` allocation while checking portals and blocking walls.
+
 ### Rendering
 
 The renderer is a software rasterizer over a fixed 320x240 buffer scaled to the window. The visual style is deliberately limited:
@@ -123,6 +125,8 @@ At a high level:
 6. Apply a post-pass outline mask so seams stay crisp and single-pixel thick.
 
 The renderer is portal-based, not BSP-based. It depends on valid reciprocal portal topology and convex sectors to stay simple.
+
+The current render hot path avoids dynamic wall expansion and uses small per-surface shade ramps so wall, floor, and ceiling columns do not pay for repeated HSV-to-RGB conversion on every pixel.
 
 When two adjacent portal-connected sectors both use `no_ceiling`, the renderer suppresses the upper trim between them so imported sky openings read as one continuous sky span instead of a floating wall band.
 

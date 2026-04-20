@@ -20,7 +20,7 @@ struct PortalEdgeKey {
 pub(crate) fn render_automap(
     frame: &mut [u8],
     view: &RenderView,
-    sectors: &[&Sector],
+    sectors: &[Sector],
     automap: Automap,
 ) {
     if automap == Automap::Off {
@@ -34,7 +34,7 @@ pub(crate) fn render_automap(
     let mut drawn_portals = HashSet::new();
 
     for sector in sectors {
-        for wall in sector.wall_segments() {
+        for wall in sector.wall_segments_iter() {
             if wall.portal_sector.is_some()
                 && !drawn_portals.insert(portal_edge_key(wall.left, wall.right))
             {
@@ -226,12 +226,7 @@ mod tests {
         );
         let mut frame = super::super::FrameBuffer::new();
 
-        render_automap(
-            frame.as_mut_slice(),
-            &view,
-            &sectors.iter().collect::<Vec<_>>(),
-            Automap::NorthUpFull,
-        );
+        render_automap(frame.as_mut_slice(), &view, &sectors, Automap::NorthUpFull);
 
         let wall = [
             AUTOMAP_WALL_COLOR.0[0],
@@ -264,7 +259,7 @@ mod tests {
         render_automap(
             frame.as_mut_slice(),
             &view,
-            &sectors.iter().collect::<Vec<_>>(),
+            &sectors,
             Automap::NorthUpVisible,
         );
 
@@ -303,12 +298,7 @@ mod tests {
         );
         let mut frame = super::super::FrameBuffer::new();
 
-        render_automap(
-            frame.as_mut_slice(),
-            &view,
-            &sectors.iter().collect::<Vec<_>>(),
-            Automap::NorthUpFull,
-        );
+        render_automap(frame.as_mut_slice(), &view, &sectors, Automap::NorthUpFull);
 
         assert_eq!(
             frame.pixel(
@@ -338,12 +328,7 @@ mod tests {
         );
         let mut frame = super::super::FrameBuffer::new();
 
-        render_automap(
-            frame.as_mut_slice(),
-            &view,
-            &sectors.iter().collect::<Vec<_>>(),
-            Automap::NorthUpFull,
-        );
+        render_automap(frame.as_mut_slice(), &view, &sectors, Automap::NorthUpFull);
 
         let radius = (super::super::AUTOMAP_SCALE * PLAYER_RADIUS_METERS)
             .round()
@@ -373,7 +358,7 @@ mod tests {
         render_automap(
             frame.as_mut_slice(),
             &view,
-            &sectors.iter().collect::<Vec<_>>(),
+            &sectors,
             Automap::RotateVisible,
         );
 

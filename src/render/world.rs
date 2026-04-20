@@ -76,12 +76,43 @@ impl SurfaceTag {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+struct ShadeRamp {
+    bands: [RawColor; SHADE_BANDS],
+}
+
+impl ShadeRamp {
+    fn new(base_color: RawColor) -> Self {
+        let base_hsv: Hsv = Srgb::<u8>::from(base_color).into_format().into_color();
+        let mut bands = [base_color; SHADE_BANDS];
+        for (index, color) in bands.iter_mut().enumerate() {
+            let brightness = lerp(
+                BRIGHTNESS_NEAR,
+                BRIGHTNESS_FAR,
+                shade_band_t_for_index(index),
+            );
+            *color = Hsv::new(
+                base_hsv.hue,
+                base_hsv.saturation,
+                (base_hsv.value * brightness).clamp(0.0, 1.0),
+            )
+            .into();
+        }
+
+        Self { bands }
+    }
+
+    fn sample(self, distance: f32) -> RawColor {
+        self.bands[shade_band(distance)]
+    }
+}
+
 const CONTAINMENT_EPSILON: f32 = 0.001;
 const OUTLINE_COLOR: RawColor = RawColor([0, 0, 0]);
 const ROOT_PORTAL_EPSILON: f32 = 0.05;
 
-pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[&Sector]) {
-    let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, *sector)).collect();
+pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[Sector]) {
+    let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, sector)).collect();
     let root_sectors = root_sectors(view, sectors, &sectors_by_id);
     if root_sectors.is_empty() {
         return;
@@ -126,17 +157,13 @@ fn render_sector_tree<'a>(
         let sector = self_portal.sector;
         let view_floor = crate::Length(sector.floor.0 - view.position.0.z);
         let view_ceil = crate::Length(sector.ceil.0 - view.position.0.z);
-        let ceiling_hsv: Hsv = Srgb::<u8>::from(sector.ceil_color)
-            .into_format()
-            .into_color();
-        let floor_hsv: Hsv = Srgb::<u8>::from(sector.floor_color)
-            .into_format()
-            .into_color();
+        let ceiling_ramp = ShadeRamp::new(sector.ceil_color);
+        let floor_ramp = ShadeRamp::new(sector.floor_color);
         let ceiling_tag = SurfaceTag::ceiling(sector.ceil_color, sector.ceil.0);
         let floor_tag = SurfaceTag::floor(sector.floor_color, sector.floor.0);
         let sky_tag = sector.sky_color.map(SurfaceTag::sky);
 
-        'walls: for wall in sector.wall_segments() {
+        'walls: for wall in sector.wall_segments_iter() {
             let view_left = wall.left.transform(view_matrix);
             let view_right = wall.right.transform(view_matrix);
 
@@ -250,17 +277,13 @@ fn render_sector_tree<'a>(
                         (None, None, None)
                     };
 
-                let wall_hsv: Hsv = Srgb::<u8>::from(wall.color).into_format().into_color();
+                let wall_ramp = ShadeRamp::new(wall.color);
                 let wall_tag = SurfaceTag::wall(wall.color);
                 let portal_upper_color = wall.portal_upper_color.unwrap_or(wall.color);
-                let portal_upper_hsv: Hsv = Srgb::<u8>::from(portal_upper_color)
-                    .into_format()
-                    .into_color();
+                let portal_upper_ramp = ShadeRamp::new(portal_upper_color);
                 let portal_upper_tag = SurfaceTag::wall(portal_upper_color);
                 let portal_lower_color = wall.portal_lower_color.unwrap_or(wall.color);
-                let portal_lower_hsv: Hsv = Srgb::<u8>::from(portal_lower_color)
-                    .into_format()
-                    .into_color();
+                let portal_lower_ramp = ShadeRamp::new(portal_lower_color);
                 let portal_lower_tag = SurfaceTag::wall(portal_lower_color);
 
                 for x in x_left..x_right {
@@ -268,9 +291,9 @@ fn render_sector_tree<'a>(
                     let x_t = x_t.clamp(0.0, 1.0);
 
                     let distance = wall_distance(view_left.0.y, view_right.0.y, x_t);
-                    let wall_color = shade_color(wall_hsv, distance);
-                    let portal_upper_color = shade_color(portal_upper_hsv, distance);
-                    let portal_lower_color = shade_color(portal_lower_hsv, distance);
+                    let wall_color = wall_ramp.sample(distance);
+                    let portal_upper_color = portal_upper_ramp.sample(distance);
+                    let portal_lower_color = portal_lower_ramp.sample(distance);
                     let y_top = lerp(left_top_y, right_top_y, x_t).round() as isize;
                     let y_bottom = lerp(left_bottom_y, right_bottom_y, x_t).round() as isize;
                     let y_min = y_min_vec[x as usize];
@@ -285,7 +308,7 @@ fn render_sector_tree<'a>(
                             x,
                             y_min,
                             y_top,
-                            ceiling_hsv,
+                            ceiling_ramp,
                             ceiling_tag,
                             view_ceil.0,
                         );
@@ -374,7 +397,7 @@ fn render_sector_tree<'a>(
                         x,
                         y_bottom,
                         y_max,
-                        floor_hsv,
+                        floor_ramp,
                         floor_tag,
                         view_floor.0,
                     );
@@ -398,7 +421,7 @@ fn render_sector_tree<'a>(
 
 fn root_sectors<'a>(
     view: &RenderView,
-    sectors: &[&'a Sector],
+    sectors: &'a [Sector],
     sectors_by_id: &HashMap<SectorId, &'a Sector>,
 ) -> Vec<&'a Sector> {
     let mut roots = Vec::new();
@@ -412,14 +435,14 @@ fn root_sectors<'a>(
             || sector_intersects_view_near_plane(sector, view))
             && seen.insert(sector.id)
         {
-            roots.push(*sector);
+            roots.push(sector);
         }
     }
 
     if roots.is_empty() {
         for sector in sectors {
             if sector_has_portal_near_view(sector, view.position) && seen.insert(sector.id) {
-                roots.push(*sector);
+                roots.push(sector);
             }
         }
     }
@@ -467,8 +490,7 @@ fn sector_has_portal_near_view(sector: &Sector, position: Position3) -> bool {
 
     let point = position.truncate().0;
     sector
-        .wall_segments()
-        .into_iter()
+        .wall_segments_iter()
         .filter(|wall| wall.portal_sector.is_some())
         .any(|wall| position_near_wall(point, wall.left.0, wall.right.0))
 }
@@ -545,8 +567,7 @@ fn distance_to_segment(point: Vec2, start: Vec2, end: Vec2) -> f32 {
 
 fn segments_intersect_sector(sector: &Sector, start: Vec2, end: Vec2) -> bool {
     sector
-        .wall_segments()
-        .into_iter()
+        .wall_segments_iter()
         .any(|wall| segments_intersect(start, end, wall.left.0, wall.right.0))
 }
 
@@ -595,15 +616,15 @@ fn draw_surface_column(
     x: isize,
     y_top: isize,
     y_bottom: isize,
-    base_hsv: Hsv,
+    shade_ramp: ShadeRamp,
     surface_tag: SurfaceTag,
     plane_height: f32,
 ) {
     for y in y_top..y_bottom {
-        let color = shade_color(
-            base_hsv,
-            surface_distance(plane_height, surface_sample_y(plane_height, y)),
-        );
+        let color = shade_ramp.sample(surface_distance(
+            plane_height,
+            surface_sample_y(plane_height, y),
+        ));
         draw_surface_pixel(frame, surfaces, x, y, color, surface_tag);
     }
 }
@@ -697,6 +718,7 @@ fn surface_distance(plane_height: f32, y: f32) -> f32 {
     (plane_height.abs() * HEIGHT as f32 * 0.5 / (screen_offset * *TAN_FAC_FOV_Y_2)).max(NEAR)
 }
 
+#[cfg(test)]
 fn shade_color(base_hsv: Hsv, distance: f32) -> RawColor {
     let brightness = lerp(BRIGHTNESS_NEAR, BRIGHTNESS_FAR, shade_band_t(distance));
     Hsv::new(
@@ -722,13 +744,18 @@ fn shade_band(distance: f32) -> usize {
     }
 }
 
-fn shade_band_t(distance: f32) -> f32 {
+fn shade_band_t_for_index(index: usize) -> f32 {
     let bands = SHADE_BANDS.saturating_sub(1);
     if bands == 0 {
         0.0
     } else {
-        shade_band(distance) as f32 / bands as f32
+        index.min(bands) as f32 / bands as f32
     }
+}
+
+#[cfg(test)]
+fn shade_band_t(distance: f32) -> f32 {
+    shade_band_t_for_index(shade_band(distance))
 }
 
 #[cfg(test)]
@@ -786,10 +813,9 @@ mod tests {
                 4.0,
             ),
         ];
-        let sector_refs = sectors.iter().collect::<Vec<_>>();
-        let sectors_by_id = sector_refs
+        let sectors_by_id = sectors
             .iter()
-            .map(|sector| (sector.id, *sector))
+            .map(|sector| (sector.id, sector))
             .collect::<HashMap<_, _>>();
         let view = RenderView::new(
             Position3(vec3(0.0, 1.0, 1.62)),
@@ -797,7 +823,7 @@ mod tests {
             Some(SectorId(0)),
         );
 
-        let roots = root_sectors(&view, &sector_refs, &sectors_by_id);
+        let roots = root_sectors(&view, &sectors, &sectors_by_id);
 
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
@@ -822,10 +848,9 @@ mod tests {
                 4.0,
             ),
         ];
-        let sector_refs = sectors.iter().collect::<Vec<_>>();
-        let sectors_by_id = sector_refs
+        let sectors_by_id = sectors
             .iter()
-            .map(|sector| (sector.id, *sector))
+            .map(|sector| (sector.id, sector))
             .collect::<HashMap<_, _>>();
         let view = RenderView::new(
             Position3(vec3(0.0, 0.975, 1.62)),
@@ -833,7 +858,7 @@ mod tests {
             Some(SectorId(0)),
         );
 
-        let roots = root_sectors(&view, &sector_refs, &sectors_by_id);
+        let roots = root_sectors(&view, &sectors, &sectors_by_id);
 
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
@@ -858,10 +883,9 @@ mod tests {
                 3.0,
             ),
         ];
-        let sector_refs = sectors.iter().collect::<Vec<_>>();
-        let sectors_by_id = sector_refs
+        let sectors_by_id = sectors
             .iter()
-            .map(|sector| (sector.id, *sector))
+            .map(|sector| (sector.id, sector))
             .collect::<HashMap<_, _>>();
         let view = RenderView::new(
             Position3(vec3(0.0, 0.95, 1.62)),
@@ -869,7 +893,7 @@ mod tests {
             Some(SectorId(0)),
         );
 
-        let roots = root_sectors(&view, &sector_refs, &sectors_by_id);
+        let roots = root_sectors(&view, &sectors, &sectors_by_id);
 
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
@@ -894,14 +918,13 @@ mod tests {
                 4.0,
             ),
         ];
-        let sector_refs = sectors.iter().collect::<Vec<_>>();
-        let sectors_by_id = sector_refs
+        let sectors_by_id = sectors
             .iter()
-            .map(|sector| (sector.id, *sector))
+            .map(|sector| (sector.id, sector))
             .collect::<HashMap<_, _>>();
         let view = RenderView::new(Position3(vec3(0.0, 2.0, 1.62)), 0.0, Some(SectorId(0)));
 
-        let roots = root_sectors(&view, &sector_refs, &sectors_by_id);
+        let roots = root_sectors(&view, &sectors, &sectors_by_id);
 
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].id, SectorId(1));
@@ -961,15 +984,15 @@ mod tests {
         );
         far.colors[0] = RawColor([60, 180, 60]);
 
-        let sectors = [&near, &far];
+        let mut sectors = [near, far];
         let view = RenderView::new(Position3(vec3(0.0, 0.0, 1.62)), 0.0, Some(SectorId(0)));
         let mut frame = vec![255; WIDTH as usize * HEIGHT as usize * 4];
         let mut baseline_frame = vec![255; WIDTH as usize * HEIGHT as usize * 4];
 
         render_world(&mut frame, &view, &sectors);
-        near.portal_upper_colors[0] = None;
-        near.portal_lower_colors[0] = None;
-        render_world(&mut baseline_frame, &view, &[&near, &far]);
+        sectors[0].portal_upper_colors[0] = None;
+        sectors[0].portal_lower_colors[0] = None;
+        render_world(&mut baseline_frame, &view, &sectors);
 
         assert_ne!(frame, baseline_frame);
     }
@@ -991,13 +1014,14 @@ mod tests {
             0.0,
             3.2,
         );
+        let mut sectors = [high, low];
         let view = RenderView::new(Position3(vec3(0.0, 0.0, 2.82)), 0.0, Some(SectorId(0)));
         let mut frame = vec![255; WIDTH as usize * HEIGHT as usize * 4];
         let mut baseline_frame = vec![255; WIDTH as usize * HEIGHT as usize * 4];
 
-        render_world(&mut frame, &view, &[&high, &low]);
-        high.portal_lower_colors[0] = None;
-        render_world(&mut baseline_frame, &view, &[&high, &low]);
+        render_world(&mut frame, &view, &sectors);
+        sectors[0].portal_lower_colors[0] = None;
+        render_world(&mut baseline_frame, &view, &sectors);
 
         assert_eq!(frame, baseline_frame);
     }

@@ -38,41 +38,78 @@ pub struct WallSegment {
     pub portal_lower_color: Option<RawColor>,
 }
 
-impl Sector {
-    pub fn wall_segments(&self) -> Vec<WallSegment> {
-        let mut walls = Vec::with_capacity(self.vertices.len());
+#[derive(Debug, Clone)]
+pub struct WallSegments<'a> {
+    sector: &'a Sector,
+    index: usize,
+}
 
-        let mut vertex_iter = self.vertices.iter();
-        let mut portal_sector_iter = self.portal_sectors.iter();
-        let mut portal_walkable_iter = self.portal_walkable.iter().copied();
-        let mut color_iter = self.colors.iter();
-        let mut portal_upper_color_iter = self.portal_upper_colors.iter();
-        let mut portal_lower_color_iter = self.portal_lower_colors.iter();
+impl<'a> Iterator for WallSegments<'a> {
+    type Item = WallSegment;
 
-        let Some(&initial) = vertex_iter.next() else {
-            return walls;
-        };
-
-        let mut add_wall = |left: Position2, right: Position2| {
-            walls.push(WallSegment {
-                left,
-                right,
-                portal_sector: *portal_sector_iter.next().unwrap_or(&None),
-                portal_walkable: portal_walkable_iter.next().unwrap_or(true),
-                color: *color_iter.next().unwrap_or(&MISSING_WALL_COLOR),
-                portal_upper_color: *portal_upper_color_iter.next().unwrap_or(&None),
-                portal_lower_color: *portal_lower_color_iter.next().unwrap_or(&None),
-            });
-        };
-
-        let mut previous = initial;
-        for &vertex in vertex_iter {
-            add_wall(previous, vertex);
-            previous = vertex;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.sector.vertices.len() {
+            return None;
         }
-        add_wall(previous, initial);
 
-        walls
+        let index = self.index;
+        self.index += 1;
+        let next_index = (index + 1) % self.sector.vertices.len();
+
+        Some(WallSegment {
+            left: self.sector.vertices[index],
+            right: self.sector.vertices[next_index],
+            portal_sector: self
+                .sector
+                .portal_sectors
+                .get(index)
+                .copied()
+                .unwrap_or(None),
+            portal_walkable: self
+                .sector
+                .portal_walkable
+                .get(index)
+                .copied()
+                .unwrap_or(true),
+            color: self
+                .sector
+                .colors
+                .get(index)
+                .copied()
+                .unwrap_or(*MISSING_WALL_COLOR),
+            portal_upper_color: self
+                .sector
+                .portal_upper_colors
+                .get(index)
+                .copied()
+                .unwrap_or(None),
+            portal_lower_color: self
+                .sector
+                .portal_lower_colors
+                .get(index)
+                .copied()
+                .unwrap_or(None),
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.sector.vertices.len().saturating_sub(self.index);
+        (remaining, Some(remaining))
+    }
+}
+
+impl ExactSizeIterator for WallSegments<'_> {}
+
+impl Sector {
+    pub fn wall_segments_iter(&self) -> WallSegments<'_> {
+        WallSegments {
+            sector: self,
+            index: 0,
+        }
+    }
+
+    pub fn wall_segments(&self) -> Vec<WallSegment> {
+        self.wall_segments_iter().collect()
     }
 }
 
@@ -119,5 +156,39 @@ mod tests {
         assert_eq!(walls[2].color, RawColor([7, 8, 9]));
         assert_eq!(walls[2].portal_upper_color, None);
         assert_eq!(walls[2].portal_lower_color, None);
+    }
+
+    #[test]
+    fn wall_segment_iterator_matches_allocated_segments() {
+        let sector = Sector {
+            id: SectorId(4),
+            vertices: vec![
+                Position2(vec2(-1.0, 0.0)),
+                Position2(vec2(2.0, 0.0)),
+                Position2(vec2(1.0, 3.0)),
+                Position2(vec2(-2.0, 2.0)),
+            ],
+            portal_sectors: vec![Some(SectorId(5)), None, Some(SectorId(8)), None],
+            portal_walkable: vec![true, false, true, false],
+            colors: vec![
+                RawColor([1, 2, 3]),
+                RawColor([4, 5, 6]),
+                RawColor([7, 8, 9]),
+                RawColor([10, 11, 12]),
+            ],
+            portal_upper_colors: vec![None, Some(RawColor([13, 14, 15])), None, None],
+            portal_lower_colors: vec![Some(RawColor([16, 17, 18])), None, None, None],
+            floor: Length(0.0),
+            ceil: Length(2.0),
+            floor_color: *FLOOR_COLOR,
+            ceil_color: *CEILING_COLOR,
+            no_ceiling: false,
+            sky_color: None,
+        };
+
+        assert_eq!(
+            sector.wall_segments_iter().collect::<Vec<_>>(),
+            sector.wall_segments(),
+        );
     }
 }
