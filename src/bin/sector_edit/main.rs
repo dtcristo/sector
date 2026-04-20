@@ -10,7 +10,9 @@ use bevy::{
     window::WindowResolution,
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
-use egui_plot::{Line as PlotLine, MarkerShape, Plot, PlotPoint, PlotPoints, Points, Polygon};
+use egui_plot::{
+    Line as PlotLine, MarkerShape, Plot, PlotBounds, PlotPoint, PlotPoints, Points, Polygon,
+};
 use rfd::FileDialog;
 use sector::map::{
     load_map_from_path, map_to_sectors, save_map_to_path, sectors_to_map_with_spawn,
@@ -28,6 +30,8 @@ const VERTEX_PICK_RADIUS: f32 = 0.35;
 const WALL_PICK_RADIUS: f32 = 0.25;
 const SPAWN_ARROW_LENGTH: f32 = 0.9;
 const GEOMETRY_EPSILON: f32 = 0.001;
+const MIN_PLOT_HALF_EXTENT: f32 = 2.0;
+const MAX_PLOT_HALF_EXTENT: f32 = 256.0;
 
 #[derive(Resource, Debug, Clone)]
 struct EditorDocument {
@@ -37,10 +41,33 @@ struct EditorDocument {
     initial_direction_degrees: f32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MapFileFormat {
+    Ron,
+    MessagePack,
+}
+
+impl MapFileFormat {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Ron => "RON",
+            Self::MessagePack => "MessagePack",
+        }
+    }
+
+    fn suffix(self) -> &'static str {
+        match self {
+            Self::Ron => ".map.ron",
+            Self::MessagePack => ".map.mp",
+        }
+    }
+}
+
 #[derive(Resource, Debug)]
 struct EditorState {
     update_title_timer: Timer,
     map_path: PathBuf,
+    output_format: MapFileFormat,
     selected_sector: Option<SectorId>,
     selected_wall: Option<usize>,
     selected_vertex: Option<usize>,
@@ -51,6 +78,9 @@ struct EditorState {
     auto_portals_on_save: bool,
     restart_play_on_save: bool,
     last_plot_hover: Option<Vec2>,
+    plot_center: Vec2,
+    plot_half_extent: f32,
+    pending_plot_bounds: Option<PlotBounds>,
     status: StatusMessage,
 }
 
@@ -58,6 +88,7 @@ impl EditorState {
     fn new(map_path: PathBuf) -> Self {
         Self {
             update_title_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
+            output_format: map_format_for_path(&map_path),
             map_path,
             selected_sector: None,
             selected_wall: None,
@@ -69,8 +100,49 @@ impl EditorState {
             auto_portals_on_save: true,
             restart_play_on_save: false,
             last_plot_hover: None,
+            plot_center: Vec2::ZERO,
+            plot_half_extent: 16.0,
+            pending_plot_bounds: None,
             status: StatusMessage::info("Loaded default map"),
         }
+    }
+
+    fn load_document(&mut self, document: &EditorDocument, path: PathBuf, status: StatusMessage) {
+        self.map_path = path;
+        self.output_format = map_format_for_path(&self.map_path);
+        self.selected_sector = Some(document.initial_sector);
+        self.selected_wall = None;
+        self.selected_vertex = None;
+        self.draft_room.clear();
+        self.last_plot_hover = None;
+        self.dirty = false;
+        self.status = status;
+        self.focus_view_on_spawn(document);
+    }
+
+    fn focus_view(&mut self, center: Vec2, half_extent: f32) {
+        self.plot_center = center;
+        self.plot_half_extent = half_extent.clamp(MIN_PLOT_HALF_EXTENT, MAX_PLOT_HALF_EXTENT);
+        self.pending_plot_bounds = Some(plot_bounds_for_view(center, self.plot_half_extent));
+    }
+
+    fn focus_view_on_spawn(&mut self, document: &EditorDocument) {
+        self.focus_view(spawn_position(document), default_plot_half_extent(document));
+    }
+
+    fn center_view_on_spawn(&mut self, document: &EditorDocument) {
+        self.focus_view(spawn_position(document), self.plot_half_extent);
+    }
+
+    fn sync_view_from_bounds(&mut self, bounds: &PlotBounds) {
+        if !bounds.is_valid() {
+            return;
+        }
+
+        let center = bounds.center();
+        self.plot_center = vec2(center.x as f32, center.y as f32);
+        self.plot_half_extent = ((bounds.width().max(bounds.height()) * 0.5) as f32)
+            .clamp(MIN_PLOT_HALF_EXTENT, MAX_PLOT_HALF_EXTENT);
     }
 }
 
@@ -191,8 +263,12 @@ fn init_scene_system(mut commands: Commands, mut editor: ResMut<EditorState>) {
             editor.map_path.display()
         )
     });
-    editor.selected_sector = Some(document.initial_sector);
-    editor.status = StatusMessage::success(format!("Loaded {}", editor.map_path.display()));
+    let loaded_path = editor.map_path.clone();
+    editor.load_document(
+        &document,
+        loaded_path.clone(),
+        StatusMessage::success(format!("Loaded {}", loaded_path.display())),
+    );
     commands.insert_resource(document);
 }
 
@@ -242,6 +318,8 @@ fn egui_system(
     poll_play_session(&mut play_session, &mut editor);
     sanitize_selection(&document, &mut editor);
 
+    let keyboard_new =
+        ctx.input(|input| input.key_pressed(egui::Key::N) && input.modifiers.command);
     let keyboard_open =
         ctx.input(|input| input.key_pressed(egui::Key::O) && input.modifiers.command);
     let keyboard_reload =
@@ -249,6 +327,7 @@ fn egui_system(
     let keyboard_save =
         ctx.input(|input| input.key_pressed(egui::Key::S) && input.modifiers.command);
 
+    let mut request_new = keyboard_new;
     let mut request_open = keyboard_open;
     let mut request_reload = keyboard_reload;
     let mut request_save = keyboard_save;
@@ -267,9 +346,18 @@ fn egui_system(
     let mut selected_sector_for_initial = false;
     let mut add_hovered_draft_point = false;
     let mut use_hovered_spawn = false;
+    let mut request_center_view_on_spawn = false;
+    let mut request_frame_map = false;
+    let mut request_zoom_in = false;
+    let mut request_zoom_out = false;
+    let mut request_apply_view = false;
+    let mut selected_output_format = editor.output_format;
 
     egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
         ui.horizontal_wrapped(|ui| {
+            if ui.button("New").clicked() {
+                request_new = true;
+            }
             if ui.button("Open").clicked() {
                 request_open = true;
             }
@@ -297,17 +385,6 @@ fn egui_system(
             if ui.button("Stop Play").clicked() {
                 request_stop_play = true;
             }
-            ui.checkbox(&mut editor.restart_play_on_save, "Restart play on save");
-
-            ui.separator();
-
-            if ui.button("Rebuild portals").clicked() {
-                request_rebuild_portals = true;
-            }
-            ui.checkbox(
-                &mut editor.auto_portals_on_save,
-                "Rebuild matching portals on save",
-            );
 
             ui.separator();
 
@@ -342,10 +419,59 @@ fn egui_system(
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    ui.heading("Map");
+                    ui.heading("Document");
                     ui.label(format!("Sectors: {}", document.sectors.len()));
-                    ui.label(format!("Current format: {}", map_format_label(&editor.map_path)));
+                    ui.label(format!("Current file: {}", editor.map_path.display()));
+                    egui::ComboBox::from_label("Save format")
+                        .selected_text(selected_output_format.label())
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut selected_output_format,
+                                MapFileFormat::Ron,
+                                MapFileFormat::Ron.label(),
+                            );
+                            ui.selectable_value(
+                                &mut selected_output_format,
+                                MapFileFormat::MessagePack,
+                                MapFileFormat::MessagePack.label(),
+                            );
+                        });
 
+                    ui.separator();
+                    ui.heading("Viewport");
+                    ui.horizontal(|ui| {
+                        if ui.button("Center on spawn").clicked() {
+                            request_center_view_on_spawn = true;
+                        }
+                        if ui.button("Frame map").clicked() {
+                            request_frame_map = true;
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        if ui.small_button("-").clicked() {
+                            request_zoom_out = true;
+                        }
+                        if ui.small_button("+").clicked() {
+                            request_zoom_in = true;
+                        }
+                        if ui
+                            .add(
+                                egui::Slider::new(
+                                    &mut editor.plot_half_extent,
+                                    MIN_PLOT_HALF_EXTENT..=MAX_PLOT_HALF_EXTENT,
+                                )
+                                .logarithmic(true)
+                                .text("View radius"),
+                            )
+                            .changed()
+                        {
+                            request_apply_view = true;
+                        }
+                    });
+                    ui.small("Drag the plot to pan. Scroll or use +/- to zoom.");
+
+                    ui.separator();
+                    ui.heading("Spawn");
                     let spawn_changed = ui
                         .horizontal(|ui| {
                             ui.label("Spawn:");
@@ -388,310 +514,367 @@ fn egui_system(
                     });
 
                     ui.separator();
-
-                    ui.heading("Sectors");
-                    for sector in &document.sectors {
-                        let selected = editor.selected_sector == Some(sector.id);
-                        let label = format!("Sector {} ({} walls)", sector.id.0, sector.vertices.len());
-                        if ui.selectable_label(selected, label).clicked() {
-                            editor.selected_sector = Some(sector.id);
-                            editor.selected_wall = None;
-                            editor.selected_vertex = None;
-                        }
-                    }
+                    egui::CollapsingHeader::new("Sectors")
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            for sector in &document.sectors {
+                                let selected = editor.selected_sector == Some(sector.id);
+                                let label =
+                                    format!("Sector {} ({} walls)", sector.id.0, sector.vertices.len());
+                                if ui.selectable_label(selected, label).clicked() {
+                                    editor.selected_sector = Some(sector.id);
+                                    editor.selected_wall = None;
+                                    editor.selected_vertex = None;
+                                }
+                            }
+                        });
 
                     ui.separator();
-                    ui.heading("Selected sector");
+                    egui::CollapsingHeader::new("Selected sector")
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            if let Some(sector_index) =
+                                editor.selected_sector.and_then(|id| sector_index(&document, id))
+                            {
+                                let mut sector_changed = false;
+                                let mut keep_sky_tint =
+                                    document.sectors[sector_index].sky_color.is_some();
+                                let mut new_selected_vertex = editor.selected_vertex;
+                                let mut new_selected_wall = editor.selected_wall;
+                                let wall_segments = document.sectors[sector_index].wall_segments();
 
-                    if let Some(sector_index) =
-                        editor.selected_sector.and_then(|id| sector_index(&document, id))
-                    {
-                        let mut sector_changed = false;
-                        let mut keep_sky_tint = document.sectors[sector_index].sky_color.is_some();
-                        let mut new_selected_vertex = editor.selected_vertex;
-                        let mut new_selected_wall = editor.selected_wall;
-                        let wall_segments = document.sectors[sector_index].wall_segments();
+                                {
+                                    let sector = &mut document.sectors[sector_index];
+                                    ui.label(format!("Editing sector {}", sector.id.0));
+                                    ui.horizontal(|ui| {
+                                        if ui.button("Delete sector").clicked() {
+                                            request_delete_sector = true;
+                                        }
+                                        if ui.button("Center spawn here").clicked() {
+                                            selected_sector_for_spawn = true;
+                                        }
+                                    });
 
-                        {
-                            let sector = &mut document.sectors[sector_index];
-                            ui.label(format!("Editing sector {}", sector.id.0));
-                            ui.horizontal(|ui| {
-                                if ui.button("Delete sector").clicked() {
-                                    request_delete_sector = true;
+                                    sector_changed |= ui
+                                        .add(
+                                            egui::DragValue::new(&mut sector.floor.0)
+                                                .speed(0.1)
+                                                .prefix("Floor "),
+                                        )
+                                        .changed();
+                                    let min_ceil = sector.floor.0 + 0.1;
+                                    sector_changed |= ui
+                                        .add(
+                                            egui::DragValue::new(&mut sector.ceil.0)
+                                                .speed(0.1)
+                                                .range(min_ceil..=64.0)
+                                                .prefix("Ceil "),
+                                        )
+                                        .changed();
+                                    sector.ceil.0 = sector.ceil.0.max(min_ceil);
+
+                                    sector_changed |=
+                                        ui.checkbox(&mut sector.no_ceiling, "Open ceiling").changed();
+                                    if sector.no_ceiling {
+                                        sector_changed |= ui
+                                            .checkbox(&mut keep_sky_tint, "Use flat sky tint")
+                                            .changed();
+                                        if keep_sky_tint && sector.sky_color.is_none() {
+                                            sector.sky_color = Some(RawColor([80, 110, 160]));
+                                            sector_changed = true;
+                                        }
+                                        if !keep_sky_tint {
+                                            sector.sky_color = None;
+                                        }
+                                    } else {
+                                        sector.sky_color = None;
+                                    }
+
+                                    sector_changed |=
+                                        color_edit(ui, "Floor color", &mut sector.floor_color.0);
+                                    sector_changed |=
+                                        color_edit(ui, "Ceiling color", &mut sector.ceil_color.0);
+                                    if let Some(sky_color) = sector.sky_color.as_mut() {
+                                        sector_changed |=
+                                            color_edit(ui, "Sky tint", &mut sky_color.0);
+                                    }
+
+                                    ui.separator();
+                                    ui.label("Vertices");
+                                    for (vertex_index, vertex) in sector.vertices.iter_mut().enumerate() {
+                                        let selected = new_selected_vertex == Some(vertex_index);
+                                        ui.horizontal(|ui| {
+                                            if ui
+                                                .selectable_label(selected, format!("#{}", vertex_index))
+                                                .clicked()
+                                            {
+                                                new_selected_vertex = Some(vertex_index);
+                                                new_selected_wall = None;
+                                            }
+                                            sector_changed |= ui
+                                                .add(
+                                                    egui::DragValue::new(&mut vertex.0.x)
+                                                        .speed(0.1)
+                                                        .prefix("x "),
+                                                )
+                                                .changed();
+                                            sector_changed |= ui
+                                                .add(
+                                                    egui::DragValue::new(&mut vertex.0.y)
+                                                        .speed(0.1)
+                                                        .prefix("y "),
+                                                )
+                                                .changed();
+                                        });
+                                    }
+                                    ui.horizontal(|ui| {
+                                        if ui.button("Insert vertex after selected").clicked() {
+                                            request_insert_vertex = true;
+                                        }
+                                        if ui.button("Remove selected vertex").clicked() {
+                                            request_remove_vertex = true;
+                                        }
+                                    });
+
+                                    ui.separator();
+                                    ui.label("Walls");
+                                    for (wall_index, wall) in wall_segments.iter().enumerate() {
+                                        let label = match sector.portal_sectors[wall_index] {
+                                            Some(target) if sector.portal_walkable[wall_index] => {
+                                                format!("Wall {} -> sector {}", wall_index, target.0)
+                                            }
+                                            Some(target) => {
+                                                format!("Wall {} -> window {}", wall_index, target.0)
+                                            }
+                                            None => format!("Wall {} (solid)", wall_index),
+                                        };
+                                        if ui
+                                            .selectable_label(new_selected_wall == Some(wall_index), label)
+                                            .clicked()
+                                        {
+                                            new_selected_wall = Some(wall_index);
+                                            new_selected_vertex = None;
+                                        }
+                                        ui.small(format!(
+                                            "  ({:.2}, {:.2}) -> ({:.2}, {:.2})",
+                                            wall.left.0.x, wall.left.0.y, wall.right.0.x, wall.right.0.y
+                                        ));
+                                    }
+
+                                    if let Some(wall_index) = new_selected_wall
+                                        .filter(|index| *index < sector.vertices.len())
+                                    {
+                                        ui.separator();
+                                        ui.label(format!("Selected wall {}", wall_index));
+                                        sector_changed |= color_edit(
+                                            ui,
+                                            "Wall color",
+                                            &mut sector.colors[wall_index].0,
+                                        );
+
+                                        let mut upper_enabled =
+                                            sector.portal_upper_colors[wall_index].is_some();
+                                        sector_changed |=
+                                            ui.checkbox(&mut upper_enabled, "Upper trim").changed();
+                                        if upper_enabled
+                                            && sector.portal_upper_colors[wall_index].is_none()
+                                        {
+                                            sector.portal_upper_colors[wall_index] =
+                                                Some(sector.colors[wall_index]);
+                                            sector_changed = true;
+                                        }
+                                        if !upper_enabled {
+                                            sector.portal_upper_colors[wall_index] = None;
+                                        }
+                                        if let Some(color) =
+                                            sector.portal_upper_colors[wall_index].as_mut()
+                                        {
+                                            sector_changed |=
+                                                color_edit(ui, "Upper color", &mut color.0);
+                                        }
+
+                                        let mut lower_enabled =
+                                            sector.portal_lower_colors[wall_index].is_some();
+                                        sector_changed |=
+                                            ui.checkbox(&mut lower_enabled, "Lower trim").changed();
+                                        if lower_enabled
+                                            && sector.portal_lower_colors[wall_index].is_none()
+                                        {
+                                            sector.portal_lower_colors[wall_index] =
+                                                Some(sector.colors[wall_index]);
+                                            sector_changed = true;
+                                        }
+                                        if !lower_enabled {
+                                            sector.portal_lower_colors[wall_index] = None;
+                                        }
+                                        if let Some(color) =
+                                            sector.portal_lower_colors[wall_index].as_mut()
+                                        {
+                                            sector_changed |=
+                                                color_edit(ui, "Lower color", &mut color.0);
+                                        }
+
+                                        if sector.portal_sectors[wall_index].is_some() {
+                                            sector_changed |= ui
+                                                .checkbox(
+                                                    &mut sector.portal_walkable[wall_index],
+                                                    "Walkable portal",
+                                                )
+                                                .changed();
+                                            if ui.button("Clear portal").clicked() {
+                                                request_clear_wall_portal = true;
+                                            }
+                                        } else {
+                                            ui.small(
+                                                "No portal on this wall. Use matching geometry and rebuild portals.",
+                                            );
+                                        }
+                                    }
                                 }
-                                if ui.button("Center spawn here").clicked() {
-                                    selected_sector_for_spawn = true;
-                                }
-                            });
 
-                            sector_changed |= ui
-                                .add(
-                                    egui::DragValue::new(&mut sector.floor.0)
-                                        .speed(0.1)
-                                        .prefix("Floor "),
-                                )
-                                .changed();
-                            let min_ceil = sector.floor.0 + 0.1;
-                            sector_changed |= ui
-                                .add(
-                                    egui::DragValue::new(&mut sector.ceil.0)
-                                        .speed(0.1)
-                                        .range(min_ceil..=64.0)
-                                        .prefix("Ceil "),
-                                )
-                                .changed();
-                            sector.ceil.0 = sector.ceil.0.max(min_ceil);
+                                editor.selected_vertex = new_selected_vertex;
+                                editor.selected_wall = new_selected_wall;
 
-                            sector_changed |= ui.checkbox(&mut sector.no_ceiling, "Open ceiling").changed();
-                            if sector.no_ceiling {
-                                sector_changed |= ui.checkbox(&mut keep_sky_tint, "Use flat sky tint").changed();
-                                if keep_sky_tint && sector.sky_color.is_none() {
-                                    sector.sky_color = Some(RawColor([80, 110, 160]));
-                                    sector_changed = true;
-                                }
-                                if !keep_sky_tint {
-                                    sector.sky_color = None;
+                                if sector_changed {
+                                    editor.dirty = true;
                                 }
                             } else {
-                                sector.sky_color = None;
+                                ui.small("Select a sector from the list or map view.");
                             }
+                        });
 
-                            sector_changed |= color_edit(ui, "Floor color", &mut sector.floor_color.0);
-                            sector_changed |= color_edit(ui, "Ceiling color", &mut sector.ceil_color.0);
-                            if let Some(sky_color) = sector.sky_color.as_mut() {
-                                sector_changed |= color_edit(ui, "Sky tint", &mut sky_color.0);
-                            }
-
-                            ui.separator();
-                            ui.label("Vertices");
-                            for (vertex_index, vertex) in sector.vertices.iter_mut().enumerate() {
-                                let selected = new_selected_vertex == Some(vertex_index);
-                                ui.horizontal(|ui| {
-                                    if ui
-                                        .selectable_label(selected, format!("#{}", vertex_index))
-                                        .clicked()
-                                    {
-                                        new_selected_vertex = Some(vertex_index);
-                                        new_selected_wall = None;
-                                    }
-                                    sector_changed |= ui
-                                        .add(
-                                            egui::DragValue::new(&mut vertex.0.x)
-                                                .speed(0.1)
-                                                .prefix("x "),
-                                        )
-                                        .changed();
-                                    sector_changed |= ui
-                                        .add(
-                                            egui::DragValue::new(&mut vertex.0.y)
-                                                .speed(0.1)
-                                                .prefix("y "),
-                                        )
-                                        .changed();
-                                });
-                            }
-                            ui.horizontal(|ui| {
-                                if ui.button("Insert vertex after selected").clicked() {
-                                    request_insert_vertex = true;
+                    ui.separator();
+                    egui::CollapsingHeader::new("Room draft")
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            ui.label(match editor.tool {
+                                EditorTool::Select => "Select a sector, wall, or vertex from the map.",
+                                EditorTool::DrawRoom => {
+                                    "Click the map to add polygon points, then create a room. Concave polygons split into convex sectors automatically."
                                 }
-                                if ui.button("Remove selected vertex").clicked() {
-                                    request_remove_vertex = true;
+                                EditorTool::SetSpawn => {
+                                    "Click the map to place the player spawn and update the initial sector."
                                 }
                             });
 
-                            ui.separator();
-                            ui.label("Walls");
-                            for (wall_index, wall) in wall_segments.iter().enumerate() {
-                                let label = match sector.portal_sectors[wall_index] {
-                                    Some(target) if sector.portal_walkable[wall_index] => {
-                                        format!("Wall {} -> sector {}", wall_index, target.0)
-                                    }
-                                    Some(target) => {
-                                        format!("Wall {} -> window {}", wall_index, target.0)
-                                    }
-                                    None => format!("Wall {} (solid)", wall_index),
-                                };
-                                if ui
-                                    .selectable_label(new_selected_wall == Some(wall_index), label)
-                                    .clicked()
-                                {
-                                    new_selected_wall = Some(wall_index);
-                                    new_selected_vertex = None;
+                            ui.horizontal(|ui| {
+                                if ui.button("Add hovered point").clicked() {
+                                    add_hovered_draft_point = true;
                                 }
-                                ui.small(format!(
-                                    "  ({:.2}, {:.2}) -> ({:.2}, {:.2})",
-                                    wall.left.0.x, wall.left.0.y, wall.right.0.x, wall.right.0.y
-                                ));
+                                if ui.button("Undo point").clicked() {
+                                    editor.draft_room.pop();
+                                }
+                                if ui.button("Clear draft").clicked() {
+                                    editor.draft_room.clear();
+                                }
+                            });
+                            ui.horizontal(|ui| {
+                                if ui.button("Create room").clicked() {
+                                    request_create_room = true;
+                                }
+                                if ui.button("Set spawn from hover").clicked() {
+                                    use_hovered_spawn = true;
+                                }
+                            });
+
+                            let mut draft_changed = false;
+                            draft_changed |= ui
+                                .add(
+                                    egui::DragValue::new(&mut editor.draft_style.floor)
+                                        .speed(0.1)
+                                        .prefix("Draft floor "),
+                                )
+                                .changed();
+                            let min_draft_ceil = editor.draft_style.floor + 0.1;
+                            draft_changed |= ui
+                                .add(
+                                    egui::DragValue::new(&mut editor.draft_style.ceil)
+                                        .speed(0.1)
+                                        .range(min_draft_ceil..=64.0)
+                                        .prefix("Draft ceil "),
+                                )
+                                .changed();
+                            editor.draft_style.ceil = editor.draft_style.ceil.max(min_draft_ceil);
+                            draft_changed |= color_edit(
+                                ui,
+                                "Draft floor color",
+                                &mut editor.draft_style.floor_color.0,
+                            );
+                            draft_changed |= color_edit(
+                                ui,
+                                "Draft ceiling color",
+                                &mut editor.draft_style.ceil_color.0,
+                            );
+                            draft_changed |=
+                                color_edit(ui, "Draft wall color", &mut editor.draft_style.wall_color.0);
+                            draft_changed |= ui
+                                .checkbox(&mut editor.draft_style.no_ceiling, "Draft open ceiling")
+                                .changed();
+                            let mut draft_sky_enabled = editor.draft_style.sky_color.is_some();
+                            if editor.draft_style.no_ceiling {
+                                draft_changed |= ui
+                                    .checkbox(&mut draft_sky_enabled, "Draft sky tint")
+                                    .changed();
+                                if draft_sky_enabled && editor.draft_style.sky_color.is_none() {
+                                    editor.draft_style.sky_color = Some(RawColor([80, 110, 160]));
+                                }
+                                if !draft_sky_enabled {
+                                    editor.draft_style.sky_color = None;
+                                }
+                                if let Some(color) = editor.draft_style.sky_color.as_mut() {
+                                    draft_changed |= color_edit(ui, "Draft sky color", &mut color.0);
+                                }
+                            } else {
+                                editor.draft_style.sky_color = None;
+                            }
+                            if draft_changed {
+                                editor.dirty = true;
                             }
 
-                            if let Some(wall_index) = new_selected_wall.filter(|index| *index < sector.vertices.len()) {
-                                ui.separator();
-                                ui.label(format!("Selected wall {}", wall_index));
-                                sector_changed |= color_edit(
-                                    ui,
-                                    "Wall color",
-                                    &mut sector.colors[wall_index].0,
-                                );
-
-                                let mut upper_enabled = sector.portal_upper_colors[wall_index].is_some();
-                                sector_changed |= ui.checkbox(&mut upper_enabled, "Upper trim").changed();
-                                if upper_enabled && sector.portal_upper_colors[wall_index].is_none() {
-                                    sector.portal_upper_colors[wall_index] =
-                                        Some(sector.colors[wall_index]);
-                                    sector_changed = true;
-                                }
-                                if !upper_enabled {
-                                    sector.portal_upper_colors[wall_index] = None;
-                                }
-                                if let Some(color) = sector.portal_upper_colors[wall_index].as_mut() {
-                                    sector_changed |= color_edit(ui, "Upper color", &mut color.0);
-                                }
-
-                                let mut lower_enabled = sector.portal_lower_colors[wall_index].is_some();
-                                sector_changed |= ui.checkbox(&mut lower_enabled, "Lower trim").changed();
-                                if lower_enabled && sector.portal_lower_colors[wall_index].is_none() {
-                                    sector.portal_lower_colors[wall_index] =
-                                        Some(sector.colors[wall_index]);
-                                    sector_changed = true;
-                                }
-                                if !lower_enabled {
-                                    sector.portal_lower_colors[wall_index] = None;
-                                }
-                                if let Some(color) = sector.portal_lower_colors[wall_index].as_mut() {
-                                    sector_changed |= color_edit(ui, "Lower color", &mut color.0);
-                                }
-
-                                if sector.portal_sectors[wall_index].is_some() {
-                                    sector_changed |= ui
-                                        .checkbox(
-                                            &mut sector.portal_walkable[wall_index],
-                                            "Walkable portal",
-                                        )
-                                        .changed();
-                                    if ui.button("Clear portal").clicked() {
-                                        request_clear_wall_portal = true;
-                                    }
-                                } else {
-                                    ui.small(
-                                        "No portal on this wall. Use matching geometry and rebuild portals.",
-                                    );
-                                }
+                            ui.small(format!("Draft points: {}", editor.draft_room.len()));
+                            for (index, point) in editor.draft_room.iter().enumerate() {
+                                ui.small(format!("#{index}: {:.2}, {:.2}", point.x, point.y));
                             }
-                        }
-
-                        editor.selected_vertex = new_selected_vertex;
-                        editor.selected_wall = new_selected_wall;
-
-                        if sector_changed {
-                            editor.dirty = true;
-                        }
-                    } else {
-                        ui.small("Select a sector from the list or map view.");
-                    }
+                        });
 
                     ui.separator();
-                    ui.heading("Room draft");
-                    ui.label(match editor.tool {
-                        EditorTool::Select => "Select a sector, wall, or vertex from the map.",
-                        EditorTool::DrawRoom => {
-                            "Click the map to add polygon points, then create a room. Concave polygons split into convex sectors automatically."
-                        }
-                        EditorTool::SetSpawn => {
-                            "Click the map to place the player spawn and update the initial sector."
-                        }
-                    });
-
-                    ui.horizontal(|ui| {
-                        if ui.button("Add hovered point").clicked() {
-                            add_hovered_draft_point = true;
-                        }
-                        if ui.button("Undo point").clicked() {
-                            editor.draft_room.pop();
-                        }
-                        if ui.button("Clear draft").clicked() {
-                            editor.draft_room.clear();
-                        }
-                    });
-                    ui.horizontal(|ui| {
-                        if ui.button("Create room").clicked() {
-                            request_create_room = true;
-                        }
-                        if ui.button("Set spawn from hover").clicked() {
-                            use_hovered_spawn = true;
-                        }
-                    });
-
-                    let mut draft_changed = false;
-                    draft_changed |= ui
-                        .add(
-                            egui::DragValue::new(&mut editor.draft_style.floor)
-                                .speed(0.1)
-                                .prefix("Draft floor "),
-                        )
-                        .changed();
-                    let min_draft_ceil = editor.draft_style.floor + 0.1;
-                    draft_changed |= ui
-                        .add(
-                            egui::DragValue::new(&mut editor.draft_style.ceil)
-                                .speed(0.1)
-                                .range(min_draft_ceil..=64.0)
-                                .prefix("Draft ceil "),
-                        )
-                        .changed();
-                    editor.draft_style.ceil = editor.draft_style.ceil.max(min_draft_ceil);
-                    draft_changed |= color_edit(
-                        ui,
-                        "Draft floor color",
-                        &mut editor.draft_style.floor_color.0,
-                    );
-                    draft_changed |= color_edit(
-                        ui,
-                        "Draft ceiling color",
-                        &mut editor.draft_style.ceil_color.0,
-                    );
-                    draft_changed |=
-                        color_edit(ui, "Draft wall color", &mut editor.draft_style.wall_color.0);
-                    draft_changed |= ui
-                        .checkbox(&mut editor.draft_style.no_ceiling, "Draft open ceiling")
-                        .changed();
-                    let mut draft_sky_enabled = editor.draft_style.sky_color.is_some();
-                    if editor.draft_style.no_ceiling {
-                        draft_changed |= ui
-                            .checkbox(&mut draft_sky_enabled, "Draft sky tint")
-                            .changed();
-                        if draft_sky_enabled && editor.draft_style.sky_color.is_none() {
-                            editor.draft_style.sky_color = Some(RawColor([80, 110, 160]));
-                        }
-                        if !draft_sky_enabled {
-                            editor.draft_style.sky_color = None;
-                        }
-                        if let Some(color) = editor.draft_style.sky_color.as_mut() {
-                            draft_changed |= color_edit(ui, "Draft sky color", &mut color.0);
-                        }
-                    } else {
-                        editor.draft_style.sky_color = None;
-                    }
-                    if draft_changed {
-                        editor.dirty = true;
-                    }
-
-                    ui.small(format!("Draft points: {}", editor.draft_room.len()));
-                    for (index, point) in editor.draft_room.iter().enumerate() {
-                        ui.small(format!("#{index}: {:.2}, {:.2}", point.x, point.y));
-                    }
+                    egui::CollapsingHeader::new("Automation")
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            if ui.button("Rebuild portals").clicked() {
+                                request_rebuild_portals = true;
+                            }
+                            ui.checkbox(
+                                &mut editor.auto_portals_on_save,
+                                "Rebuild matching portals on save",
+                            );
+                            ui.checkbox(&mut editor.restart_play_on_save, "Restart play on save");
+                        });
                 });
         });
 
     let mut hovered_plot_point = None;
     let mut hovered_plot_selection = PlotSelection::default();
+    let default_plot_bounds = plot_bounds_for_view(editor.plot_center, editor.plot_half_extent);
+    let pending_plot_bounds = editor.pending_plot_bounds.take();
 
     egui::CentralPanel::default()
         .frame(egui::Frame::NONE)
         .show(ctx, |ui| {
             let plot_response = Plot::new("map_plot")
                 .data_aspect(1.0)
+                .allow_zoom(true)
+                .allow_drag(true)
+                .allow_scroll(true)
+                .allow_boxed_zoom(true)
+                .auto_bounds(false)
+                .default_x_bounds(default_plot_bounds.min()[0], default_plot_bounds.max()[0])
+                .default_y_bounds(default_plot_bounds.min()[1], default_plot_bounds.max()[1])
                 .show_axes([true, true])
                 .show(ui, |plot_ui| {
+                    if let Some(bounds) = pending_plot_bounds {
+                        plot_ui.set_plot_bounds(bounds);
+                    }
                     hovered_plot_point = plot_ui.pointer_coordinate().map(plot_point_to_vec2);
                     if let Some(pointer) = hovered_plot_point {
                         hovered_plot_selection = pick_plot_selection(&document, pointer);
@@ -817,6 +1000,7 @@ fn egui_system(
                 });
 
             editor.last_plot_hover = hovered_plot_point;
+            editor.sync_view_from_bounds(plot_response.transform.bounds());
 
             if plot_response.response.clicked() {
                 if let Some(pointer) = hovered_plot_point {
@@ -871,6 +1055,37 @@ fn egui_system(
         } else {
             editor.status = StatusMessage::error("Hover the plot before setting the spawn");
         }
+    }
+
+    if selected_output_format != editor.output_format {
+        editor.output_format = selected_output_format;
+        editor.dirty = true;
+        editor.status = StatusMessage::info(format!(
+            "Next save will use {} format",
+            editor.output_format.label()
+        ));
+    }
+
+    if request_center_view_on_spawn {
+        editor.center_view_on_spawn(&document);
+    }
+    if request_frame_map {
+        editor.focus_view_on_spawn(&document);
+    }
+    if request_zoom_in {
+        let plot_center = editor.plot_center;
+        let plot_half_extent = editor.plot_half_extent;
+        editor.focus_view(plot_center, plot_half_extent * 0.8);
+    }
+    if request_zoom_out {
+        let plot_center = editor.plot_center;
+        let plot_half_extent = editor.plot_half_extent;
+        editor.focus_view(plot_center, plot_half_extent * 1.25);
+    }
+    if request_apply_view {
+        let plot_center = editor.plot_center;
+        let plot_half_extent = editor.plot_half_extent;
+        editor.focus_view(plot_center, plot_half_extent);
     }
 
     if selected_sector_for_initial {
@@ -961,6 +1176,19 @@ fn egui_system(
         };
     }
 
+    if request_new {
+        let new_document = new_editor_document();
+        let new_path = default_new_map_path(editor.output_format);
+        let output_format = editor.output_format;
+        *document = new_document;
+        editor.load_document(
+            &document,
+            new_path.clone(),
+            StatusMessage::success(format!("Created a new {}", output_format.label())),
+        );
+        editor.dirty = true;
+    }
+
     if request_open {
         if let Some(path) = FileDialog::new()
             .add_filter("Sector maps", &["ron", "mp"])
@@ -969,18 +1197,12 @@ fn egui_system(
         {
             match load_editor_document(&path) {
                 Ok(new_document) => {
-                    document.sectors = new_document.sectors;
-                    document.initial_sector = new_document.initial_sector;
-                    document.initial_position = new_document.initial_position;
-                    document.initial_direction_degrees = new_document.initial_direction_degrees;
-                    editor.map_path = path;
-                    editor.selected_sector = Some(document.initial_sector);
-                    editor.selected_wall = None;
-                    editor.selected_vertex = None;
-                    editor.draft_room.clear();
-                    editor.dirty = false;
-                    editor.status =
-                        StatusMessage::success(format!("Loaded {}", editor.map_path.display()));
+                    *document = new_document;
+                    editor.load_document(
+                        &document,
+                        path.clone(),
+                        StatusMessage::success(format!("Loaded {}", path.display())),
+                    );
                 }
                 Err(error) => editor.status = StatusMessage::error(error),
             }
@@ -990,28 +1212,23 @@ fn egui_system(
     if request_reload {
         match load_editor_document(&editor.map_path) {
             Ok(new_document) => {
-                document.sectors = new_document.sectors;
-                document.initial_sector = new_document.initial_sector;
-                document.initial_position = new_document.initial_position;
-                document.initial_direction_degrees = new_document.initial_direction_degrees;
-                editor.selected_sector = Some(document.initial_sector);
-                editor.selected_wall = None;
-                editor.selected_vertex = None;
-                editor.draft_room.clear();
-                editor.dirty = false;
-                editor.status =
-                    StatusMessage::success(format!("Reloaded {}", editor.map_path.display()));
+                let reload_path = editor.map_path.clone();
+                *document = new_document;
+                editor.load_document(
+                    &document,
+                    reload_path.clone(),
+                    StatusMessage::success(format!("Reloaded {}", reload_path.display())),
+                );
             }
             Err(error) => editor.status = StatusMessage::error(error),
         }
     }
 
     if request_save_as {
-        let current_name = editor
-            .map_path
+        let current_name = map_output_path(&editor.map_path, editor.output_format)
             .file_name()
             .and_then(|name| name.to_str())
-            .unwrap_or("map.map.ron")
+            .unwrap_or("untitled.map.ron")
             .to_owned();
         if let Some(path) = FileDialog::new()
             .add_filter("RON maps", &["ron"])
@@ -1020,12 +1237,12 @@ fn egui_system(
             .set_file_name(&current_name)
             .save_file()
         {
-            let current_path = editor.map_path.clone();
+            let output_format = editor.output_format;
             save_document(
                 &mut document,
                 &mut editor,
                 &mut play_session,
-                Some(normalize_map_output_path(path, &current_path)),
+                Some(normalize_map_output_path(path, output_format)),
             );
         }
     } else if request_save {
@@ -1062,13 +1279,57 @@ fn load_editor_document(path: &Path) -> Result<EditorDocument, String> {
     })
 }
 
+fn new_editor_document() -> EditorDocument {
+    EditorDocument {
+        sectors: vec![sector_from_points(
+            0,
+            &[
+                vec2(-4.0, 4.0),
+                vec2(4.0, 4.0),
+                vec2(4.0, -4.0),
+                vec2(-4.0, -4.0),
+            ],
+            DraftSectorStyle::default(),
+        )],
+        initial_sector: SectorId(0),
+        initial_position: MapVertex(0.0, 0.0),
+        initial_direction_degrees: 0.0,
+    }
+}
+
+fn spawn_position(document: &EditorDocument) -> Vec2 {
+    vec2(document.initial_position.0, document.initial_position.1)
+}
+
+fn default_plot_half_extent(document: &EditorDocument) -> f32 {
+    let spawn = spawn_position(document);
+    let mut half_extent = 8.0_f32;
+    for sector in &document.sectors {
+        for vertex in &sector.vertices {
+            half_extent = half_extent
+                .max((vertex.0.x - spawn.x).abs())
+                .max((vertex.0.y - spawn.y).abs());
+        }
+    }
+    (half_extent + 2.0).clamp(MIN_PLOT_HALF_EXTENT, MAX_PLOT_HALF_EXTENT)
+}
+
+fn plot_bounds_for_view(center: Vec2, half_extent: f32) -> PlotBounds {
+    let half_extent = half_extent.clamp(MIN_PLOT_HALF_EXTENT, MAX_PLOT_HALF_EXTENT) as f64;
+    PlotBounds::from_min_max(
+        [center.x as f64 - half_extent, center.y as f64 - half_extent],
+        [center.x as f64 + half_extent, center.y as f64 + half_extent],
+    )
+}
+
 fn save_document(
     document: &mut EditorDocument,
     editor: &mut EditorState,
     play_session: &mut PlaySession,
     path_override: Option<PathBuf>,
 ) -> bool {
-    let path = path_override.unwrap_or_else(|| editor.map_path.clone());
+    let path =
+        path_override.unwrap_or_else(|| map_output_path(&editor.map_path, editor.output_format));
     let linked = if editor.auto_portals_on_save {
         Some(rebuild_portals(document))
     } else {
@@ -1095,6 +1356,7 @@ fn save_document(
     }
 
     editor.map_path = path;
+    editor.output_format = map_format_for_path(&editor.map_path);
     editor.dirty = false;
     editor.status = StatusMessage::success(match linked {
         Some(count) => format!(
@@ -1751,29 +2013,43 @@ fn status_color(tone: StatusTone) -> egui::Color32 {
     }
 }
 
-fn map_format_label(path: &Path) -> &'static str {
+fn map_format_for_path(path: &Path) -> MapFileFormat {
     if path.extension().is_some_and(|extension| extension == "mp") {
-        "MessagePack"
+        MapFileFormat::MessagePack
     } else {
-        "RON"
+        MapFileFormat::Ron
     }
 }
 
-fn normalize_map_output_path(path: PathBuf, current_path: &Path) -> PathBuf {
+fn map_output_path(path: &Path, format: MapFileFormat) -> PathBuf {
+    let path_string = path.display().to_string();
+    for suffix in [".map.ron", ".map.mp"] {
+        if let Some(stem) = path_string.strip_suffix(suffix) {
+            return PathBuf::from(format!("{}{}", stem, format.suffix()));
+        }
+    }
+
+    if path.extension().is_some() {
+        let extension = match format {
+            MapFileFormat::Ron => "ron",
+            MapFileFormat::MessagePack => "mp",
+        };
+        return path.with_extension(extension);
+    }
+
+    PathBuf::from(format!("{}{}", path.display(), format.suffix()))
+}
+
+fn default_new_map_path(format: MapFileFormat) -> PathBuf {
+    PathBuf::from(format!("assets/maps/untitled{}", format.suffix()))
+}
+
+fn normalize_map_output_path(path: PathBuf, format: MapFileFormat) -> PathBuf {
     if path.extension().is_some() {
         return path;
     }
 
-    let suffix = if current_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .is_some_and(|name| name.ends_with(".map.mp"))
-    {
-        ".map.mp"
-    } else {
-        ".map.ron"
-    };
-    PathBuf::from(format!("{}{}", path.display(), suffix))
+    PathBuf::from(format!("{}{}", path.display(), format.suffix()))
 }
 
 #[cfg(test)]
@@ -1867,5 +2143,44 @@ mod tests {
         assert_eq!(document.initial_sector, SectorId(1));
         assert_eq!(document.sectors[0].portal_sectors[1], Some(SectorId(1)));
         assert_eq!(document.sectors[1].portal_sectors[3], Some(SectorId(0)));
+    }
+
+    #[test]
+    fn new_editor_document_starts_with_valid_room() {
+        let document = new_editor_document();
+
+        assert_eq!(document.sectors.len(), 1);
+        assert_eq!(document.initial_sector, SectorId(0));
+        assert!(validate_document(&document).is_ok());
+    }
+
+    #[test]
+    fn map_output_path_swaps_between_ron_and_messagepack() {
+        assert_eq!(
+            map_output_path(
+                Path::new("assets/maps/test.map.ron"),
+                MapFileFormat::MessagePack
+            ),
+            PathBuf::from("assets/maps/test.map.mp")
+        );
+        assert_eq!(
+            map_output_path(Path::new("assets/maps/test.map.mp"), MapFileFormat::Ron),
+            PathBuf::from("assets/maps/test.map.ron")
+        );
+    }
+
+    #[test]
+    fn normalize_map_output_path_uses_selected_format_when_missing_extension() {
+        assert_eq!(
+            normalize_map_output_path(PathBuf::from("assets/maps/test"), MapFileFormat::Ron),
+            PathBuf::from("assets/maps/test.map.ron")
+        );
+        assert_eq!(
+            normalize_map_output_path(
+                PathBuf::from("assets/maps/test"),
+                MapFileFormat::MessagePack,
+            ),
+            PathBuf::from("assets/maps/test.map.mp")
+        );
     }
 }

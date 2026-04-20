@@ -198,11 +198,12 @@ This keeps imported maps honest: if the converted result cannot satisfy the same
 
 The editor is intentionally secondary to the runtime, but it is now a substantial native-only egui tool built around an in-memory `EditorDocument` that uses the same `Sector` data as the runtime. It:
 
-1. Loads and saves arbitrary `.map.ron` and `.map.mp` files through the shared map helpers.
+1. Loads arbitrary `.map.ron` and `.map.mp` files through the shared map helpers, can start a brand-new starter map in memory, and lets the user choose the next save format independently of the currently loaded file.
 2. Validates on explicit save before writing files, surfacing map errors in the UI instead of silently persisting broken data.
-3. Exposes three main authoring tools: selecting/editing sectors, drafting rooms directly in the map view, and placing the player spawn.
-4. Uses earcut triangulation to split concave room drafts into clockwise convex sectors that satisfy runtime validation rules.
-5. Rebuilds portals by matching reversed wall edges across adjacent sectors and can launch the runtime alongside the editor for quick edit/play iteration.
+3. Keeps an explicit plot viewport state so launch/open/reload centers the map view on the spawn, while panning and zooming stay under user control between frames.
+4. Exposes three main authoring tools: selecting/editing sectors, drafting rooms directly in the map view, and placing the player spawn.
+5. Uses earcut triangulation to split concave room drafts into clockwise convex sectors that satisfy runtime validation rules.
+6. Rebuilds portals by matching reversed wall edges across adjacent sectors and can launch the runtime alongside the editor for quick edit/play iteration.
 
 The editor still allows invalid intermediate states while geometry is being edited manually, but its room-drafting path intentionally produces valid convex sectors by construction.
 

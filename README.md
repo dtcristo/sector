@@ -67,9 +67,10 @@ Left click captures the cursor for play, right click or `Escape` releases it, an
 
 `sector_edit` is now a native-only egui map authoring tool over the shared map format. It can:
 
-- open, reload, save, and save-as both `.map.ron` and `.map.mp` files
+- create a new starter map, open/reload existing maps, and save or save-as both `.map.ron` and `.map.mp` files
 - validate the current document on save before it writes anything
 - edit sector heights, wall colors, trims, portal walkability, spawn position, and spawn facing
+- center the map view around the spawn on load and give you explicit pan/zoom controls while editing
 - draft new rooms directly in the map view, splitting concave outlines into convex sectors automatically
 - rebuild portals by matching reversed wall edges across adjacent sectors
 - launch the runtime beside the editor so you can save and replay the current map quickly
