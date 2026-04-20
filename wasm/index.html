@@ -4,6 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
   <title>sector</title>
   <style type="text/css">
     html {
@@ -11,17 +12,84 @@
     }
 
     body {
+      align-items: stretch;
       background-color: black;
+      color: #f0f0f0;
+      display: flex;
+      font-family: ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
       height: 100%;
       margin: 0;
       overflow: hidden;
     }
 
+    #shell {
+      flex: 1 1 auto;
+      position: relative;
+    }
+
+    #overlay {
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      left: 16px;
+      max-width: min(480px, calc(100vw - 32px));
+      padding: 12px 14px;
+      position: absolute;
+      top: 16px;
+      z-index: 2;
+    }
+
+    #overlay h1 {
+      font-size: 16px;
+      margin: 0 0 8px;
+    }
+
+    #overlay p {
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 0;
+      white-space: pre-line;
+    }
+
+    #overlay code {
+      color: #f6d37a;
+    }
   </style>
 </head>
 
 <body>
+  <div id="shell">
+    <div id="overlay">
+      <h1 id="map-title">sector</h1>
+      <p id="map-help"></p>
+    </div>
+  </div>
   <script type="module">
+    function mapNameFromLocation(pathname, hash) {
+      const normalize = (value) => {
+        if (!value) return null;
+        let trimmed = value.trim();
+        if (trimmed.startsWith("#")) trimmed = trimmed.slice(1);
+        trimmed = trimmed.replace(/^\/+|\/+$/g, "");
+        if (!trimmed || trimmed.toLowerCase() === "index.html") return null;
+        const pieces = trimmed.split("/").filter(Boolean);
+        if (!pieces.length) return null;
+        const mapName = pieces[pieces.length - 1].toLowerCase();
+        return /^[a-z0-9_-]+$/.test(mapName) ? mapName : null;
+      };
+
+      return normalize(pathname) ?? normalize(hash) ?? "default";
+    }
+
+    const mapName = mapNameFromLocation(window.location.pathname, window.location.hash);
+    const title = mapName === "default" ? "sector" : `sector · ${mapName}`;
+    document.title = title;
+    document.getElementById("map-title").textContent = title;
+    document.getElementById("map-help").textContent =
+      `Map route: /${mapName}\n` +
+      `Use /<map> to switch maps, or #<map> if your host does not rewrite routes.\n` +
+      `Left click captures the mouse. Right click releases it.`;
+
     import init from "./target/sector.js";
     init();
   </script>

@@ -13,7 +13,7 @@
 
 `sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional black-sky ceilings, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
 
-The runtime and editor share the same RON map format in `assets/maps/*.map.ron`.
+The native runtime and editor share the same RON map format in `assets/maps/*.map.ron`. The web build ships the play runtime only and bundles the shipped maps so the current map can be selected from the URL.
 
 ## Repository docs
 
@@ -39,7 +39,7 @@ cargo test --features "sector sector_edit"
 cargo run --features sector --bin sector -- assets/maps/default.map.ron
 cargo run --features sector --bin sector -- assets/maps/e1m1.map.ron
 cargo run --features sector_edit --bin sector_edit
-cargo run --bin sector_import_doom -- ../DOOM1.WAD E1M1
+cargo run --bin sector_import_doom --features doom_import -- ../DOOM1.WAD E1M1
 cargo run --bin sector_validate -- assets/maps/default.map.ron
 ```
 
@@ -50,6 +50,8 @@ just play
 just play default
 just play e1m1
 just edit
+just build-web
+just serve-web
 just import-doom ../DOOM1.WAD E1M1
 just validate
 just validate default
@@ -59,6 +61,18 @@ just validate e1m1
 `just play` and `just validate` both default to the `default` map when no map name is provided.
 
 While playing, press `Shift+/` (`?`) to print a RON-style runtime state dump to the console with the player's position, velocity, facing, resolved sector, and current sector wall/portal data.
+
+## Web build
+
+`just build-web` builds the browser version of the play runtime only. The editor and Doom importer are native-only tools.
+
+`just serve-web` serves the `wasm/` directory as a small SPA so map routes work locally. The browser runtime resolves the map from the URL:
+
+- `/` or `/default` loads the default map
+- `/e1m1` loads E1M1
+- `#e1m1` is also supported as a fallback if your static host does not rewrite routes
+
+Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` at build time and embeds every shipped map so new maps can be exposed by route after rebuilding the web output.
 
 ## Shipped maps
 
@@ -70,7 +84,7 @@ While playing, press `Shift+/` (`?`) to print a RON-style runtime state dump to 
 `sector_import_doom` imports a WAD map by lump name and writes `assets/maps/<map-id-lowercase>.map.ron` by default:
 
 ```sh
-cargo run --bin sector_import_doom -- ../DOOM1.WAD E1M1
+cargo run --bin sector_import_doom --features doom_import -- ../DOOM1.WAD E1M1
 just import-doom ../DOOM1.WAD E1M1
 ```
 

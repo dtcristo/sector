@@ -19,11 +19,10 @@ use sector::{
     *,
 };
 use serde::Serialize;
+#[cfg(not(target_arch = "wasm32"))]
+use std::env;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
 
 #[derive(Resource, Debug, PartialEq)]
 struct AutomapMode(Automap);
@@ -119,6 +118,7 @@ fn main() {
         .run();
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn runtime_map_path_from_args() -> PathBuf {
     let mut args = env::args_os();
     let _ = args.next();
@@ -128,6 +128,53 @@ fn runtime_map_path_from_args() -> PathBuf {
     }
 
     map_path.unwrap_or_else(|| PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn runtime_map_path_from_args() -> PathBuf {
+    let window = web_sys::window().expect("browser runtime should have a window");
+    let location = window.location();
+    let pathname = location.pathname().unwrap_or_default();
+    let hash = location.hash().unwrap_or_default();
+    runtime_map_path_from_web_route(&pathname, &hash)
+}
+
+fn runtime_map_path_from_web_route(pathname: &str, hash: &str) -> PathBuf {
+    runtime_map_path_from_name(&map_name_from_route(pathname, hash))
+}
+
+fn runtime_map_path_from_name(map_name: &str) -> PathBuf {
+    if map_name == "default" {
+        PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH)
+    } else {
+        PathBuf::from("assets")
+            .join("maps")
+            .join(format!("{map_name}.map.ron"))
+    }
+}
+
+fn map_name_from_route(pathname: &str, hash: &str) -> String {
+    map_name_from_route_component(pathname)
+        .or_else(|| map_name_from_route_component(hash))
+        .unwrap_or_else(|| "default".to_owned())
+}
+
+fn map_name_from_route_component(route: &str) -> Option<String> {
+    let trimmed = route.trim();
+    let trimmed = trimmed.strip_prefix('#').unwrap_or(trimmed);
+    let trimmed = trimmed.trim_matches('/');
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("index.html") {
+        return None;
+    }
+
+    let map_name = trimmed.rsplit('/').find(|segment| !segment.is_empty())?;
+    assert!(
+        map_name
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_')),
+        "map routes may only use ASCII letters, digits, '-' and '_'"
+    );
+    Some(map_name.to_ascii_lowercase())
 }
 
 fn init_runtime_system(world: &mut World) {
@@ -223,7 +270,7 @@ fn mouse_capture_system(
 }
 
 fn escape_system(
-    mut app_exit_events: MessageWriter<AppExit>,
+    #[cfg(not(target_arch = "wasm32"))] mut app_exit_events: MessageWriter<AppExit>,
     key: Res<ButtonInput<KeyCode>>,
     mut cursor_options_query: Query<&mut CursorOptions>,
 ) {
@@ -576,5 +623,29 @@ mod tests {
                 target_no_ceiling: false,
             })
         );
+    }
+
+    #[test]
+    fn web_route_defaults_to_default_map() {
+        assert_eq!(map_name_from_route("/", ""), "default");
+        assert_eq!(
+            runtime_map_path_from_web_route("/", ""),
+            PathBuf::from("assets/maps/default.map.ron")
+        );
+    }
+
+    #[test]
+    fn web_route_uses_path_segment_before_hash() {
+        assert_eq!(map_name_from_route("/e1m1", "#default"), "e1m1");
+        assert_eq!(
+            runtime_map_path_from_web_route("/e1m1", "#default"),
+            PathBuf::from("assets/maps/e1m1.map.ron")
+        );
+    }
+
+    #[test]
+    fn web_route_falls_back_to_hash_map_name() {
+        assert_eq!(map_name_from_route("/", "#/e1m1"), "e1m1");
+        assert_eq!(map_name_from_route("/index.html", "#e1m1"), "e1m1");
     }
 }

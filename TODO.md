@@ -3,7 +3,7 @@
 ## Runtime and gameplay
 
 - Add interactive doors, lifts, and other moving sector boundaries instead of baking them open into maps.
-- Support richer map startup options, including selecting maps and spawn points from the runtime and editor UI.
+- Support richer map startup options beyond the current CLI/web-route flow, including selecting maps and spawn points from the runtime and editor UI.
 - Add simple gameplay objects such as pickups, switches, keys, and scripted triggers.
 - Improve player interaction feedback for low ceilings, blocked portals, and invalid transitions.
 - Add optional noclip/debug movement for map inspection and regression triage.
@@ -40,6 +40,7 @@
 - Add focused tests for imported-map edge cases such as long corridors, tight door clearances, and large outdoor approximations.
 - Add performance benchmarks for the renderer and movement simulation on representative maps.
 - Add screenshot or frame-diff tooling for stable visual regression checks where it stays fast enough.
+- Add a small browser smoke-test path that catches broken web routing or missing bundled maps before deployment.
 
 ## Documentation
 

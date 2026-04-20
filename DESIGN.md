@@ -27,12 +27,13 @@ The repository currently has four primary binaries:
 
 The shared library code lives in `src/`:
 
-- `src/map.rs`: RON map asset format, load/save helpers, and structural validation.
+- `src/map.rs`: RON map asset format, load/save helpers, wasm embedded-map lookup, and structural validation.
 - `src/world.rs`: runtime sector types and wall expansion helpers.
 - `src/game/`: player state, input, and physics/movement simulation.
 - `src/render/`: software renderer, automap, projection math, and frame utilities.
 - `src/bin/sector_import_doom/importer.rs`: WAD parsing, color extraction, geometry conversion, and map emission for imported DOOM levels.
 - `src/color.rs`, `src/geometry.rs`, `src/player.rs`: shared primitive types and gameplay constants.
+- `build.rs`: scans shipped maps and generates the embedded map registry used by the wasm runtime.
 
 ## Data model
 
@@ -75,13 +76,15 @@ Flat wall, floor, and ceiling colors are the material system today. There are no
 
 The runtime:
 
-1. Loads a map asset from disk.
+1. Resolves a map source.
 2. Validates it through `src/map.rs`.
 3. Converts `SectorMap` into runtime `Sector` components.
 4. Spawns one `Player` entity and one entity per sector.
 5. Uses the map's explicit spawn position and facing direction.
 
-The runtime accepts an optional map path argument and otherwise falls back to `DEFAULT_MAP_FILE_PATH` from `src/lib.rs`.
+On native builds, the runtime accepts an optional map path argument and otherwise falls back to `DEFAULT_MAP_FILE_PATH` from `src/lib.rs`.
+
+On wasm builds, the runtime derives the map name from the browser location (`/`, `/default`, `/e1m1`, or `#e1m1`) and loads the map from a build-generated embedded registry. This avoids filesystem access in the browser while keeping route-based map switching dynamic across whatever maps were present in `assets/maps/` when the web bundle was built.
 
 ### Player and movement
 
@@ -161,6 +164,8 @@ The validator is a core design tool, not just a safety net. The renderer and mov
 
 `sector_import_doom` is a content pipeline layered on top of the normal map format rather than a runtime feature path. It imports a WAD map, converts it to `SectorMap`, and saves through the same validation and serialization helpers as hand-authored maps.
 
+The importer and its geometry dependencies are intentionally gated behind the `doom_import` feature so the web/runtime build does not drag the Doom conversion stack or its native-only dependency graph into wasm.
+
 The importer currently:
 
 1. Parses the WAD directory and the selected map lumps directly.
@@ -212,8 +217,8 @@ Those constraints are why ports of more complex source material, like DOOM maps,
 The working conventions tied to the current design are:
 
 - format with `cargo fmt --all`
-- check with `cargo check --all`
-- run the existing tests with `cargo test --features "sector sector_edit"`
+- check with `cargo check --all --features "sector sector_edit doom_import"`
+- run the existing tests with `cargo test --features "sector sector_edit doom_import"`
 - validate map assets after map changes
 
 `README.md` should describe the user-facing workflow, while this file should remain the durable source of truth for architecture and design intent.

@@ -67,6 +67,15 @@ impl SectorMap {
 #[derive(Default, TypePath)]
 pub struct SectorMapLoader;
 
+#[cfg(target_arch = "wasm32")]
+struct EmbeddedMap {
+    asset_path: &'static str,
+    bytes: &'static [u8],
+}
+
+#[cfg(target_arch = "wasm32")]
+include!(concat!(env!("OUT_DIR"), "/embedded_maps.rs"));
+
 const MAP_EPSILON: f32 = 0.0001;
 
 fn default_true() -> bool {
@@ -222,9 +231,7 @@ impl AssetLoader for SectorMapLoader {
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let map = ron::de::from_bytes::<SectorMap>(&bytes)?;
-        validate_map(&map)?;
-        Ok(map)
+        parse_map_bytes(&bytes)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -233,10 +240,53 @@ impl AssetLoader for SectorMapLoader {
 }
 
 pub fn load_map_from_path(path: impl AsRef<Path>) -> Result<SectorMap, SectorMapError> {
-    let bytes = fs::read(path)?;
-    let map = ron::de::from_bytes::<SectorMap>(&bytes)?;
+    let path = path.as_ref();
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        return load_map_from_embedded_path(path);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let bytes = fs::read(path)?;
+        parse_map_bytes(&bytes)
+    }
+}
+
+fn parse_map_bytes(bytes: &[u8]) -> Result<SectorMap, SectorMapError> {
+    let map = ron::de::from_bytes::<SectorMap>(bytes)?;
     validate_map(&map)?;
     Ok(map)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn load_map_from_embedded_path(path: &Path) -> Result<SectorMap, SectorMapError> {
+    let bytes = embedded_map_bytes_for_path(path).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("web map asset is not bundled: {}", path.display()),
+        )
+    })?;
+    parse_map_bytes(bytes)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn embedded_map_bytes_for_path(path: &Path) -> Option<&'static [u8]> {
+    let requested = normalized_embedded_map_path(path);
+    EMBEDDED_MAPS.iter().find_map(|embedded| {
+        let asset_path = embedded.asset_path.trim_start_matches("./");
+        let short_path = asset_path.strip_prefix("assets/").unwrap_or(asset_path);
+        (requested == asset_path || requested == short_path).then_some(embedded.bytes)
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn normalized_embedded_map_path(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "/")
+        .trim_start_matches("./")
+        .to_string()
 }
 
 pub fn save_map_to_path(map: &SectorMap, path: impl AsRef<Path>) -> Result<(), SectorMapError> {
