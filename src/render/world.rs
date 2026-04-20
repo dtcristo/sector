@@ -1,10 +1,10 @@
 use super::{
     frame::{draw_pixel, Pixel},
     math::{clip_wall, lerp, project},
-    RenderView, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, HEIGHT, NEAR, SHADE_BANDS, SHADE_FAR,
-    TAN_FAC_FOV_Y_2, WIDTH,
+    RenderView, BACK_CLIP_1, BACK_CLIP_2, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, HEIGHT, NEAR,
+    SHADE_BANDS, SHADE_FAR, TAN_FAC_FOV_Y_2, WIDTH,
 };
-use crate::{Position3, RawColor, Sector, SectorId};
+use crate::{Position2, Position3, RawColor, Sector, SectorId};
 
 use bevy::{math::vec2, prelude::*};
 use palette::{Hsv, IntoColor, Srgb};
@@ -396,7 +396,10 @@ fn root_sectors<'a>(
         .and_then(|id| sectors_by_id.get(&id).copied());
 
     for sector in sectors {
-        if sector_contains_view(sector, view.position) && seen.insert(sector.id) {
+        if (sector_contains_view(sector, view.position)
+            || sector_intersects_view_near_plane(sector, view))
+            && seen.insert(sector.id)
+        {
             roots.push(*sector);
         }
     }
@@ -416,39 +419,30 @@ fn root_sectors<'a>(
         }
     }
 
-    if !roots.is_empty() {
-        let point = view.position.truncate().0;
-        let forward = vec2(-view.direction.sin(), view.direction.cos());
-        let current_sector_contains_view =
-            current_sector.is_some_and(|sector| sector_contains_view(sector, view.position));
+    roots
+}
 
-        let mut index = 0;
-        while let Some(sector) = roots.get(index).copied() {
-            for wall in sector.wall_segments() {
-                let Some(portal_id) = wall.portal_sector else {
-                    continue;
-                };
-                let Some(portal_sector) = sectors_by_id.get(&portal_id).copied() else {
-                    continue;
-                };
-                if (portal_sector.floor.0 - sector.floor.0).abs() > CONTAINMENT_EPSILON
-                    || (portal_sector.ceil.0 - sector.ceil.0).abs() > CONTAINMENT_EPSILON
-                {
-                    continue;
-                }
-                let wall_direction = (wall.right.0 - wall.left.0).normalize_or_zero();
-                if position_near_wall(point, wall.left.0, wall.right.0)
-                    && (!current_sector_contains_view || wall_direction.dot(forward).abs() >= 0.6)
-                    && seen.insert(portal_sector.id)
-                {
-                    roots.push(portal_sector);
-                }
-            }
-            index += 1;
-        }
+fn sector_intersects_view_near_plane(sector: &Sector, view: &RenderView) -> bool {
+    if view.position.0.z < sector.floor.0 - CONTAINMENT_EPSILON {
+        return false;
+    }
+    if view.position.0.z > sector.ceil.0 + CONTAINMENT_EPSILON {
+        return false;
     }
 
-    roots
+    let (near_left, near_right) = view_near_plane_segment(view);
+    sector_contains_horizontal_point(sector, near_left)
+        || sector_contains_horizontal_point(sector, near_right)
+        || segments_intersect_sector(sector, near_left, near_right)
+}
+
+fn view_near_plane_segment(view: &RenderView) -> (Vec2, Vec2) {
+    let world_matrix =
+        Mat3::from_translation(view.position.truncate().0) * Mat3::from_rotation_z(view.direction);
+    (
+        Position2(*BACK_CLIP_2).transform(world_matrix).0,
+        Position2(*BACK_CLIP_1).transform(world_matrix).0,
+    )
 }
 
 fn sector_has_portal_near_view(sector: &Sector, position: Position3) -> bool {
@@ -535,6 +529,38 @@ fn distance_to_segment(point: Vec2, start: Vec2, end: Vec2) -> f32 {
     let t = ((point - start).dot(segment) / length_squared).clamp(0.0, 1.0);
     let projection = start + segment * t;
     point.distance(projection)
+}
+
+fn segments_intersect_sector(sector: &Sector, start: Vec2, end: Vec2) -> bool {
+    sector
+        .wall_segments()
+        .into_iter()
+        .any(|wall| segments_intersect(start, end, wall.left.0, wall.right.0))
+}
+
+fn segments_intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
+    let orientation =
+        |p: Vec2, q: Vec2, r: Vec2| (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+
+    let o1 = orientation(a1, a2, b1);
+    let o2 = orientation(a1, a2, b2);
+    let o3 = orientation(b1, b2, a1);
+    let o4 = orientation(b1, b2, a2);
+
+    if o1.abs() <= CONTAINMENT_EPSILON && point_on_segment(b1, a1, a2) {
+        return true;
+    }
+    if o2.abs() <= CONTAINMENT_EPSILON && point_on_segment(b2, a1, a2) {
+        return true;
+    }
+    if o3.abs() <= CONTAINMENT_EPSILON && point_on_segment(a1, b1, b2) {
+        return true;
+    }
+    if o4.abs() <= CONTAINMENT_EPSILON && point_on_segment(a2, b1, b2) {
+        return true;
+    }
+
+    (o1 > 0.0) != (o2 > 0.0) && (o3 > 0.0) != (o4 > 0.0)
 }
 
 fn draw_wall_column(
@@ -791,6 +817,42 @@ mod tests {
         let view = RenderView::new(
             Position3(vec3(0.0, 0.975, 1.62)),
             -std::f32::consts::FRAC_PI_2,
+            Some(SectorId(0)),
+        );
+
+        let roots = root_sectors(&view, &sector_refs, &sectors_by_id);
+
+        assert_eq!(roots.len(), 2);
+        assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
+        assert!(roots.iter().any(|sector| sector.id == SectorId(1)));
+    }
+
+    #[test]
+    fn root_sectors_include_lower_ceiling_neighbor_when_near_plane_crosses_portal() {
+        let sectors = vec![
+            sector(
+                0,
+                &[(-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)],
+                &[Some(1), None, None, None],
+                0.0,
+                4.0,
+            ),
+            sector(
+                1,
+                &[(1.0, 1.0), (-1.0, 1.0), (-1.0, 4.0), (1.0, 4.0)],
+                &[Some(0), None, None, None],
+                0.0,
+                3.0,
+            ),
+        ];
+        let sector_refs = sectors.iter().collect::<Vec<_>>();
+        let sectors_by_id = sector_refs
+            .iter()
+            .map(|sector| (sector.id, *sector))
+            .collect::<HashMap<_, _>>();
+        let view = RenderView::new(
+            Position3(vec3(0.0, 0.95, 1.62)),
+            -std::f32::consts::FRAC_PI_2 + 0.05,
             Some(SectorId(0)),
         );
 

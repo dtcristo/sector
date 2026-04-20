@@ -753,6 +753,31 @@ mod tests {
     }
 
     #[test]
+    fn default_map_snapshot_near_portal_boundary_keeps_columns_filled() {
+        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
+            .unwrap();
+        let (_, sectors) = map_to_sectors(&map).unwrap();
+        let player = Player {
+            position: Position3(Vec3::new(-0.4816283, 0.17646588, 0.0)),
+            direction: Direction(-0.99712837),
+            current_sector: Some(SectorId(0)),
+            grounded: true,
+            ..Player::default()
+        };
+        let mut frame = FrameBuffer::new();
+
+        render_frame(
+            frame.as_mut_slice(),
+            &player_render_view(&player),
+            sectors.iter(),
+            Automap::Off,
+        );
+
+        assert_no_fully_black_columns(&frame);
+        assert_no_long_black_run_on_center_row(&frame);
+    }
+
+    #[test]
     fn default_map_initial_view_renders_non_black_frame() {
         let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
             .unwrap();
