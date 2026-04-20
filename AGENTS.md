@@ -27,6 +27,7 @@
 - Always format code with `cargo fmt --all` after changes.
 - Always run `cargo check --all` after changes and fix issues.
 - Validate maps after making any map-related changes.
+- Write automated tests where appropriate.
 - Never push commits. Leave pushing to the user.
 - Commit logical changes in discrete commits.
 - Each commit message should explain what changed and why, not just use a short one-line summary.
