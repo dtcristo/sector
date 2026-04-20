@@ -13,7 +13,7 @@
 
 `sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional open ceilings with either black fallback or flat sky tint, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
 
-The native runtime and editor share the same `SectorMap` data model across both RON and MessagePack assets in `assets/maps/*.map.ron` and `assets/maps/*.map.mp`. The runtime now treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 21:9 or growing vertically to 9:16 before letterboxing extreme shapes. The web build ships the play runtime only and bundles the shipped maps so the current map can be selected from the URL.
+The native runtime and editor share the same `SectorMap` data model across both RON and MessagePack assets in `assets/maps/*.map.ron` and `assets/maps/*.map.mp`. The runtime now treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 21:9 or growing vertically to 9:16 before letterboxing extreme shapes. The web build ships the play runtime only, bundles the shipped maps, and resolves the current map from the URL path.
 
 ## Repository docs
 
@@ -79,15 +79,14 @@ Left click captures the cursor for play, right click or `Escape` releases it, an
 
 `just build-web` builds the browser version of the play runtime only. The editor and Doom importer are native-only tools.
 
-`just serve-web` serves the `wasm/` directory as a small SPA so map routes work locally. The browser runtime resolves the map from the URL:
+`just serve-web` serves the `wasm/` directory as a small SPA so map routes work locally. The browser runtime resolves the map from the URL path:
 
 - `/` or `/default` loads the default map
 - `/e1m1` loads E1M1
-- `#e1m1` is also supported as a fallback if your static host does not rewrite routes
 
 Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` at build time and embeds every shipped map so new maps can be exposed by route after rebuilding the web output.
 
-The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows.
+The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows. On the web, the runtime presents the software-rendered frame through a plain 2D canvas instead of the native `bevy_pixels` path, which avoids browser GPU initialization issues while keeping the same pixel-art output.
 
 ## CI/CD
 

@@ -41,7 +41,7 @@
 - Add performance benchmarks for the renderer and movement simulation on representative maps.
 - Add lightweight stage timing so portal traversal, column shading, automap, and final presentation costs can be compared quickly while tuning framerate.
 - Add screenshot or frame-diff tooling for stable visual regression checks where it stays fast enough.
-- Add a small browser smoke-test path that catches broken web routing or missing bundled maps before deployment.
+- Add a committed Playwright smoke test that catches broken web routing or missing bundled maps before deployment.
 
 ## Documentation
 

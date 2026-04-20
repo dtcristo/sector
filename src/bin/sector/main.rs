@@ -27,6 +27,9 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+#[cfg(target_arch = "wasm32")]
+mod web_canvas;
+
 const FIXED_SIMULATION_HZ: f64 = 120.0;
 
 #[derive(Resource, Debug, PartialEq)]
@@ -90,8 +93,14 @@ impl Plugin for SectorRuntimePlugin {
             .add_systems(
                 FixedUpdate,
                 player_simulation_system.run_if(in_state(CursorCaptureState::Captured)),
-            )
-            .add_systems(Draw, draw_frame_system);
+            );
+
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(Draw, draw_frame_system);
+
+        #[cfg(target_arch = "wasm32")]
+        app.add_systems(Update, web_canvas::ensure_web_canvas_system)
+            .add_systems(PostUpdate, draw_web_canvas_system);
     }
 }
 
@@ -101,8 +110,8 @@ fn main() {
 
     let map_path = runtime_map_path_from_args();
 
-    App::new()
-        .register_type::<SectorId>()
+    let mut app = App::new();
+    app.register_type::<SectorId>()
         .register_type::<Option<SectorId>>()
         .register_type::<Vec<Option<SectorId>>>()
         .register_type::<Sector>()
@@ -138,18 +147,26 @@ fn main() {
                     ..default()
                 }),
         )
-        .add_plugins(PixelsPlugin {
-            primary_window: Some(PixelsOptions {
-                width: WIDTH,
-                height: HEIGHT,
-                auto_resize_buffer: false,
-                auto_resize_surface: true,
-                ..default()
-            }),
-        })
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(SectorRuntimePlugin)
-        .run();
+        .add_plugins(SectorRuntimePlugin);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(runtime_pixels_plugin());
+
+    app.run();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn runtime_pixels_plugin() -> PixelsPlugin {
+    PixelsPlugin {
+        primary_window: Some(PixelsOptions {
+            width: WIDTH,
+            height: HEIGHT,
+            auto_resize_buffer: false,
+            auto_resize_surface: true,
+            ..default()
+        }),
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -169,13 +186,12 @@ fn runtime_map_path_from_args() -> PathBuf {
     let window = web_sys::window().expect("browser runtime should have a window");
     let location = window.location();
     let pathname = location.pathname().unwrap_or_default();
-    let hash = location.hash().unwrap_or_default();
-    runtime_map_path_from_web_route(&pathname, &hash)
+    runtime_map_path_from_web_route(&pathname)
 }
 
 #[cfg(any(test, target_arch = "wasm32"))]
-fn runtime_map_path_from_web_route(pathname: &str, hash: &str) -> PathBuf {
-    runtime_map_path_from_name(&map_name_from_route(pathname, hash))
+fn runtime_map_path_from_web_route(pathname: &str) -> PathBuf {
+    runtime_map_path_from_name(&map_name_from_route(pathname))
 }
 
 #[cfg(any(test, target_arch = "wasm32"))]
@@ -184,16 +200,13 @@ fn runtime_map_path_from_name(map_name: &str) -> PathBuf {
 }
 
 #[cfg(any(test, target_arch = "wasm32"))]
-fn map_name_from_route(pathname: &str, hash: &str) -> String {
-    map_name_from_route_component(pathname)
-        .or_else(|| map_name_from_route_component(hash))
-        .unwrap_or_else(|| "default".to_owned())
+fn map_name_from_route(pathname: &str) -> String {
+    map_name_from_route_component(pathname).unwrap_or_else(|| "default".to_owned())
 }
 
 #[cfg(any(test, target_arch = "wasm32"))]
 fn map_name_from_route_component(route: &str) -> Option<String> {
     let trimmed = route.trim();
-    let trimmed = trimmed.strip_prefix('#').unwrap_or(trimmed);
     let trimmed = trimmed.trim_matches('/');
     if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("index.html") {
         return None;
@@ -596,6 +609,38 @@ fn draw_frame_system(
     );
 }
 
+#[cfg(target_arch = "wasm32")]
+fn draw_web_canvas_system(
+    automap: Res<AutomapMode>,
+    player_query: Query<&Player>,
+    runtime_sectors: Res<RuntimeSectors>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    canvas: Option<ResMut<web_canvas::WebCanvasRenderer>>,
+) {
+    let Ok(player) = player_query.single() else {
+        return;
+    };
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+    let Some(mut canvas) = canvas else {
+        return;
+    };
+    let (width, height) = RenderMetrics::buffer_size_for_window(window.width(), window.height());
+    canvas.resize(width, height);
+    let metrics = RenderMetrics::new(width, height);
+    render_frame_with_metrics(
+        canvas.frame_mut(),
+        &metrics,
+        &player_render_view(player),
+        runtime_sectors.as_slice(),
+        automap.0,
+    );
+    canvas
+        .present()
+        .expect("failed to present web canvas frame");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -692,25 +737,24 @@ mod tests {
 
     #[test]
     fn web_route_defaults_to_default_map() {
-        assert_eq!(map_name_from_route("/", ""), "default");
+        assert_eq!(map_name_from_route("/"), "default");
         assert_eq!(
-            runtime_map_path_from_web_route("/", ""),
+            runtime_map_path_from_web_route("/"),
             shipped_map_path("default")
         );
     }
 
     #[test]
-    fn web_route_uses_path_segment_before_hash() {
-        assert_eq!(map_name_from_route("/e1m1", "#default"), "e1m1");
+    fn web_route_uses_path_segment() {
+        assert_eq!(map_name_from_route("/e1m1"), "e1m1");
         assert_eq!(
-            runtime_map_path_from_web_route("/e1m1", "#default"),
+            runtime_map_path_from_web_route("/e1m1"),
             shipped_map_path("e1m1")
         );
     }
 
     #[test]
-    fn web_route_falls_back_to_hash_map_name() {
-        assert_eq!(map_name_from_route("/", "#/e1m1"), "e1m1");
-        assert_eq!(map_name_from_route("/index.html", "#e1m1"), "e1m1");
+    fn web_route_ignores_hash_fallback() {
+        assert_eq!(map_name_from_route("/index.html"), "default");
     }
 }

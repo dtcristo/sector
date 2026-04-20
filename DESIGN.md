@@ -84,7 +84,7 @@ The runtime:
 
 On native builds, the runtime accepts an optional map path argument and otherwise falls back to `DEFAULT_MAP_FILE_PATH` from `src/lib.rs`.
 
-On wasm builds, the runtime derives the map name from the browser location (`/`, `/default`, `/e1m1`, or `#e1m1`) and loads the map from a build-generated embedded registry. This avoids filesystem access in the browser while keeping route-based map switching dynamic across whatever maps were present in `assets/maps/` when the web bundle was built.
+On wasm builds, the runtime derives the map name from the browser path (`/`, `/default`, `/e1m1`, and so on) and loads the map from a build-generated embedded registry. This avoids filesystem access in the browser while keeping route-based map switching dynamic across whatever maps were present in `assets/maps/` when the web bundle was built.
 
 ### Player and movement
 
@@ -108,7 +108,7 @@ Bevy's scheduler now splits runtime work intentionally: `Update` handles input, 
 
 ### Rendering
 
-The renderer is a software rasterizer built around a 320x240, 4:3 baseline, but it no longer treats that size as a hard lock. The runtime first chooses a dynamic pixel-buffer size from the current window, resizes the actual `bevy_pixels` buffer to match it immediately, and then derives `RenderMetrics` from that live buffer size:
+The renderer is a software rasterizer built around a 320x240, 4:3 baseline, but it no longer treats that size as a hard lock. The runtime first chooses a dynamic logical buffer size from the current window and then derives `RenderMetrics` from that live size:
 
 - 4:3 stays the preferred baseline view
 - aspect ratio is clamped so play widens only up to 21:9 and grows vertically only up to 9:16
@@ -117,6 +117,11 @@ The renderer is a software rasterizer built around a 320x240, 4:3 baseline, but 
 - when the next integer step is reached, the logical buffer snaps back toward the baseline density
 
 This keeps the presentation blocky and retro while making better use of resize events and unusual window shapes.
+
+Presentation is platform-specific after the software frame is generated:
+
+- native builds resize the live `bevy_pixels` buffer to the computed logical size and present it through the normal pixels-backed window path
+- wasm builds draw the frame into the Bevy-owned browser canvas through a 2D canvas context, which avoids WebGPU adapter/format failures while preserving the same software-rendered output and pixel scaling rules
 
 The visual style is deliberately limited:
 
