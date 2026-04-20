@@ -1,5 +1,4 @@
+/.playwright-cli
+/target
 /wasm/assets
 /wasm/target
-/target
-*.mp
-!assets/maps/*.map.mp
