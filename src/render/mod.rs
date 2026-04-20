@@ -79,7 +79,7 @@ impl RenderMetrics {
         }
     }
 
-    pub fn from_window_size(window_width: f32, window_height: f32) -> Self {
+    pub fn buffer_size_for_window(window_width: f32, window_height: f32) -> (u32, u32) {
         let window_width = window_width.max(WIDTH as f32);
         let window_height = window_height.max(HEIGHT as f32);
         let window_aspect_ratio = window_width / window_height;
@@ -97,7 +97,7 @@ impl RenderMetrics {
         let width = (content_width / scale).floor().max(1.0) as u32;
         let height = (content_height / scale).floor().max(1.0) as u32;
 
-        Self::new(width, height)
+        (width, height)
     }
 
     pub fn frame_bytes(self) -> usize {
@@ -444,33 +444,35 @@ mod tests {
     }
 
     #[test]
-    fn render_metrics_clamp_extreme_window_aspects() {
-        let wide = RenderMetrics::from_window_size(4000.0, 200.0);
-        let tall = RenderMetrics::from_window_size(200.0, 4000.0);
+    fn buffer_size_clamps_extreme_window_aspects() {
+        let wide = RenderMetrics::buffer_size_for_window(4000.0, 200.0);
+        let tall = RenderMetrics::buffer_size_for_window(200.0, 4000.0);
 
-        let wide_aspect = wide.width as f32 / wide.height as f32;
-        let tall_aspect = tall.width as f32 / tall.height as f32;
+        let wide_aspect = wide.0 as f32 / wide.1 as f32;
+        let tall_aspect = tall.0 as f32 / tall.1 as f32;
 
         assert!(wide_aspect <= MAX_ASPECT_RATIO + 0.01);
         assert!(tall_aspect >= MIN_ASPECT_RATIO - 0.01);
     }
 
     #[test]
-    fn render_metrics_show_more_between_integer_scale_steps_then_snap_back() {
-        let intermediate = RenderMetrics::from_window_size(700.0, 525.0);
-        let snapped = RenderMetrics::from_window_size(960.0, 720.0);
+    fn buffer_size_shows_more_between_integer_scale_steps_then_snaps_back() {
+        let intermediate = RenderMetrics::buffer_size_for_window(700.0, 525.0);
+        let snapped = RenderMetrics::buffer_size_for_window(960.0, 720.0);
 
-        assert!(intermediate.width > WIDTH);
-        assert!(intermediate.height > HEIGHT);
-        assert_eq!(snapped.width, WIDTH);
-        assert_eq!(snapped.height, HEIGHT);
+        assert!(intermediate.0 > WIDTH);
+        assert!(intermediate.1 > HEIGHT);
+        assert_eq!(snapped.0, WIDTH);
+        assert_eq!(snapped.1, HEIGHT);
     }
 
     #[test]
     fn render_metrics_expand_fov_with_aspect_changes() {
         let base = RenderMetrics::base();
-        let wide = RenderMetrics::from_window_size(840.0, 360.0);
-        let tall = RenderMetrics::from_window_size(360.0, 840.0);
+        let wide = RenderMetrics::buffer_size_for_window(840.0, 360.0);
+        let tall = RenderMetrics::buffer_size_for_window(360.0, 840.0);
+        let wide = RenderMetrics::new(wide.0, wide.1);
+        let tall = RenderMetrics::new(tall.0, tall.1);
         let sample = Position2(vec2(1.0, 5.0));
 
         let base_projection = math::project_with_metrics(&base, sample, Length(0.0));

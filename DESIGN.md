@@ -108,7 +108,7 @@ Bevy's scheduler now splits runtime work intentionally: `Update` handles input, 
 
 ### Rendering
 
-The renderer is a software rasterizer built around a 320x240, 4:3 baseline, but it no longer treats that size as a hard lock. Each frame uses `RenderMetrics` derived from the current window size:
+The renderer is a software rasterizer built around a 320x240, 4:3 baseline, but it no longer treats that size as a hard lock. The runtime first chooses a dynamic pixel-buffer size from the current window, resizes the actual `bevy_pixels` buffer to match it immediately, and then derives `RenderMetrics` from that live buffer size:
 
 - 4:3 stays the preferred baseline view
 - aspect ratio is clamped so play widens only up to 21:9 and grows vertically only up to 9:16
