@@ -38,6 +38,8 @@ pub struct MapSector {
     pub ceil_color: [u8; 3],
     #[serde(default, skip_serializing_if = "is_false")]
     pub no_ceiling: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sky_color: Option<[u8; 3]>,
     pub vertices: Vec<MapVertex>,
     pub walls: Vec<MapWall>,
 }
@@ -343,6 +345,7 @@ pub fn map_to_sectors(map: &SectorMap) -> Result<(InitialSector, Vec<Sector>), S
             floor_color: RawColor(sector.floor_color),
             ceil_color: RawColor(sector.ceil_color),
             no_ceiling: sector.no_ceiling,
+            sky_color: sector.sky_color.map(RawColor),
         })
         .collect();
 
@@ -387,6 +390,8 @@ pub fn sectors_to_map_with_spawn(
                 ceil: sector.ceil.0,
                 floor_color: sector.floor_color.0,
                 ceil_color: sector.ceil_color.0,
+                no_ceiling: sector.no_ceiling,
+                sky_color: sector.sky_color.map(|color| color.0),
                 vertices: sector
                     .vertices
                     .into_iter()
@@ -409,7 +414,6 @@ pub fn sectors_to_map_with_spawn(
                         },
                     )
                     .collect(),
-                no_ceiling: sector.no_ceiling,
             })
             .collect(),
     };
@@ -794,6 +798,7 @@ mod tests {
                     floor_color: [32, 48, 64],
                     ceil_color: [128, 96, 80],
                     no_ceiling: false,
+                    sky_color: None,
                     vertices: vec![
                         MapVertex(0.0, 4.0),
                         MapVertex(4.0, 4.0),
@@ -837,6 +842,7 @@ mod tests {
                     floor_color: [10, 20, 30],
                     ceil_color: [180, 170, 90],
                     no_ceiling: true,
+                    sky_color: Some([90, 120, 180]),
                     vertices: vec![
                         MapVertex(0.0, 8.0),
                         MapVertex(4.0, 8.0),
@@ -911,6 +917,7 @@ mod tests {
         assert_eq!(round_tripped.sectors[1].floor_color, [10, 20, 30]);
         assert_eq!(round_tripped.sectors[1].ceil_color, [180, 170, 90]);
         assert!(round_tripped.sectors[1].no_ceiling);
+        assert_eq!(round_tripped.sectors[1].sky_color, Some([90, 120, 180]));
     }
 
     #[test]
@@ -1108,6 +1115,7 @@ mod tests {
         assert!(map.sectors.len() >= 300);
         assert!(map.sectors.iter().any(|sector| sector.ceil >= 12.0));
         assert!(map.sectors.iter().any(|sector| sector.no_ceiling));
+        assert!(map.sectors.iter().any(|sector| sector.sky_color.is_some()));
         assert!(map.sectors.iter().any(|sector| {
             sector.floor_color != default_floor_color() || sector.ceil_color != default_ceil_color()
         }));

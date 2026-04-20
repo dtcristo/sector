@@ -32,6 +32,7 @@ enum SurfaceKind {
     Wall,
     Floor,
     Ceiling,
+    Sky,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -63,6 +64,14 @@ impl SurfaceTag {
             kind: SurfaceKind::Ceiling,
             color,
             plane_key: plane_key(height),
+        }
+    }
+
+    fn sky(color: RawColor) -> Self {
+        Self {
+            kind: SurfaceKind::Sky,
+            color,
+            plane_key: 0,
         }
     }
 }
@@ -125,6 +134,7 @@ fn render_sector_tree<'a>(
             .into_color();
         let ceiling_tag = SurfaceTag::ceiling(sector.ceil_color, sector.ceil.0);
         let floor_tag = SurfaceTag::floor(sector.floor_color, sector.floor.0);
+        let sky_tag = sector.sky_color.map(SurfaceTag::sky);
 
         'walls: for wall in sector.wall_segments() {
             let view_left = wall.left.transform(view_matrix);
@@ -279,6 +289,8 @@ fn render_sector_tree<'a>(
                             ceiling_tag,
                             view_ceil.0,
                         );
+                    } else if let (Some(sky_color), Some(sky_tag)) = (sector.sky_color, sky_tag) {
+                        draw_wall_column(frame, surfaces, x, y_min, y_top, sky_color, sky_tag);
                     }
 
                     if portal_sector.is_some() {
@@ -752,6 +764,7 @@ mod tests {
             floor_color: *FLOOR_COLOR,
             ceil_color: *CEILING_COLOR,
             no_ceiling: false,
+            sky_color: None,
         }
     }
 
@@ -918,6 +931,12 @@ mod tests {
         let ceiling = SurfaceTag::ceiling(*CEILING_COLOR, 3.2);
         let higher = SurfaceTag::ceiling(*CEILING_COLOR, 3.4);
         assert!(should_outline_edge(ceiling, Some(higher)));
+    }
+
+    #[test]
+    fn matching_sky_colors_skip_outline() {
+        let sky = SurfaceTag::sky(RawColor([64, 96, 160]));
+        assert!(!should_outline_edge(sky, Some(sky)));
     }
 
     #[test]

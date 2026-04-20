@@ -1,7 +1,8 @@
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::{app::AppExit, ecs::message::MessageWriter};
 use bevy::{
-    app::AppExit,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
-    ecs::message::{MessageReader, MessageWriter},
+    ecs::message::MessageReader,
     input::mouse::MouseMotion,
     input::ButtonInput,
     prelude::*,
@@ -139,10 +140,12 @@ fn runtime_map_path_from_args() -> PathBuf {
     runtime_map_path_from_web_route(&pathname, &hash)
 }
 
+#[cfg(any(test, target_arch = "wasm32"))]
 fn runtime_map_path_from_web_route(pathname: &str, hash: &str) -> PathBuf {
     runtime_map_path_from_name(&map_name_from_route(pathname, hash))
 }
 
+#[cfg(any(test, target_arch = "wasm32"))]
 fn runtime_map_path_from_name(map_name: &str) -> PathBuf {
     if map_name == "default" {
         PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH)
@@ -153,12 +156,14 @@ fn runtime_map_path_from_name(map_name: &str) -> PathBuf {
     }
 }
 
+#[cfg(any(test, target_arch = "wasm32"))]
 fn map_name_from_route(pathname: &str, hash: &str) -> String {
     map_name_from_route_component(pathname)
         .or_else(|| map_name_from_route_component(hash))
         .unwrap_or_else(|| "default".to_owned())
 }
 
+#[cfg(any(test, target_arch = "wasm32"))]
 fn map_name_from_route_component(route: &str) -> Option<String> {
     let trimmed = route.trim();
     let trimmed = trimmed.strip_prefix('#').unwrap_or(trimmed);
@@ -325,6 +330,7 @@ struct SectorStateDump {
     ceil: f32,
     headroom: f32,
     no_ceiling: bool,
+    sky_color: Option<[u8; 3]>,
     floor_color: [u8; 3],
     ceil_color: [u8; 3],
     vertices: Vec<[f32; 2]>,
@@ -458,6 +464,7 @@ fn build_sector_state_dump(sector: &Sector, sectors: &[&Sector]) -> SectorStateD
         ceil: sector.ceil.0,
         headroom: sector.ceil.0 - sector.floor.0,
         no_ceiling: sector.no_ceiling,
+        sky_color: sector.sky_color.map(|color| color.0),
         floor_color: sector.floor_color.0,
         ceil_color: sector.ceil_color.0,
         vertices: sector
@@ -562,6 +569,7 @@ mod tests {
             floor_color: RawColor([11, 22, 33]),
             ceil_color: RawColor([44, 55, 66]),
             no_ceiling: true,
+            sky_color: Some(RawColor([77, 88, 99])),
         }
     }
 
@@ -612,6 +620,7 @@ mod tests {
             .expect("current sector dump should exist");
         assert_eq!(current_sector.id, 3);
         assert!(current_sector.no_ceiling);
+        assert_eq!(current_sector.sky_color, Some([77, 88, 99]));
         assert_eq!(current_sector.floor_color, [11, 22, 33]);
         assert_eq!(
             current_sector.walls[0].portal,

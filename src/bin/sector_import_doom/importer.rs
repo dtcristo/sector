@@ -19,6 +19,11 @@ const MIN_PORTAL_OVERLAP_METERS: f32 = 0.05;
 const DEFAULT_WALL_COLOR: [u8; 3] = [96, 96, 104];
 const IMPASSABLE_FLAG: i16 = 0x0001;
 const DOOR_TEXTURE_HINTS: [&str; 3] = ["BIGDOOR", "EXITDOOR", "DOOR"];
+const SKY_FLAT_NAME: &str = "F_SKY1";
+const DOOR_LINE_SPECIALS: &[i16] = &[
+    1, 2, 3, 4, 16, 26, 27, 28, 29, 31, 32, 33, 34, 42, 46, 50, 61, 63, 75, 76, 86, 90, 99, 103,
+    105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 133, 134, 135, 136, 137,
+];
 
 type IntPoint = (i32, i32);
 type EdgeKey = (IntPoint, IntPoint);
@@ -105,6 +110,8 @@ struct LineDef {
     start: usize,
     end: usize,
     flags: i16,
+    special: i16,
+    tag: i16,
     right: i16,
     left: i16,
 }
@@ -121,6 +128,7 @@ struct DoomSector {
     ceil: i16,
     floor_flat: String,
     ceil_flat: String,
+    tag: i16,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -160,6 +168,7 @@ struct SectorProfile {
     ceil_color: [u8; 3],
     wall_default: [u8; 3],
     no_ceiling: bool,
+    sky_color: Option<[u8; 3]>,
 }
 
 #[derive(Debug, Clone)]
@@ -534,6 +543,7 @@ pub fn import_doom_map(wad_path: &Path, map_name: &str) -> Result<ConvertedMap, 
     );
     let neighbors = build_sector_neighbors(&linedefs, &sidedefs);
     let sector_profiles = build_sector_profiles(
+        &normalized_map_name,
         &doom_sectors,
         &neighbors,
         &linedefs,
@@ -642,6 +652,7 @@ pub fn import_doom_map(wad_path: &Path, map_name: &str) -> Result<ConvertedMap, 
             floor_color: profile.floor_color,
             ceil_color: profile.ceil_color,
             no_ceiling: profile.no_ceiling,
+            sky_color: profile.sky_color,
             vertices: cell
                 .vertices
                 .iter()
@@ -685,7 +696,7 @@ pub fn import_doom_map(wad_path: &Path, map_name: &str) -> Result<ConvertedMap, 
         generated_sector_count: map.sectors.len(),
         sky_sector_count: doom_sectors
             .iter()
-            .filter(|sector| sector.ceil_flat == "F_SKY1")
+            .filter(|sector| sector.ceil_flat == SKY_FLAT_NAME)
             .count(),
         map,
     })
@@ -743,6 +754,8 @@ fn load_map_data(
             start: read_i16(chunk, 0).unwrap() as usize,
             end: read_i16(chunk, 2).unwrap() as usize,
             flags: read_i16(chunk, 4).unwrap(),
+            special: read_i16(chunk, 6).unwrap(),
+            tag: read_i16(chunk, 8).unwrap(),
             right: read_i16(chunk, 10).unwrap(),
             left: read_i16(chunk, 12).unwrap(),
         })
@@ -765,6 +778,7 @@ fn load_map_data(
             ceil: read_i16(chunk, 2).unwrap(),
             floor_flat: decode_name(&chunk[4..12]),
             ceil_flat: decode_name(&chunk[12..20]),
+            tag: read_i16(chunk, 24).unwrap(),
         })
         .collect::<Vec<_>>();
 
@@ -1001,6 +1015,7 @@ fn build_sector_neighbors(
 }
 
 fn build_sector_profiles(
+    map_name: &str,
     sectors: &[DoomSector],
     neighbors: &HashMap<usize, HashSet<usize>>,
     linedefs: &[LineDef],
@@ -1008,11 +1023,20 @@ fn build_sector_profiles(
     wall_defaults: &HashMap<usize, [u8; 3]>,
     textures: &mut TextureAverages<'_>,
 ) -> HashMap<usize, SectorProfile> {
+    let opened_door_sectors = collect_open_door_sectors(sectors, linedefs, sidedefs);
+    let sky_color = textures.average(sky_texture_name_for_map(map_name));
     let mut heights = (0..sectors.len())
         .map(|sector_index| {
             (
                 sector_index,
-                scaled_floor_and_ceil(sector_index, sectors, neighbors, linedefs, sidedefs),
+                scaled_floor_and_ceil(
+                    sector_index,
+                    sectors,
+                    neighbors,
+                    linedefs,
+                    sidedefs,
+                    &opened_door_sectors,
+                ),
             )
         })
         .collect::<HashMap<_, _>>();
@@ -1023,15 +1047,20 @@ fn build_sector_profiles(
             let source = &sectors[sector_index];
             let (floor, ceil) = heights[&sector_index];
             let wall_default = wall_defaults[&sector_index];
+            let no_ceiling = source.ceil_flat == SKY_FLAT_NAME;
+            let sector_sky_color = no_ceiling.then_some(sky_color).flatten();
             (
                 sector_index,
                 SectorProfile {
                     floor,
                     ceil,
                     floor_color: textures.average(&source.floor_flat).unwrap_or(wall_default),
-                    ceil_color: textures.average(&source.ceil_flat).unwrap_or(wall_default),
+                    ceil_color: sector_sky_color
+                        .or_else(|| textures.average(&source.ceil_flat))
+                        .unwrap_or(wall_default),
                     wall_default,
-                    no_ceiling: source.ceil_flat == "F_SKY1",
+                    no_ceiling,
+                    sky_color: sector_sky_color,
                 },
             )
         })
@@ -1044,16 +1073,20 @@ fn scaled_floor_and_ceil(
     neighbors: &HashMap<usize, HashSet<usize>>,
     linedefs: &[LineDef],
     sidedefs: &[SideDef],
+    opened_door_sectors: &HashSet<usize>,
 ) -> (f32, f32) {
     let source = &sectors[sector_index];
     let floor = source.floor as f32 / Z_SCALE;
     let mut ceil = source.ceil as f32 / Z_SCALE;
 
-    if source.ceil_flat == "F_SKY1" {
+    if source.ceil_flat == SKY_FLAT_NAME {
         ceil = ceil.max(OUTDOOR_CEILING_METERS);
     }
 
-    if source.ceil == source.floor || sector_has_door_textures(sector_index, linedefs, sidedefs) {
+    if opened_door_sectors.contains(&sector_index)
+        || source.ceil == source.floor
+        || sector_has_door_textures(sector_index, linedefs, sidedefs)
+    {
         if let Some(neighbor_ceil) = neighbors.get(&sector_index).and_then(|sector_neighbors| {
             sector_neighbors
                 .iter()
@@ -1132,6 +1165,97 @@ fn sector_has_door_textures(
                         })
             })
     })
+}
+
+fn collect_open_door_sectors(
+    sectors: &[DoomSector],
+    linedefs: &[LineDef],
+    sidedefs: &[SideDef],
+) -> HashSet<usize> {
+    let mut sectors_by_tag = HashMap::<i16, Vec<usize>>::new();
+    for (sector_index, sector) in sectors.iter().enumerate() {
+        if sector.tag > 0 {
+            sectors_by_tag
+                .entry(sector.tag)
+                .or_default()
+                .push(sector_index);
+        }
+    }
+
+    let mut opened = HashSet::new();
+    for linedef in linedefs {
+        if !DOOR_LINE_SPECIALS.contains(&linedef.special) {
+            continue;
+        }
+
+        if linedef.tag > 0 {
+            if let Some(tagged_sectors) = sectors_by_tag.get(&linedef.tag) {
+                opened.extend(tagged_sectors.iter().copied());
+            }
+            continue;
+        }
+
+        if let Some(sector_index) = local_door_sector_for_linedef(linedef, sectors, sidedefs) {
+            opened.insert(sector_index);
+        }
+    }
+
+    opened
+}
+
+fn local_door_sector_for_linedef(
+    linedef: &LineDef,
+    sectors: &[DoomSector],
+    sidedefs: &[SideDef],
+) -> Option<usize> {
+    adjacent_sector_indices(linedef, sidedefs)
+        .into_iter()
+        .min_by_key(|sector_index| door_sector_priority(&sectors[*sector_index]))
+}
+
+fn adjacent_sector_indices(linedef: &LineDef, sidedefs: &[SideDef]) -> Vec<usize> {
+    let mut adjacent = [linedef.right, linedef.left]
+        .into_iter()
+        .filter(|side_index| *side_index >= 0)
+        .map(|side_index| sidedefs[side_index as usize].sector)
+        .collect::<Vec<_>>();
+    adjacent.sort_unstable();
+    adjacent.dedup();
+    adjacent
+}
+
+fn door_sector_priority(sector: &DoomSector) -> (i16, i16, i16) {
+    (sector.ceil - sector.floor, sector.ceil, sector.floor)
+}
+
+fn sky_texture_name_for_map(map_name: &str) -> &'static str {
+    let upper = map_name.to_ascii_uppercase();
+    if let Some((episode, _mission)) = upper
+        .strip_prefix('E')
+        .and_then(|rest| rest.split_once('M'))
+        .and_then(|(episode, mission)| {
+            Some((episode.parse::<u32>().ok()?, mission.parse::<u32>().ok()?))
+        })
+    {
+        return match episode {
+            1 => "SKY1",
+            2 => "SKY2",
+            _ => "SKY3",
+        };
+    }
+
+    if let Some(map_number) = upper
+        .strip_prefix("MAP")
+        .and_then(|number| number.parse::<u32>().ok())
+    {
+        return match map_number {
+            1..=11 => "SKY1",
+            12..=20 => "SKY2",
+            _ => "SKY3",
+        };
+    }
+
+    "SKY1"
 }
 
 fn polygon_to_cells(
@@ -1526,4 +1650,73 @@ fn read_u32(bytes: &[u8], offset: usize) -> Result<u32, ImportError> {
             message: "unexpected end of lump".into(),
         })?;
     Ok(u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn doom_sector(floor: i16, ceil: i16, tag: i16) -> DoomSector {
+        DoomSector {
+            floor,
+            ceil,
+            floor_flat: "FLOOR0_1".into(),
+            ceil_flat: "CEIL1_1".into(),
+            tag,
+        }
+    }
+
+    fn sidedef(sector: usize) -> SideDef {
+        SideDef {
+            upper: [0; 8],
+            lower: [0; 8],
+            middle: [0; 8],
+            sector,
+        }
+    }
+
+    #[test]
+    fn sky_texture_name_tracks_doom_episode_and_map_conventions() {
+        assert_eq!(sky_texture_name_for_map("E1M1"), "SKY1");
+        assert_eq!(sky_texture_name_for_map("E2M5"), "SKY2");
+        assert_eq!(sky_texture_name_for_map("E4M2"), "SKY3");
+        assert_eq!(sky_texture_name_for_map("MAP01"), "SKY1");
+        assert_eq!(sky_texture_name_for_map("MAP15"), "SKY2");
+        assert_eq!(sky_texture_name_for_map("MAP30"), "SKY3");
+    }
+
+    #[test]
+    fn collect_open_door_sectors_marks_manual_and_tagged_doors() {
+        let sectors = vec![
+            doom_sector(0, 128, 0),
+            doom_sector(0, 0, 0),
+            doom_sector(0, 128, 7),
+        ];
+        let sidedefs = vec![sidedef(0), sidedef(1), sidedef(0), sidedef(2)];
+        let linedefs = vec![
+            LineDef {
+                start: 0,
+                end: 1,
+                flags: 0,
+                special: 1,
+                tag: 0,
+                right: 0,
+                left: 1,
+            },
+            LineDef {
+                start: 1,
+                end: 2,
+                flags: 0,
+                special: 90,
+                tag: 7,
+                right: 2,
+                left: -1,
+            },
+        ];
+
+        let opened = collect_open_door_sectors(&sectors, &linedefs, &sidedefs);
+
+        assert!(opened.contains(&1));
+        assert!(opened.contains(&2));
+    }
 }

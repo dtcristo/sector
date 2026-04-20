@@ -201,6 +201,7 @@ mod tests {
             floor_color: *FLOOR_COLOR,
             ceil_color: *CEILING_COLOR,
             no_ceiling: false,
+            sky_color: None,
         }
     }
 

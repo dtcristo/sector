@@ -11,7 +11,7 @@
 
 ## Overview
 
-`sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional black-sky ceilings, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
+`sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional open ceilings with either black fallback or flat sky tint, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
 
 The native runtime and editor share the same RON map format in `assets/maps/*.map.ron`. The web build ships the play runtime only and bundles the shipped maps so the current map can be selected from the URL.
 
@@ -81,7 +81,7 @@ Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` 
 ## Shipped maps
 
 - `default`: hand-authored testbed map for movement, rendering, stairs, portals, crouch spaces, and overlapping-height rooms
-- `e1m1`: imported from the DOOM shareware WAD, with doors held open, sky sectors converted into black-sky `no_ceiling` spaces, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
+- `e1m1`: imported from the DOOM shareware WAD, with doors held open from Doom door specials, sky sectors converted into `no_ceiling` spaces tinted from the map sky texture, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
 
 ## DOOM import workflow
 
@@ -96,7 +96,9 @@ The importer:
 
 - preserves the Doom player start position and facing direction relative to the current player model
 - decomposes Doom sectors into convex cells that satisfy this engine's validation rules
-- converts `F_SKY1` ceilings into `no_ceiling` sectors and keeps impassable linedefs as view-only portals
+- converts `F_SKY1` ceilings into `no_ceiling` sectors, tinting them from the correct Doom sky texture for the imported map
+- opens sectors targeted by Doom door linedef specials instead of leaving those doors closed in the converted map
+- keeps impassable linedefs as view-only portals
 - averages wall textures and flats into this engine's flat-color material model
 
 Pass a third argument to the binary if you want a different output path.
@@ -107,7 +109,7 @@ Pass a third argument to the binary if you want a different output path.
 - Spawn position and facing direction live in the map asset.
 - Floor and ceiling planes can carry their own flat colors through `floor_color` and `ceil_color`.
 - Sectors must wind clockwise and remain convex.
-- Set `no_ceiling: true` on a sector to leave its ceiling unrendered as black sky while still keeping its collision ceiling height.
+- Set `no_ceiling: true` on a sector to leave its ceiling open while still keeping its collision ceiling height. Leave `sky_color` unset for black sky, or set it to a flat tint for imported/open-sky sectors.
 - Portal walls can be marked `walkable: false` to create windows or skybox openings that render through to another sector but block traversal.
 - Portals must be reciprocal, agree on walkability, and provide real vertical openings.
 - Flat wall, floor, and ceiling colors are the current material system; there is no texture support yet.

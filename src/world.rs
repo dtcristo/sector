@@ -24,6 +24,7 @@ pub struct Sector {
     pub floor_color: RawColor,
     pub ceil_color: RawColor,
     pub no_ceiling: bool,
+    pub sky_color: Option<RawColor>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -104,6 +105,7 @@ mod tests {
             floor_color: *FLOOR_COLOR,
             ceil_color: *CEILING_COLOR,
             no_ceiling: false,
+            sky_color: None,
         };
 
         let walls = sector.wall_segments();

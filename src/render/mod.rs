@@ -152,6 +152,7 @@ mod tests {
             floor_color: *FLOOR_COLOR,
             ceil_color: *CEILING_COLOR,
             no_ceiling: false,
+            sky_color: None,
         }
     }
 
@@ -520,6 +521,23 @@ mod tests {
     }
 
     #[test]
+    fn render_frame_without_ceiling_uses_sky_color_when_present() {
+        let mut player = Player::default();
+        player.current_sector = Some(SectorId(0));
+        let view = player_render_view(&player);
+        let mut sector = room_with_front_wall(10.0);
+        sector.no_ceiling = true;
+        sector.sky_color = Some(RawColor([72, 96, 140]));
+        let sectors = [sector];
+        let mut frame = FrameBuffer::new();
+
+        render_frame(frame.as_mut_slice(), &view, sectors.iter(), Automap::Off);
+
+        let center_x = WIDTH as usize / 2;
+        assert_eq!(frame.pixel(center_x, 10), [72, 96, 140, 255]);
+    }
+
+    #[test]
     fn render_frame_uses_sector_floor_and_ceiling_colors() {
         let mut player = Player::default();
         player.current_sector = Some(SectorId(0));
@@ -557,6 +575,8 @@ mod tests {
         let mut sectors = connected_portal_sectors();
         sectors[0].no_ceiling = true;
         sectors[1].no_ceiling = true;
+        sectors[0].sky_color = Some(RawColor([80, 110, 160]));
+        sectors[1].sky_color = Some(RawColor([80, 110, 160]));
         sectors[0].ceil = Length(8.0);
         sectors[1].ceil = Length(4.0);
 

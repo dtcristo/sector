@@ -12,7 +12,7 @@
 ## Renderer
 
 - Introduce textured walls, floors, and ceilings without losing the crisp software-rendered look.
-- Add skybox art or skyline rendering for `no_ceiling` sectors instead of leaving them black.
+- Add real skybox art or skyline rendering for `no_ceiling` sectors instead of the current flat sky tint / black fallback.
 - Continue profiling portal traversal and column drawing to reduce overdraw and unnecessary work.
 - Explore wider support for stacked spaces or room-over-room approximations that preserve current performance goals.
 - Add more renderer regression coverage for large imported maps and unusual portal topologies.
@@ -21,7 +21,7 @@
 
 - Add helpers that decompose complex shapes into valid convex sectors automatically.
 - Improve map validation diagnostics with clearer geometry context and suggested fixes.
-- Extend the DOOM importer to cover more source semantics such as linedef specials, more thing types, and richer metadata.
+- Extend the DOOM importer beyond the current door-special and sky-texture handling to cover more linedef specials, more thing types, and richer metadata.
 - Teach the editor about `no_ceiling` sectors and view-only (`walkable: false`) portals.
 - Let the editor open and save arbitrary map files instead of centering everything on the default map.
 - Add map metadata for themes, authoring notes, and per-map tuning values.

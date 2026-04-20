@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`sector` is a retro 2.5D sector/portal renderer built with Rust and Bevy. The project favors a software-rendered look over physical realism or modern rendering features: flat-shaded walls, banded distance falloff, crisp outlines, low-resolution presentation, and black-sky voids are intentional parts of the design.
+`sector` is a retro 2.5D sector/portal renderer built with Rust and Bevy. The project favors a software-rendered look over physical realism or modern rendering features: flat-shaded walls, banded distance falloff, crisp outlines, low-resolution presentation, and open-sky voids with flat sky tints or black fallback are intentional parts of the design.
 
 The codebase is organized around a small runtime, a shared map/world representation, and fast headless tests that protect rendering and movement behavior.
 
@@ -68,7 +68,7 @@ Maps are stored as RON in `assets/maps/*.map.ron`. `SectorMap` mirrors the runti
     - optional `upper_color`
     - optional `lower_color`
 
-Flat wall, floor, and ceiling colors are the material system today. There are no textures, no slopes, and no per-surface UVs. A sector without a rendered ceiling still keeps a numeric ceiling height for collision, portal opening checks, and future sky rendering.
+Flat wall, floor, and ceiling colors are the material system today. There are no textures, no slopes, and no per-surface UVs. A sector without a rendered ceiling still keeps a numeric ceiling height for collision and portal opening checks, and may optionally carry a `sky_color` so open ceilings can render as a flat sky tint instead of the black fallback.
 
 ## Runtime flow
 
@@ -109,7 +109,7 @@ The renderer is a software rasterizer over a fixed 320x240 buffer scaled to the 
 
 - flat wall colors instead of textures
 - horizontal floor/ceiling bands colored per sector
-- optional black-sky sectors that skip ceiling rasterization entirely
+- optional open-sky sectors that either use a flat `sky_color` tint or fall back to black when the ceiling is skipped
 - quantized distance shading (`SHADE_BANDS = 16`)
 - explicit black outlines between materially or geometrically distinct surfaces
 
@@ -124,7 +124,7 @@ At a high level:
 
 The renderer is portal-based, not BSP-based. It depends on valid reciprocal portal topology and convex sectors to stay simple.
 
-When two adjacent portal-connected sectors both use `no_ceiling`, the renderer suppresses the upper trim between them so imported sky openings read as one continuous black-sky span instead of a floating wall band.
+When two adjacent portal-connected sectors both use `no_ceiling`, the renderer suppresses the upper trim between them so imported sky openings read as one continuous sky span instead of a floating wall band.
 
 ### Automap
 
@@ -172,7 +172,7 @@ The importer currently:
 2. Reads the palette, patch tables, textures, and flats so it can average source art into flat wall/floor/ceiling colors.
 3. Builds plan-view polygons from Doom linedefs, then decomposes those shapes into convex cells acceptable to this engine.
 4. Scales XY and Z from Doom units so the current player radius and eye height line up with Doom's feel.
-5. Emits view-only portals for impassable linedefs, converts sky ceilings into `no_ceiling` sectors, and opens door sectors by lifting them to neighboring ceiling heights.
+5. Emits view-only portals for impassable linedefs, converts sky ceilings into `no_ceiling` sectors with a flat tint derived from the map's sky texture, and opens door sectors by following Doom door linedef specials and lifting those sectors to neighboring ceiling heights.
 6. Saves the generated RON map through the normal validation pipeline.
 
 This keeps imported maps honest: if the converted result cannot satisfy the same convexity, portal, overlap, spawn, and clearance rules as native content, the import fails instead of shipping a broken asset.
@@ -206,7 +206,7 @@ These are intentional current limits of the system:
 - floors and ceilings are flat per sector
 - walls, floors, and ceilings use flat colors rather than textures
 - no native concept of doors, lifts, or moving geometry
-- no textured skybox support yet; `no_ceiling` sectors currently reveal black sky
+- no textured skybox support yet; `no_ceiling` sectors currently reveal either a flat `sky_color` tint or the black fallback
 - no stacked sectors occupying the same 2D footprint with overlapping height ranges
 - editor support exists, but runtime/rendering quality and performance take priority
 
