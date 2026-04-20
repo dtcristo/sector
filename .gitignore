@@ -2,3 +2,4 @@
 /wasm/target
 /target
 *.mp
+!assets/maps/*.map.mp

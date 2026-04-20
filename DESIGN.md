@@ -49,7 +49,7 @@ This is a classic sector graph rather than a general polygon soup. Each sector i
 
 ### Asset format
 
-Maps are stored as RON in `assets/maps/*.map.ron`. `SectorMap` mirrors the runtime world but stays asset-friendly:
+Maps are stored as either RON (`*.map.ron`) or MessagePack (`*.map.mp`) in `assets/maps/`. `SectorMap` mirrors the runtime world but stays asset-friendly:
 
 - `initial_sector`
 - `initial_position`
@@ -173,7 +173,7 @@ The importer currently:
 3. Builds plan-view polygons from Doom linedefs, then decomposes those shapes into convex cells acceptable to this engine.
 4. Scales XY and Z from Doom units so the current player radius and eye height line up with Doom's feel.
 5. Emits view-only portals for impassable linedefs, converts sky ceilings into `no_ceiling` sectors with a flat tint derived from the map's sky texture, and opens door sectors by following Doom door linedef specials and lifting those sectors to neighboring ceiling heights.
-6. Saves the generated RON map through the normal validation pipeline.
+6. Saves the generated map through the normal validation pipeline, typically as MessagePack for imported content.
 
 This keeps imported maps honest: if the converted result cannot satisfy the same convexity, portal, overlap, spawn, and clearance rules as native content, the import fails instead of shipping a broken asset.
 

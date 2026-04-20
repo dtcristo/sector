@@ -39,7 +39,7 @@ jobs:
       - name: Validate shipped maps
         run: |
           cargo run --bin sector_validate -- assets/maps/default.map.ron
-          cargo run --bin sector_validate -- assets/maps/e1m1.map.ron
+          cargo run --bin sector_validate -- assets/maps/e1m1.map.mp
 
       - name: Build web bundle
         run: just build-web

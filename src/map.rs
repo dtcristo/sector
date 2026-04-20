@@ -1,6 +1,7 @@
 use crate::{
     player::{PLAYER_HEIGHT_METERS, PLAYER_RADIUS_METERS},
-    InitialSector, Length, Position2, RawColor, Sector, SectorId, CEILING_COLOR, FLOOR_COLOR,
+    InitialSector, Length, Position2, RawColor, Sector, SectorId, CEILING_COLOR,
+    DEFAULT_MAP_FILE_PATH, FLOOR_COLOR,
 };
 
 use bevy::{
@@ -10,7 +11,10 @@ use bevy::{
     reflect::TypePath,
 };
 use serde::{Deserialize, Serialize};
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 #[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
@@ -117,6 +121,10 @@ pub enum SectorMapError {
     RonSpanned(#[from] ron::error::SpannedError),
     #[error("Could not serialize RON map: {0}")]
     RonSerialize(#[from] ron::Error),
+    #[error("Could not parse MessagePack map: {0}")]
+    MessagePackDecode(#[from] rmp_serde::decode::Error),
+    #[error("Could not serialize MessagePack map: {0}")]
+    MessagePackEncode(#[from] rmp_serde::encode::Error),
     #[error("Map initial sector {initial_sector} is out of bounds for {sector_count} sectors")]
     InvalidInitialSector {
         initial_sector: usize,
@@ -237,8 +245,21 @@ impl AssetLoader for SectorMapLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["map.ron", "sector.ron"]
+        &["map.ron", "sector.ron", "map.mp", "sector.mp"]
     }
+}
+
+pub fn shipped_map_path(map_name: &str) -> PathBuf {
+    let normalized = normalized_map_name(map_name);
+    resolve_shipped_map_path(&normalized).unwrap_or_else(|| {
+        if normalized == "default" {
+            PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH)
+        } else {
+            PathBuf::from("assets")
+                .join("maps")
+                .join(format!("{normalized}.map.ron"))
+        }
+    })
 }
 
 pub fn load_map_from_path(path: impl AsRef<Path>) -> Result<SectorMap, SectorMapError> {
@@ -257,7 +278,16 @@ pub fn load_map_from_path(path: impl AsRef<Path>) -> Result<SectorMap, SectorMap
 }
 
 fn parse_map_bytes(bytes: &[u8]) -> Result<SectorMap, SectorMapError> {
-    let map = ron::de::from_bytes::<SectorMap>(bytes)?;
+    let map = if bytes
+        .iter()
+        .copied()
+        .find(|byte| !byte.is_ascii_whitespace())
+        .is_some_and(|byte| byte.is_ascii())
+    {
+        ron::de::from_bytes::<SectorMap>(bytes)?
+    } else {
+        rmp_serde::from_slice::<SectorMap>(bytes)?
+    };
     validate_map(&map)?;
     Ok(map)
 }
@@ -291,17 +321,53 @@ fn normalized_embedded_map_path(path: &Path) -> String {
         .to_string()
 }
 
+fn normalized_map_name(map_name: &str) -> String {
+    let trimmed = map_name.trim().trim_matches('/');
+    if trimmed.is_empty() {
+        "default".to_owned()
+    } else {
+        trimmed.to_ascii_lowercase()
+    }
+}
+
+fn resolve_shipped_map_path(map_name: &str) -> Option<PathBuf> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        return EMBEDDED_MAPS.iter().find_map(|embedded| {
+            let file_name = Path::new(embedded.asset_path).file_name()?.to_str()?;
+            let (embedded_name, _) = file_name.split_once(".map.")?;
+            embedded_name
+                .eq_ignore_ascii_case(map_name)
+                .then(|| PathBuf::from(embedded.asset_path))
+        });
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        ["map.mp", "map.ron"].into_iter().find_map(|extension| {
+            let path = PathBuf::from("assets")
+                .join("maps")
+                .join(format!("{map_name}.{extension}"));
+            path.is_file().then_some(path)
+        })
+    }
+}
+
 pub fn save_map_to_path(map: &SectorMap, path: impl AsRef<Path>) -> Result<(), SectorMapError> {
     validate_map(map)?;
     let path = path.as_ref();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let pretty = ron::ser::PrettyConfig::default()
-        .indentor("  ".to_owned())
-        .new_line("\n".to_owned());
-    let ron = ron::ser::to_string_pretty(map, pretty)?;
-    fs::write(path, ron)?;
+    if path.extension().is_some_and(|extension| extension == "mp") {
+        fs::write(path, rmp_serde::to_vec_named(map)?)?;
+    } else {
+        let pretty = ron::ser::PrettyConfig::default()
+            .indentor("  ".to_owned())
+            .new_line("\n".to_owned());
+        let ron = ron::ser::to_string_pretty(map, pretty)?;
+        fs::write(path, ron)?;
+    }
     Ok(())
 }
 
@@ -1107,9 +1173,17 @@ mod tests {
     }
 
     #[test]
+    fn parses_messagepack_map_bytes() {
+        let bytes = rmp_serde::to_vec_named(&sample_map()).unwrap();
+        let map = parse_map_bytes(&bytes).unwrap();
+
+        assert_eq!(map.sectors[1].sky_color, Some([90, 120, 180]));
+        validate_map(&map).unwrap();
+    }
+
+    #[test]
     fn parses_e1m1_map_asset() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/e1m1.map.ron")).unwrap();
+        let map = parse_map_bytes(include_bytes!("../assets/maps/e1m1.map.mp")).unwrap();
 
         validate_map(&map).unwrap();
         assert!(map.sectors.len() >= 300);

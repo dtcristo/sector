@@ -15,7 +15,7 @@ use sector::{
         apply_player_look, player_render_view, resolve_current_sector, sector_contains_player,
         setup_player_system, simulate_player, Player, PlayerInput,
     },
-    map::{load_map_from_path, map_to_sectors},
+    map::{load_map_from_path, map_to_sectors, shipped_map_path},
     render::{render_frame, Automap, HEIGHT, WIDTH, WINDOW_SCALE},
     *,
 };
@@ -128,7 +128,7 @@ fn runtime_map_path_from_args() -> PathBuf {
         panic!("usage: cargo run --features sector --bin sector -- [map-path]");
     }
 
-    map_path.unwrap_or_else(|| PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH))
+    map_path.unwrap_or_else(|| shipped_map_path("default"))
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -147,13 +147,7 @@ fn runtime_map_path_from_web_route(pathname: &str, hash: &str) -> PathBuf {
 
 #[cfg(any(test, target_arch = "wasm32"))]
 fn runtime_map_path_from_name(map_name: &str) -> PathBuf {
-    if map_name == "default" {
-        PathBuf::from("assets").join(DEFAULT_MAP_FILE_PATH)
-    } else {
-        PathBuf::from("assets")
-            .join("maps")
-            .join(format!("{map_name}.map.ron"))
-    }
+    shipped_map_path(map_name)
 }
 
 #[cfg(any(test, target_arch = "wasm32"))]
@@ -639,7 +633,7 @@ mod tests {
         assert_eq!(map_name_from_route("/", ""), "default");
         assert_eq!(
             runtime_map_path_from_web_route("/", ""),
-            PathBuf::from("assets/maps/default.map.ron")
+            shipped_map_path("default")
         );
     }
 
@@ -648,7 +642,7 @@ mod tests {
         assert_eq!(map_name_from_route("/e1m1", "#default"), "e1m1");
         assert_eq!(
             runtime_map_path_from_web_route("/e1m1", "#default"),
-            PathBuf::from("assets/maps/e1m1.map.ron")
+            shipped_map_path("e1m1")
         );
     }
 

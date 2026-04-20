@@ -45,7 +45,7 @@ impl Args {
 fn default_output_path(map_name: &str) -> PathBuf {
     PathBuf::from("assets")
         .join("maps")
-        .join(format!("{}.map.ron", map_name.to_ascii_lowercase()))
+        .join(format!("{}.map.mp", map_name.to_ascii_lowercase()))
 }
 
 fn main() -> ExitCode {

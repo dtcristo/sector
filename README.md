@@ -13,7 +13,7 @@
 
 `sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional open ceilings with either black fallback or flat sky tint, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
 
-The native runtime and editor share the same RON map format in `assets/maps/*.map.ron`. The web build ships the play runtime only and bundles the shipped maps so the current map can be selected from the URL.
+The native runtime and editor share the same `SectorMap` data model across both RON and MessagePack assets in `assets/maps/*.map.ron` and `assets/maps/*.map.mp`. The web build ships the play runtime only and bundles the shipped maps so the current map can be selected from the URL.
 
 ## Repository docs
 
@@ -37,7 +37,7 @@ The native runtime and editor share the same RON map format in `assets/maps/*.ma
 ```sh
 cargo test --features "sector sector_edit"
 cargo run --features sector --bin sector -- assets/maps/default.map.ron
-cargo run --features sector --bin sector -- assets/maps/e1m1.map.ron
+cargo run --features sector --bin sector -- assets/maps/e1m1.map.mp
 cargo run --features sector_edit --bin sector_edit
 cargo run --bin sector_import_doom --features doom_import -- ../DOOM1.WAD E1M1
 cargo run --bin sector_validate -- assets/maps/default.map.ron
@@ -81,11 +81,11 @@ Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` 
 ## Shipped maps
 
 - `default`: hand-authored testbed map for movement, rendering, stairs, portals, crouch spaces, and overlapping-height rooms
-- `e1m1`: imported from the DOOM shareware WAD, with doors held open from Doom door specials, sky sectors converted into `no_ceiling` spaces tinted from the map sky texture, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
+- `e1m1`: imported from the DOOM shareware WAD as MessagePack, with doors held open from Doom door specials, sky sectors converted into `no_ceiling` spaces tinted from the map sky texture, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
 
 ## DOOM import workflow
 
-`sector_import_doom` imports a WAD map by lump name and writes `assets/maps/<map-id-lowercase>.map.ron` by default:
+`sector_import_doom` imports a WAD map by lump name and writes `assets/maps/<map-id-lowercase>.map.mp` by default:
 
 ```sh
 cargo run --bin sector_import_doom --features doom_import -- ../DOOM1.WAD E1M1
