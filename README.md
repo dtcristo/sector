@@ -62,6 +62,17 @@ just validate e1m1
 
 While playing, press `Shift+/` (`?`) to print a RON-style runtime state dump to the console with the player's position, velocity, facing, resolved sector, and current sector wall/portal data.
 
+## Editor
+
+`sector_edit` is now a native-only egui map authoring tool over the shared map format. It can:
+
+- open, reload, save, and save-as both `.map.ron` and `.map.mp` files
+- validate the current document on save before it writes anything
+- edit sector heights, wall colors, trims, portal walkability, spawn position, and spawn facing
+- draft new rooms directly in the map view, splitting concave outlines into convex sectors automatically
+- rebuild portals by matching reversed wall edges across adjacent sectors
+- launch the runtime beside the editor so you can save and replay the current map quickly
+
 ## Web build
 
 `just build-web` builds the browser version of the play runtime only. The editor and Doom importer are native-only tools.
@@ -125,7 +136,7 @@ The project currently focuses on:
 - simple first-person movement with stepping, jumping, crouching, and modest crouch-jumps
 - low-level map experimentation
 
-The editor exists, but runtime/rendering quality and performance are the main priorities.
+The editor now supports real file workflows and map drafting, but runtime/rendering quality and performance are still the main priorities.
 
 ## Credits
 

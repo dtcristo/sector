@@ -27,7 +27,7 @@ The repository currently has four primary binaries:
 
 The shared library code lives in `src/`:
 
-- `src/map.rs`: RON map asset format, load/save helpers, wasm embedded-map lookup, and structural validation.
+- `src/map.rs`: RON/MessagePack map asset formats, load/save helpers, wasm embedded-map lookup, and structural validation.
 - `src/world.rs`: runtime sector types and wall expansion helpers.
 - `src/game/`: player state, input, and physics/movement simulation.
 - `src/render/`: software renderer, automap, projection math, and frame utilities.
@@ -179,13 +179,15 @@ This keeps imported maps honest: if the converted result cannot satisfy the same
 
 ## Editor design
 
-The editor is intentionally secondary to the runtime. It is an egui-based direct manipulator over the shared sector data:
+The editor is intentionally secondary to the runtime, but it is now a substantial native-only egui tool built around an in-memory `EditorDocument` that uses the same `Sector` data as the runtime. It:
 
-- loads the same RON asset format
-- exposes per-sector heights and wall/vertex data
-- saves through the same map conversion and validation pipeline
+1. Loads and saves arbitrary `.map.ron` and `.map.mp` files through the shared map helpers.
+2. Validates on explicit save before writing files, surfacing map errors in the UI instead of silently persisting broken data.
+3. Exposes three main authoring tools: selecting/editing sectors, drafting rooms directly in the map view, and placing the player spawn.
+4. Uses earcut triangulation to split concave room drafts into clockwise convex sectors that satisfy runtime validation rules.
+5. Rebuilds portals by matching reversed wall edges across adjacent sectors and can launch the runtime alongside the editor for quick edit/play iteration.
 
-It currently operates on the default map path and should be treated as a lightweight tooling surface rather than the center of the architecture.
+The editor still allows invalid intermediate states while geometry is being edited manually, but its room-drafting path intentionally produces valid convex sectors by construction.
 
 ## Testing strategy
 

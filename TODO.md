@@ -22,17 +22,15 @@
 - Add helpers that decompose complex shapes into valid convex sectors automatically.
 - Improve map validation diagnostics with clearer geometry context and suggested fixes.
 - Extend the DOOM importer beyond the current door-special and sky-texture handling to cover more linedef specials, more thing types, and richer metadata.
-- Teach the editor about `no_ceiling` sectors and view-only (`walkable: false`) portals.
-- Let the editor open and save arbitrary map files instead of centering everything on the default map.
 - Add map metadata for themes, authoring notes, and per-map tuning values.
 
 ## Editor
 
-- Raise the editor above its current prototype state with better selection, snapping, and portal authoring workflows.
+- Add grid/snapping controls, duplication tools, and richer manual portal authoring beyond the current auto-match rebuild.
 - Add visual feedback for invalid winding, non-convex sectors, missing reciprocal portals, and overlap problems while editing.
-- Show spawn position and facing direction directly in the map view and allow editing them interactively.
 - Add color-picking and palette workflows for walls, floors, and ceilings that fit the project's retro look.
 - Add undo/redo and safer save flows.
+- Add true hot-reload or live-link behavior between the editor and a running play session instead of the current save-and-relaunch loop.
 
 ## Testing and quality
 
