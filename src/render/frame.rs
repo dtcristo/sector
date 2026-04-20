@@ -1,4 +1,4 @@
-use super::{HEIGHT, WIDTH};
+use super::{RenderMetrics, HEIGHT, WIDTH};
 use crate::RawColor;
 
 pub const FRAME_BYTES: usize = WIDTH as usize * HEIGHT as usize * 4;
@@ -19,8 +19,12 @@ impl Pixel {
     }
 
     pub fn to_offset(self) -> Option<usize> {
-        if self.x >= 0 && self.x < WIDTH as isize && self.y >= 0 && self.y < HEIGHT as isize {
-            Some((self.y as u32 * WIDTH * 4 + self.x as u32 * 4) as usize)
+        self.to_offset_in(WIDTH, HEIGHT)
+    }
+
+    pub fn to_offset_in(self, width: u32, height: u32) -> Option<usize> {
+        if self.x >= 0 && self.x < width as isize && self.y >= 0 && self.y < height as isize {
+            Some((self.y as u32 * width * 4 + self.x as u32 * 4) as usize)
         } else {
             None
         }
@@ -28,13 +32,21 @@ impl Pixel {
 }
 
 pub struct FrameBuffer {
+    width: u32,
+    height: u32,
     bytes: Vec<u8>,
 }
 
 impl FrameBuffer {
     pub fn new() -> Self {
+        Self::with_size(WIDTH, HEIGHT)
+    }
+
+    pub fn with_size(width: u32, height: u32) -> Self {
         let mut buffer = Self {
-            bytes: vec![0; FRAME_BYTES],
+            width,
+            height,
+            bytes: vec![0; width as usize * height as usize * 4],
         };
         clear_frame(buffer.as_mut_slice());
         buffer
@@ -49,7 +61,9 @@ impl FrameBuffer {
     }
 
     pub fn pixel(&self, x: usize, y: usize) -> [u8; 4] {
-        let offset = (y * WIDTH as usize + x) * 4;
+        debug_assert!(x < self.width as usize);
+        debug_assert!(y < self.height as usize);
+        let offset = (y * self.width as usize + x) * 4;
         [
             self.bytes[offset],
             self.bytes[offset + 1],
@@ -78,7 +92,18 @@ pub fn clear_frame(frame: &mut [u8]) {
     frame.copy_from_slice(&[0x00, 0x00, 0x00, 0xff].repeat(frame.len() / 4));
 }
 
+#[cfg(test)]
 pub(crate) fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: RawColor) {
+    draw_line_with_metrics(frame, &RenderMetrics::base(), a, b, color);
+}
+
+pub(crate) fn draw_line_with_metrics(
+    frame: &mut [u8],
+    metrics: &RenderMetrics,
+    a: Pixel,
+    b: Pixel,
+    color: RawColor,
+) {
     let mut x = a.x;
     let mut y = a.y;
     let dx = (b.x - a.x).abs();
@@ -88,7 +113,7 @@ pub(crate) fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: RawColor) {
     let mut error = dx + dy;
 
     loop {
-        draw_pixel(frame, Pixel::new(x, y), color);
+        draw_pixel_with_metrics(frame, metrics, Pixel::new(x, y), color);
         if x == b.x && y == b.y {
             break;
         }
@@ -105,9 +130,21 @@ pub(crate) fn draw_line(frame: &mut [u8], a: Pixel, b: Pixel, color: RawColor) {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn draw_pixel(frame: &mut [u8], pixel: Pixel, color: RawColor) {
-    if let Some(offset) = pixel.to_offset() {
-        frame[offset..offset + 3].copy_from_slice(&color.0);
+    draw_pixel_with_metrics(frame, &RenderMetrics::base(), pixel, color);
+}
+
+pub(crate) fn draw_pixel_with_metrics(
+    frame: &mut [u8],
+    metrics: &RenderMetrics,
+    pixel: Pixel,
+    color: RawColor,
+) {
+    if let Some(offset) = pixel.to_offset_in(metrics.width, metrics.height) {
+        if offset + 3 <= frame.len() {
+            frame[offset..offset + 3].copy_from_slice(&color.0);
+        }
     }
 }
 

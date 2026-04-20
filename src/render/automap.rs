@@ -1,7 +1,7 @@
 use super::{
-    frame::{draw_line, draw_pixel, Pixel},
-    math::clip_wall,
-    Automap, RenderView, BACK_CLIP_1, BACK_CLIP_2, LEFT_CLIP_2, RIGHT_CLIP_1,
+    frame::{draw_line_with_metrics, draw_pixel_with_metrics, Pixel},
+    math::clip_wall_with_metrics,
+    Automap, RenderMetrics, RenderView,
 };
 use crate::game::PLAYER_RADIUS_METERS;
 use crate::{
@@ -17,8 +17,19 @@ struct PortalEdgeKey {
     end: (u32, u32),
 }
 
+#[cfg(test)]
 pub(crate) fn render_automap(
     frame: &mut [u8],
+    view: &RenderView,
+    sectors: &[Sector],
+    automap: Automap,
+) {
+    render_automap_with_metrics(frame, &RenderMetrics::base(), view, sectors, automap);
+}
+
+pub(crate) fn render_automap_with_metrics(
+    frame: &mut [u8],
+    metrics: &RenderMetrics,
     view: &RenderView,
     sectors: &[Sector],
     automap: Automap,
@@ -43,9 +54,10 @@ pub(crate) fn render_automap(
 
             let view_left = wall.left.transform(view_matrix);
             let view_right = wall.right.transform(view_matrix);
-            let clipped = clip_wall(view_left, view_right);
+            let clipped = clip_wall_with_metrics(metrics, view_left, view_right);
 
             let Some((left, right)) = automap_segment(
+                metrics,
                 automap,
                 wall.left,
                 wall.right,
@@ -59,20 +71,21 @@ pub(crate) fn render_automap(
             };
 
             if wall.portal_sector.is_some() {
-                draw_line(frame, left, right, *AUTOMAP_PORTAL_COLOR);
+                draw_line_with_metrics(frame, metrics, left, right, *AUTOMAP_PORTAL_COLOR);
             } else {
-                draw_line(frame, left, right, *AUTOMAP_WALL_COLOR);
+                draw_line_with_metrics(frame, metrics, left, right, *AUTOMAP_WALL_COLOR);
             }
         }
     }
 
     let view_player = Position2(vec2(0.0, 0.0));
-    let view_near_left = Position2(*BACK_CLIP_2);
-    let view_near_right = Position2(*BACK_CLIP_1);
-    let view_far_left = Position2(*LEFT_CLIP_2);
-    let view_far_right = Position2(*RIGHT_CLIP_1);
+    let view_near_left = Position2(metrics.back_clip_2);
+    let view_near_right = Position2(metrics.back_clip_1);
+    let view_far_left = Position2(metrics.left_clip_2);
+    let view_far_right = Position2(metrics.right_clip_1);
 
     if let Some((player_pixel, near_left, near_right, far_left, far_right)) = automap_overlay(
+        metrics,
         automap,
         view_player,
         view_near_left,
@@ -81,21 +94,28 @@ pub(crate) fn render_automap(
         view_far_right,
         inverse_view_rotation,
     ) {
-        draw_line(frame, near_left, far_left, *FRUSTUM_COLOR);
-        draw_line(frame, near_right, far_right, *FRUSTUM_COLOR);
-        draw_line(frame, near_left, near_right, *FRUSTUM_COLOR);
+        draw_line_with_metrics(frame, metrics, near_left, far_left, *FRUSTUM_COLOR);
+        draw_line_with_metrics(frame, metrics, near_right, far_right, *FRUSTUM_COLOR);
+        draw_line_with_metrics(frame, metrics, near_left, near_right, *FRUSTUM_COLOR);
         draw_disc(
             frame,
+            metrics,
             player_pixel,
-            (super::AUTOMAP_SCALE * PLAYER_RADIUS_METERS)
-                .round()
-                .max(1.0) as isize,
+            (metrics
+                .pixel_from_automap_position(Position2(vec2(PLAYER_RADIUS_METERS, 0.0)))
+                .x
+                - metrics
+                    .pixel_from_automap_position(Position2(vec2(0.0, 0.0)))
+                    .x)
+                .abs()
+                .max(1),
             *PLAYER_COLOR,
         );
     }
 }
 
 fn automap_segment(
+    metrics: &RenderMetrics,
     automap: Automap,
     world_left: Position2,
     world_right: Position2,
@@ -107,22 +127,31 @@ fn automap_segment(
 ) -> Option<(Pixel, Pixel)> {
     match automap {
         Automap::Off => None,
-        Automap::RotateFull => Some((view_left.into(), view_right.into())),
-        Automap::RotateVisible => clipped.map(|(left, right)| (left.into(), right.into())),
+        Automap::RotateFull => Some((
+            metrics.pixel_from_automap_position(view_left),
+            metrics.pixel_from_automap_position(view_right),
+        )),
+        Automap::RotateVisible => clipped.map(|(left, right)| {
+            (
+                metrics.pixel_from_automap_position(left),
+                metrics.pixel_from_automap_position(right),
+            )
+        }),
         Automap::NorthUpFull => Some((
-            Position2(world_left.0 - player_xy).into(),
-            Position2(world_right.0 - player_xy).into(),
+            metrics.pixel_from_automap_position(Position2(world_left.0 - player_xy)),
+            metrics.pixel_from_automap_position(Position2(world_right.0 - player_xy)),
         )),
         Automap::NorthUpVisible => clipped.map(|(left, right)| {
             (
-                left.transform(inverse_view_rotation).into(),
-                right.transform(inverse_view_rotation).into(),
+                metrics.pixel_from_automap_position(left.transform(inverse_view_rotation)),
+                metrics.pixel_from_automap_position(right.transform(inverse_view_rotation)),
             )
         }),
     }
 }
 
 fn automap_overlay(
+    metrics: &RenderMetrics,
     automap: Automap,
     view_player: Position2,
     view_near_left: Position2,
@@ -134,31 +163,45 @@ fn automap_overlay(
     match automap {
         Automap::Off => None,
         Automap::RotateFull | Automap::RotateVisible => Some((
-            view_player.into(),
-            view_near_left.into(),
-            view_near_right.into(),
-            view_far_left.into(),
-            view_far_right.into(),
+            metrics.pixel_from_automap_position(view_player),
+            metrics.pixel_from_automap_position(view_near_left),
+            metrics.pixel_from_automap_position(view_near_right),
+            metrics.pixel_from_automap_position(view_far_left),
+            metrics.pixel_from_automap_position(view_far_right),
         )),
         Automap::NorthUpFull | Automap::NorthUpVisible => {
             let player = Position2(vec2(0.0, 0.0));
             Some((
-                player.into(),
-                view_near_left.transform(inverse_view_rotation).into(),
-                view_near_right.transform(inverse_view_rotation).into(),
-                view_far_left.transform(inverse_view_rotation).into(),
-                view_far_right.transform(inverse_view_rotation).into(),
+                metrics.pixel_from_automap_position(player),
+                metrics
+                    .pixel_from_automap_position(view_near_left.transform(inverse_view_rotation)),
+                metrics
+                    .pixel_from_automap_position(view_near_right.transform(inverse_view_rotation)),
+                metrics.pixel_from_automap_position(view_far_left.transform(inverse_view_rotation)),
+                metrics
+                    .pixel_from_automap_position(view_far_right.transform(inverse_view_rotation)),
             ))
         }
     }
 }
 
-fn draw_disc(frame: &mut [u8], center: Pixel, radius: isize, color: crate::RawColor) {
+fn draw_disc(
+    frame: &mut [u8],
+    metrics: &RenderMetrics,
+    center: Pixel,
+    radius: isize,
+    color: crate::RawColor,
+) {
     let radius_squared = radius * radius;
     for y in -radius..=radius {
         for x in -radius..=radius {
             if x * x + y * y <= radius_squared {
-                draw_pixel(frame, Pixel::new(center.x + x, center.y + y), color);
+                draw_pixel_with_metrics(
+                    frame,
+                    metrics,
+                    Pixel::new(center.x + x, center.y + y),
+                    color,
+                );
             }
         }
     }

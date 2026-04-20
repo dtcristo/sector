@@ -13,7 +13,7 @@
 
 `sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional open ceilings with either black fallback or flat sky tint, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
 
-The native runtime and editor share the same `SectorMap` data model across both RON and MessagePack assets in `assets/maps/*.map.ron` and `assets/maps/*.map.mp`. The web build ships the play runtime only and bundles the shipped maps so the current map can be selected from the URL.
+The native runtime and editor share the same `SectorMap` data model across both RON and MessagePack assets in `assets/maps/*.map.ron` and `assets/maps/*.map.mp`. The runtime now treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 21:9 or growing vertically to 9:16 before letterboxing extreme shapes. The web build ships the play runtime only and bundles the shipped maps so the current map can be selected from the URL.
 
 ## Repository docs
 
@@ -35,7 +35,7 @@ The native runtime and editor share the same `SectorMap` data model across both 
 ## Common commands
 
 ```sh
-cargo test --features "sector sector_edit"
+cargo test --features "sector sector_edit doom_import"
 cargo run --features sector --bin sector -- assets/maps/default.map.ron
 cargo run --features sector --bin sector -- assets/maps/e1m1.map.mp
 cargo run --features sector_edit --bin sector_edit
@@ -61,7 +61,7 @@ just validate e1m1
 `just play` and `just validate` both default to the `default` map when no map name is provided.
 
 While playing, press `Shift+/` (`?`) to print a RON-style runtime state dump to the console with the player's position, velocity, facing, resolved sector, and current sector wall/portal data.
-Left click captures the cursor for play, right click or `Escape` releases it, and movement simulation now runs on a fixed Bevy timestep for steadier behavior across frame rates.
+Left click captures the cursor for play, right click or `Escape` releases it, and movement simulation now runs on a fixed Bevy timestep for steadier behavior across frame rates. As the window changes size, the game fills more of the available area by adjusting the logical render buffer and FOV instead of staying locked to a single 320x240 view; 4:3 remains the preferred baseline, while wider windows reveal more horizontally and taller windows reveal more vertically.
 
 ## Editor
 
@@ -85,6 +85,8 @@ Left click captures the cursor for play, right click or `Escape` releases it, an
 - `#e1m1` is also supported as a fallback if your static host does not rewrite routes
 
 Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` at build time and embeds every shipped map so new maps can be exposed by route after rebuilding the web output.
+
+The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows.
 
 ## CI/CD
 

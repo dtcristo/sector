@@ -6,7 +6,9 @@ use bevy::{
     input::mouse::MouseMotion,
     input::ButtonInput,
     prelude::*,
-    window::{CursorGrabMode, CursorOptions, WindowResizeConstraints, WindowResolution},
+    window::{
+        CursorGrabMode, CursorOptions, PrimaryWindow, WindowResizeConstraints, WindowResolution,
+    },
 };
 use bevy_pixels::prelude::*;
 use ron::ser::PrettyConfig;
@@ -16,7 +18,7 @@ use sector::{
         setup_player_system, simulate_player, Player, PlayerInput,
     },
     map::{load_map_from_path, map_to_sectors, shipped_map_path},
-    render::{render_frame, Automap, HEIGHT, WIDTH, WINDOW_SCALE},
+    render::{render_frame_with_metrics, Automap, RenderMetrics, HEIGHT, WIDTH, WINDOW_SCALE},
     *,
 };
 use serde::Serialize;
@@ -45,6 +47,9 @@ impl RuntimeSectors {
     }
 }
 
+#[derive(Resource, Debug, Copy, Clone, PartialEq)]
+struct RuntimeRenderMetrics(RenderMetrics);
+
 #[derive(States, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 enum CursorCaptureState {
     #[default]
@@ -58,6 +63,7 @@ impl Plugin for SectorRuntimePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<CursorCaptureState>()
             .insert_resource(AutomapMode(Automap::Off))
+            .insert_resource(RuntimeRenderMetrics(RenderMetrics::base()))
             .insert_resource(WindowTitleTimer(Timer::new(
                 Duration::from_millis(500),
                 TimerMode::Repeating,
@@ -80,6 +86,7 @@ impl Plugin for SectorRuntimePlugin {
                     release_cursor_with_mouse_system,
                     escape_system,
                     switch_automap_system,
+                    sync_render_metrics_system,
                     player_look_system,
                     dump_runtime_state_system,
                 ),
@@ -140,6 +147,7 @@ fn main() {
                 width: WIDTH,
                 height: HEIGHT,
                 auto_resize_buffer: false,
+                auto_resize_surface: true,
                 ..default()
             }),
         })
@@ -273,6 +281,24 @@ fn update_title_system(
             }
         }
     }
+}
+
+fn sync_render_metrics_system(
+    mut render_metrics: ResMut<RuntimeRenderMetrics>,
+    mut window_query: Query<(&Window, &mut PixelsOptions), With<PrimaryWindow>>,
+) {
+    let Ok((window, mut pixels_options)) = window_query.single_mut() else {
+        return;
+    };
+
+    let next_metrics = RenderMetrics::from_window_size(window.width(), window.height());
+    if render_metrics.0 == next_metrics {
+        return;
+    }
+
+    pixels_options.width = next_metrics.width;
+    pixels_options.height = next_metrics.height;
+    render_metrics.0 = next_metrics;
 }
 
 fn request_cursor_capture_system(
@@ -554,6 +580,7 @@ fn draw_frame_system(
     automap: Res<AutomapMode>,
     player_query: Query<&Player>,
     runtime_sectors: Res<RuntimeSectors>,
+    render_metrics: Res<RuntimeRenderMetrics>,
     mut wrapper_query: Query<&mut PixelsWrapper>,
 ) {
     let Ok(player) = player_query.single() else {
@@ -562,8 +589,9 @@ fn draw_frame_system(
     let Ok(mut wrapper) = wrapper_query.single_mut() else {
         return;
     };
-    render_frame(
+    render_frame_with_metrics(
         wrapper.pixels.frame_mut(),
+        &render_metrics.0,
         &player_render_view(player),
         runtime_sectors.as_slice(),
         automap.0,

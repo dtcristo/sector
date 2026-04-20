@@ -108,7 +108,17 @@ Bevy's scheduler now splits runtime work intentionally: `Update` handles input, 
 
 ### Rendering
 
-The renderer is a software rasterizer over a fixed 320x240 buffer scaled to the window. The visual style is deliberately limited:
+The renderer is a software rasterizer built around a 320x240, 4:3 baseline, but it no longer treats that size as a hard lock. Each frame uses `RenderMetrics` derived from the current window size:
+
+- 4:3 stays the preferred baseline view
+- aspect ratio is clamped so play widens only up to 21:9 and grows vertically only up to 9:16
+- integer pixel scale still defines the current presentation step
+- between integer steps the logical buffer grows so the player sees slightly more world instead of more black border
+- when the next integer step is reached, the logical buffer snaps back toward the baseline density
+
+This keeps the presentation blocky and retro while making better use of resize events and unusual window shapes.
+
+The visual style is deliberately limited:
 
 - flat wall colors instead of textures
 - horizontal floor/ceiling bands colored per sector
@@ -118,12 +128,13 @@ The renderer is a software rasterizer over a fixed 320x240 buffer scaled to the 
 
 At a high level:
 
-1. Determine root sectors from the current view position.
-2. Traverse visible sectors through a portal queue.
-3. Clip walls against the near plane and horizontal frustum.
-4. Project wall columns and flat floor/ceiling spans, skipping ceiling spans for `no_ceiling` sectors.
-5. Shade by distance using a banded brightness curve.
-6. Apply a post-pass outline mask so seams stay crisp and single-pixel thick.
+1. Build per-frame render metrics from the current window.
+2. Determine root sectors from the current view position.
+3. Traverse visible sectors through a portal queue.
+4. Clip walls against the near plane and horizontal frustum.
+5. Project wall columns and flat floor/ceiling spans, skipping ceiling spans for `no_ceiling` sectors.
+6. Shade by distance using a banded brightness curve.
+7. Apply a post-pass outline mask so seams stay crisp and single-pixel thick.
 
 The renderer is portal-based, not BSP-based. It depends on valid reciprocal portal topology and convex sectors to stay simple.
 
@@ -141,6 +152,7 @@ The automap shares the world data and projection helpers with the renderer. It s
 - north-up visible-only map
 
 Portal edges are deduplicated so a shared portal is only drawn once.
+Its frustum overlay and map-space projection now use the same per-frame render metrics as the main renderer, so wide or tall windows show the correct current view cone instead of a fixed 4:3 frustum.
 
 ## Map validation rules
 

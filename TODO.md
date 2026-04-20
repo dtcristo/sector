@@ -13,6 +13,7 @@
 
 - Introduce textured walls, floors, and ceilings without losing the crisp software-rendered look.
 - Add real skybox art or skyline rendering for `no_ceiling` sectors instead of the current flat sky tint / black fallback.
+- Expose player-facing viewport presets and tuning over the current adaptive resize behavior, such as a strict 4:3 lock, per-platform pixel density caps, or configurable FOV limits.
 - Continue profiling portal traversal and column drawing to reduce overdraw and unnecessary work.
 - Investigate caching shade ramps across reused colors and reducing full-frame work further now that the hot path no longer rebuilds wall lists every frame.
 - Explore wider support for stacked spaces or room-over-room approximations that preserve current performance goals.

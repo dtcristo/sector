@@ -1,8 +1,7 @@
 use super::{
-    frame::{draw_pixel, Pixel},
-    math::{clip_wall, lerp, project},
-    RenderView, BACK_CLIP_1, BACK_CLIP_2, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, HEIGHT, NEAR,
-    SHADE_BANDS, SHADE_FAR, TAN_FAC_FOV_Y_2, WIDTH,
+    frame::{draw_pixel_with_metrics, Pixel},
+    math::{clip_wall_with_metrics, lerp, project_with_metrics},
+    RenderMetrics, RenderView, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, NEAR, SHADE_BANDS, SHADE_FAR,
 };
 use crate::{Position2, Position3, RawColor, Sector, SectorId};
 
@@ -111,18 +110,29 @@ const CONTAINMENT_EPSILON: f32 = 0.001;
 const OUTLINE_COLOR: RawColor = RawColor([0, 0, 0]);
 const ROOT_PORTAL_EPSILON: f32 = 0.05;
 
+#[cfg(test)]
 pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[Sector]) {
+    render_world_with_metrics(frame, &RenderMetrics::base(), view, sectors);
+}
+
+pub(crate) fn render_world_with_metrics(
+    frame: &mut [u8],
+    metrics: &RenderMetrics,
+    view: &RenderView,
+    sectors: &[Sector],
+) {
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, sector)).collect();
-    let root_sectors = root_sectors(view, sectors, &sectors_by_id);
+    let root_sectors = root_sectors(metrics, view, sectors, &sectors_by_id);
     if root_sectors.is_empty() {
         return;
     }
 
     let view_matrix = Mat3::from_rotation_z(-view.direction)
         * Mat3::from_translation(-vec2(view.position.0.x, view.position.0.y));
-    let mut surfaces = vec![None; WIDTH as usize * HEIGHT as usize];
+    let mut surfaces = vec![None; metrics.frame_bytes() / 4];
     render_sector_tree(
         frame,
+        metrics,
         &mut surfaces,
         view,
         &sectors_by_id,
@@ -130,11 +140,12 @@ pub(crate) fn render_world(frame: &mut [u8], view: &RenderView, sectors: &[Secto
         view_matrix,
     );
 
-    apply_outlines(frame, &surfaces);
+    apply_outlines_with_metrics(frame, metrics, &surfaces);
 }
 
 fn render_sector_tree<'a>(
     frame: &mut [u8],
+    metrics: &RenderMetrics,
     surfaces: &mut [Option<SurfaceTag>],
     view: &RenderView,
     sectors_by_id: &HashMap<SectorId, &'a Sector>,
@@ -142,15 +153,15 @@ fn render_sector_tree<'a>(
     view_matrix: Mat3,
 ) {
     let mut portal_queue = VecDeque::<PortalSpan>::new();
-    let mut y_min_vec = vec![0; WIDTH as usize];
-    let mut y_max_vec = vec![HEIGHT as isize; WIDTH as usize];
+    let mut y_min_vec = vec![0; metrics.width as usize];
+    let mut y_max_vec = vec![metrics.height as isize; metrics.width as usize];
     let mut deferred_walls = Vec::new();
 
     portal_queue.extend(root_sectors.iter().copied().map(|root_sector| PortalSpan {
         sector: root_sector,
         source_sector: None,
         x_min: 0,
-        x_max: WIDTH as isize,
+        x_max: metrics.width as isize,
     }));
 
     while let Some(self_portal) = portal_queue.pop_front() {
@@ -167,18 +178,20 @@ fn render_sector_tree<'a>(
             let view_left = wall.left.transform(view_matrix);
             let view_right = wall.right.transform(view_matrix);
 
-            if let Some((view_left, view_right)) = clip_wall(view_left, view_right) {
-                let norm_left_top = project(view_left, view_ceil);
-                let norm_left_bottom = project(view_left, view_floor);
-                let norm_right_top = project(view_right, view_ceil);
-                let norm_right_bottom = project(view_right, view_floor);
+            if let Some((view_left, view_right)) =
+                clip_wall_with_metrics(metrics, view_left, view_right)
+            {
+                let norm_left_top = project_with_metrics(metrics, view_left, view_ceil);
+                let norm_left_bottom = project_with_metrics(metrics, view_left, view_floor);
+                let norm_right_top = project_with_metrics(metrics, view_right, view_ceil);
+                let norm_right_bottom = project_with_metrics(metrics, view_right, view_floor);
 
-                let left_top_x = screen_x(norm_left_top.0.x);
-                let left_top_y = screen_y(norm_left_top.0.y);
-                let left_bottom_y = screen_y(norm_left_bottom.0.y);
-                let right_top_x = screen_x(norm_right_top.0.x);
-                let right_top_y = screen_y(norm_right_top.0.y);
-                let right_bottom_y = screen_y(norm_right_bottom.0.y);
+                let left_top_x = screen_x_with_metrics(metrics, norm_left_top.0.x);
+                let left_top_y = screen_y_with_metrics(metrics, norm_left_top.0.y);
+                let left_bottom_y = screen_y_with_metrics(metrics, norm_left_bottom.0.y);
+                let right_top_x = screen_x_with_metrics(metrics, norm_right_top.0.x);
+                let right_top_y = screen_y_with_metrics(metrics, norm_right_top.0.y);
+                let right_bottom_y = screen_y_with_metrics(metrics, norm_right_bottom.0.y);
 
                 let (
                     view_left,
@@ -304,6 +317,7 @@ fn render_sector_tree<'a>(
                     if !sector.no_ceiling {
                         draw_surface_column(
                             frame,
+                            metrics,
                             surfaces,
                             x,
                             y_min,
@@ -313,7 +327,9 @@ fn render_sector_tree<'a>(
                             view_ceil.0,
                         );
                     } else if let (Some(sky_color), Some(sky_tag)) = (sector.sky_color, sky_tag) {
-                        draw_wall_column(frame, surfaces, x, y_min, y_top, sky_color, sky_tag);
+                        draw_wall_column(
+                            frame, metrics, surfaces, x, y_min, y_top, sky_color, sky_tag,
+                        );
                     }
 
                     if portal_sector.is_some() {
@@ -325,6 +341,7 @@ fn render_sector_tree<'a>(
                             let y_portal_top = y_portal_top.clamp(y_min, y_bottom);
                             draw_wall_column(
                                 frame,
+                                metrics,
                                 surfaces,
                                 x,
                                 y_top,
@@ -349,6 +366,7 @@ fn render_sector_tree<'a>(
                                 if y_portal_bottom <= y_bottom {
                                     draw_wall_column(
                                         frame,
+                                        metrics,
                                         surfaces,
                                         x,
                                         y_portal_bottom,
@@ -388,11 +406,14 @@ fn render_sector_tree<'a>(
                             }
                         }
                     } else {
-                        draw_wall_column(frame, surfaces, x, y_top, y_bottom, wall_color, wall_tag);
+                        draw_wall_column(
+                            frame, metrics, surfaces, x, y_top, y_bottom, wall_color, wall_tag,
+                        );
                     }
 
                     draw_surface_column(
                         frame,
+                        metrics,
                         surfaces,
                         x,
                         y_bottom,
@@ -409,6 +430,7 @@ fn render_sector_tree<'a>(
     for deferred_wall in deferred_walls {
         draw_wall_column(
             frame,
+            metrics,
             surfaces,
             deferred_wall.x,
             deferred_wall.y_top,
@@ -420,6 +442,7 @@ fn render_sector_tree<'a>(
 }
 
 fn root_sectors<'a>(
+    metrics: &RenderMetrics,
     view: &RenderView,
     sectors: &'a [Sector],
     sectors_by_id: &HashMap<SectorId, &'a Sector>,
@@ -432,7 +455,7 @@ fn root_sectors<'a>(
 
     for sector in sectors {
         if (sector_contains_view(sector, view.position)
-            || sector_intersects_view_near_plane(sector, view))
+            || sector_intersects_view_near_plane(metrics, sector, view))
             && seen.insert(sector.id)
         {
             roots.push(sector);
@@ -457,7 +480,11 @@ fn root_sectors<'a>(
     roots
 }
 
-fn sector_intersects_view_near_plane(sector: &Sector, view: &RenderView) -> bool {
+fn sector_intersects_view_near_plane(
+    metrics: &RenderMetrics,
+    sector: &Sector,
+    view: &RenderView,
+) -> bool {
     if view.position.0.z < sector.floor.0 - CONTAINMENT_EPSILON {
         return false;
     }
@@ -465,18 +492,18 @@ fn sector_intersects_view_near_plane(sector: &Sector, view: &RenderView) -> bool
         return false;
     }
 
-    let (near_left, near_right) = view_near_plane_segment(view);
+    let (near_left, near_right) = view_near_plane_segment(metrics, view);
     sector_contains_horizontal_point(sector, near_left)
         || sector_contains_horizontal_point(sector, near_right)
         || segments_intersect_sector(sector, near_left, near_right)
 }
 
-fn view_near_plane_segment(view: &RenderView) -> (Vec2, Vec2) {
+fn view_near_plane_segment(metrics: &RenderMetrics, view: &RenderView) -> (Vec2, Vec2) {
     let world_matrix =
         Mat3::from_translation(view.position.truncate().0) * Mat3::from_rotation_z(view.direction);
     (
-        Position2(*BACK_CLIP_2).transform(world_matrix).0,
-        Position2(*BACK_CLIP_1).transform(world_matrix).0,
+        Position2(metrics.back_clip_2).transform(world_matrix).0,
+        Position2(metrics.back_clip_1).transform(world_matrix).0,
     )
 }
 
@@ -598,6 +625,7 @@ fn segments_intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
 
 fn draw_wall_column(
     frame: &mut [u8],
+    metrics: &RenderMetrics,
     surfaces: &mut [Option<SurfaceTag>],
     x: isize,
     y_top: isize,
@@ -606,12 +634,13 @@ fn draw_wall_column(
     surface_tag: SurfaceTag,
 ) {
     for y in y_top..y_bottom {
-        draw_surface_pixel(frame, surfaces, x, y, color, surface_tag);
+        draw_surface_pixel(frame, metrics, surfaces, x, y, color, surface_tag);
     }
 }
 
 fn draw_surface_column(
     frame: &mut [u8],
+    metrics: &RenderMetrics,
     surfaces: &mut [Option<SurfaceTag>],
     x: isize,
     y_top: isize,
@@ -621,38 +650,49 @@ fn draw_surface_column(
     plane_height: f32,
 ) {
     for y in y_top..y_bottom {
-        let color = shade_ramp.sample(surface_distance(
+        let color = shade_ramp.sample(surface_distance_with_metrics(
+            metrics,
             plane_height,
             surface_sample_y(plane_height, y),
         ));
-        draw_surface_pixel(frame, surfaces, x, y, color, surface_tag);
+        draw_surface_pixel(frame, metrics, surfaces, x, y, color, surface_tag);
     }
 }
 
 fn draw_surface_pixel(
     frame: &mut [u8],
+    metrics: &RenderMetrics,
     surfaces: &mut [Option<SurfaceTag>],
     x: isize,
     y: isize,
     color: RawColor,
     surface_tag: SurfaceTag,
 ) {
-    draw_pixel(frame, Pixel::new(x, y), color);
-    if let Some(index) = surface_index(x, y) {
+    draw_pixel_with_metrics(frame, metrics, Pixel::new(x, y), color);
+    if let Some(index) = surface_index_with_metrics(metrics, x, y) {
         surfaces[index] = Some(surface_tag);
     }
 }
 
+#[cfg(test)]
 fn apply_outlines(frame: &mut [u8], surfaces: &[Option<SurfaceTag>]) {
-    for y in 0..HEIGHT as isize {
-        for x in 0..WIDTH as isize {
-            let Some(current) = surface_at(surfaces, x, y) else {
+    apply_outlines_with_metrics(frame, &RenderMetrics::base(), surfaces);
+}
+
+fn apply_outlines_with_metrics(
+    frame: &mut [u8],
+    metrics: &RenderMetrics,
+    surfaces: &[Option<SurfaceTag>],
+) {
+    for y in 0..metrics.height as isize {
+        for x in 0..metrics.width as isize {
+            let Some(current) = surface_at_with_metrics(metrics, surfaces, x, y) else {
                 continue;
             };
-            let left = surface_at(surfaces, x - 1, y);
-            let up = surface_at(surfaces, x, y - 1);
-            let upper_left = surface_at(surfaces, x - 1, y - 1);
-            let upper_right = surface_at(surfaces, x + 1, y - 1);
+            let left = surface_at_with_metrics(metrics, surfaces, x - 1, y);
+            let up = surface_at_with_metrics(metrics, surfaces, x, y - 1);
+            let upper_left = surface_at_with_metrics(metrics, surfaces, x - 1, y - 1);
+            let upper_right = surface_at_with_metrics(metrics, surfaces, x + 1, y - 1);
 
             let needs_outline = (should_outline_edge(current, left)
                 && up == Some(current)
@@ -661,7 +701,7 @@ fn apply_outlines(frame: &mut [u8], surfaces: &[Option<SurfaceTag>]) {
                     && (upper_left != Some(current) || upper_right != Some(current)));
 
             if needs_outline {
-                draw_pixel(frame, Pixel::new(x, y), OUTLINE_COLOR);
+                draw_pixel_with_metrics(frame, metrics, Pixel::new(x, y), OUTLINE_COLOR);
             }
         }
     }
@@ -671,28 +711,55 @@ fn should_outline_edge(current: SurfaceTag, neighbor: Option<SurfaceTag>) -> boo
     neighbor != Some(current)
 }
 
+#[cfg(test)]
 fn surface_index(x: isize, y: isize) -> Option<usize> {
-    if x >= 0 && x < WIDTH as isize && y >= 0 && y < HEIGHT as isize {
-        Some(y as usize * WIDTH as usize + x as usize)
+    surface_index_with_metrics(&RenderMetrics::base(), x, y)
+}
+
+fn surface_index_with_metrics(metrics: &RenderMetrics, x: isize, y: isize) -> Option<usize> {
+    if x >= 0 && x < metrics.width as isize && y >= 0 && y < metrics.height as isize {
+        Some(y as usize * metrics.width as usize + x as usize)
     } else {
         None
     }
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 fn surface_at(surfaces: &[Option<SurfaceTag>], x: isize, y: isize) -> Option<SurfaceTag> {
-    surface_index(x, y).and_then(|index| surfaces[index])
+    surface_at_with_metrics(&RenderMetrics::base(), surfaces, x, y)
+}
+
+fn surface_at_with_metrics(
+    metrics: &RenderMetrics,
+    surfaces: &[Option<SurfaceTag>],
+    x: isize,
+    y: isize,
+) -> Option<SurfaceTag> {
+    surface_index_with_metrics(metrics, x, y).and_then(|index| surfaces[index])
 }
 
 fn plane_key(height: f32) -> i32 {
     (height * 1000.0).round() as i32
 }
 
+#[cfg(test)]
 fn screen_x(norm_x: f32) -> f32 {
-    WIDTH as f32 * 0.5 + WIDTH as f32 * 0.5 * norm_x
+    screen_x_with_metrics(&RenderMetrics::base(), norm_x)
 }
 
+fn screen_x_with_metrics(metrics: &RenderMetrics, norm_x: f32) -> f32 {
+    metrics.width as f32 * 0.5 + metrics.width as f32 * 0.5 * norm_x
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
 fn screen_y(norm_y: f32) -> f32 {
-    HEIGHT as f32 * 0.5 - HEIGHT as f32 * 0.5 * norm_y
+    screen_y_with_metrics(&RenderMetrics::base(), norm_y)
+}
+
+fn screen_y_with_metrics(metrics: &RenderMetrics, norm_y: f32) -> f32 {
+    metrics.height as f32 * 0.5 - metrics.height as f32 * 0.5 * norm_y
 }
 
 fn wall_distance(view_left_depth: f32, view_right_depth: f32, screen_t: f32) -> f32 {
@@ -709,13 +776,19 @@ fn surface_sample_y(plane_height: f32, y: isize) -> f32 {
     }
 }
 
+#[cfg(test)]
 fn surface_distance(plane_height: f32, y: f32) -> f32 {
-    let screen_offset = (HEIGHT as f32 * 0.5 - y).abs();
+    surface_distance_with_metrics(&RenderMetrics::base(), plane_height, y)
+}
+
+fn surface_distance_with_metrics(metrics: &RenderMetrics, plane_height: f32, y: f32) -> f32 {
+    let screen_offset = (metrics.height as f32 * 0.5 - y).abs();
     if plane_height.abs() <= f32::EPSILON || screen_offset <= f32::EPSILON {
         return f32::INFINITY;
     }
 
-    (plane_height.abs() * HEIGHT as f32 * 0.5 / (screen_offset * *TAN_FAC_FOV_Y_2)).max(NEAR)
+    (plane_height.abs() * metrics.height as f32 * 0.5 / (screen_offset * metrics.tan_fac_fov_y_2))
+        .max(NEAR)
 }
 
 #[cfg(test)]
@@ -761,7 +834,10 @@ fn shade_band_t(distance: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Length, Position2, Position3, CEILING_COLOR, FLOOR_COLOR};
+    use crate::{
+        render::{math::project, HEIGHT, WIDTH},
+        Length, Position2, Position3, CEILING_COLOR, FLOOR_COLOR,
+    };
     use bevy::math::{vec2, vec3};
     use std::collections::BTreeSet;
 
@@ -823,7 +899,7 @@ mod tests {
             Some(SectorId(0)),
         );
 
-        let roots = root_sectors(&view, &sectors, &sectors_by_id);
+        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors, &sectors_by_id);
 
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
@@ -858,7 +934,7 @@ mod tests {
             Some(SectorId(0)),
         );
 
-        let roots = root_sectors(&view, &sectors, &sectors_by_id);
+        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors, &sectors_by_id);
 
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
@@ -893,7 +969,7 @@ mod tests {
             Some(SectorId(0)),
         );
 
-        let roots = root_sectors(&view, &sectors, &sectors_by_id);
+        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors, &sectors_by_id);
 
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
@@ -924,7 +1000,7 @@ mod tests {
             .collect::<HashMap<_, _>>();
         let view = RenderView::new(Position3(vec3(0.0, 2.0, 1.62)), 0.0, Some(SectorId(0)));
 
-        let roots = root_sectors(&view, &sectors, &sectors_by_id);
+        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors, &sectors_by_id);
 
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].id, SectorId(1));

@@ -6,7 +6,6 @@ mod world;
 use crate::{Position2, Position3, Sector, SectorId};
 
 use bevy::{math::vec2, prelude::*};
-use lazy_static::lazy_static;
 
 pub use frame::{clear_frame, FrameBuffer, Pixel, FRAME_BYTES};
 
@@ -20,26 +19,114 @@ pub(crate) const SHADE_FAR: f32 = 20.0;
 pub(crate) const SHADE_BANDS: usize = 16;
 pub(crate) const BRIGHTNESS_NEAR: f32 = 1.0;
 pub(crate) const BRIGHTNESS_FAR: f32 = 0.35;
-const FRAC_WIDTH_2: u32 = WIDTH / 2;
-const FRAC_HEIGHT_2: u32 = HEIGHT / 2;
-const ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
+const DEFAULT_ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
+const MIN_ASPECT_RATIO: f32 = 9.0 / 16.0;
+const MAX_ASPECT_RATIO: f32 = 21.0 / 9.0;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
 const AUTOMAP_SCALE: f32 = 8.0;
 
-lazy_static! {
-    static ref FOV_Y_RADIANS: f32 = 2.0 * ((FOV_X_RADIANS * 0.5).tan() / ASPECT_RATIO).atan();
-    pub(crate) static ref PERSPECTIVE_MATRIX: Mat4 =
-        Mat4::perspective_infinite_reverse_rh(*FOV_Y_RADIANS, ASPECT_RATIO, NEAR);
-    pub(crate) static ref TAN_FAC_FOV_Y_2: f32 = (*FOV_Y_RADIANS / 2.0).tan();
-    static ref TAN_FAC_FOV_X_2: f32 = (FOV_X_RADIANS / 2.0).tan();
-    pub(crate) static ref X_NEAR: f32 = NEAR * *TAN_FAC_FOV_X_2;
-    static ref X_FAR: f32 = FAR * *TAN_FAC_FOV_X_2;
-    pub(crate) static ref BACK_CLIP_1: Vec2 = vec2(*X_NEAR, NEAR);
-    pub(crate) static ref BACK_CLIP_2: Vec2 = vec2(-*X_NEAR, NEAR);
-    pub(crate) static ref LEFT_CLIP_1: Vec2 = *BACK_CLIP_2;
-    pub(crate) static ref LEFT_CLIP_2: Vec2 = vec2(-*X_FAR, FAR);
-    pub(crate) static ref RIGHT_CLIP_1: Vec2 = vec2(*X_FAR, FAR);
-    pub(crate) static ref RIGHT_CLIP_2: Vec2 = *BACK_CLIP_1;
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct RenderMetrics {
+    pub width: u32,
+    pub height: u32,
+    pub(crate) perspective_matrix: Mat4,
+    pub(crate) tan_fac_fov_y_2: f32,
+    pub(crate) back_clip_1: Vec2,
+    pub(crate) back_clip_2: Vec2,
+    pub(crate) left_clip_1: Vec2,
+    pub(crate) left_clip_2: Vec2,
+    pub(crate) right_clip_1: Vec2,
+    pub(crate) right_clip_2: Vec2,
+    automap_scale: f32,
+}
+
+impl RenderMetrics {
+    pub fn base() -> Self {
+        Self::new(WIDTH, HEIGHT)
+    }
+
+    pub fn new(width: u32, height: u32) -> Self {
+        let width = width.max(1);
+        let height = height.max(1);
+        let aspect_ratio = width as f32 / height as f32;
+        let base_tan_fac_fov_x_2 = (FOV_X_RADIANS / 2.0).tan();
+        let base_tan_fac_fov_y_2 = base_tan_fac_fov_x_2 / DEFAULT_ASPECT_RATIO;
+        let (tan_fac_fov_x_2, tan_fac_fov_y_2) = if aspect_ratio >= DEFAULT_ASPECT_RATIO {
+            (base_tan_fac_fov_y_2 * aspect_ratio, base_tan_fac_fov_y_2)
+        } else {
+            (base_tan_fac_fov_x_2, base_tan_fac_fov_x_2 / aspect_ratio)
+        };
+        let fov_y_radians = 2.0 * tan_fac_fov_y_2.atan();
+        let perspective_matrix =
+            Mat4::perspective_infinite_reverse_rh(fov_y_radians, aspect_ratio, NEAR);
+        let x_near = NEAR * tan_fac_fov_x_2;
+        let x_far = FAR * tan_fac_fov_x_2;
+        let back_clip_1 = vec2(x_near, NEAR);
+        let back_clip_2 = vec2(-x_near, NEAR);
+
+        Self {
+            width,
+            height,
+            perspective_matrix,
+            tan_fac_fov_y_2,
+            back_clip_1,
+            back_clip_2,
+            left_clip_1: back_clip_2,
+            left_clip_2: vec2(-x_far, FAR),
+            right_clip_1: vec2(x_far, FAR),
+            right_clip_2: back_clip_1,
+            automap_scale: AUTOMAP_SCALE,
+        }
+    }
+
+    pub fn from_window_size(window_width: f32, window_height: f32) -> Self {
+        let window_width = window_width.max(WIDTH as f32);
+        let window_height = window_height.max(HEIGHT as f32);
+        let window_aspect_ratio = window_width / window_height;
+        let (content_width, content_height) = if window_aspect_ratio > MAX_ASPECT_RATIO {
+            (window_height * MAX_ASPECT_RATIO, window_height)
+        } else if window_aspect_ratio < MIN_ASPECT_RATIO {
+            (window_width, window_width / MIN_ASPECT_RATIO)
+        } else {
+            (window_width, window_height)
+        };
+        let scale = (content_width / WIDTH as f32)
+            .min(content_height / HEIGHT as f32)
+            .floor()
+            .max(1.0);
+        let width = (content_width / scale).floor().max(1.0) as u32;
+        let height = (content_height / scale).floor().max(1.0) as u32;
+
+        Self::new(width, height)
+    }
+
+    pub fn frame_bytes(self) -> usize {
+        self.width as usize * self.height as usize * 4
+    }
+
+    pub(crate) fn pixel_from_normalized(self, norm: Normalized) -> Pixel {
+        let frac_width_2 = self.width as f32 * 0.5;
+        let frac_height_2 = self.height as f32 * 0.5;
+        Pixel {
+            x: frac_width_2 as isize + (frac_width_2 * norm.0.x).round() as isize,
+            y: frac_height_2 as isize - (frac_height_2 * norm.0.y).round() as isize,
+        }
+    }
+
+    pub(crate) fn pixel_from_automap_position(self, position: Position2) -> Pixel {
+        let frac_width_2 = self.width as f32 * 0.5;
+        let frac_height_2 = self.height as f32 * 0.5;
+        Pixel {
+            x: frac_width_2 as isize + (self.automap_scale * position.0.x).round() as isize,
+            y: frac_height_2 as isize - (self.automap_scale * position.0.y).round() as isize,
+        }
+    }
+}
+
+impl Default for RenderMetrics {
+    fn default() -> Self {
+        Self::base()
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -47,19 +134,13 @@ pub(crate) struct Normalized(pub Vec3);
 
 impl From<Normalized> for Pixel {
     fn from(norm: Normalized) -> Self {
-        Self {
-            x: FRAC_WIDTH_2 as isize + (FRAC_WIDTH_2 as f32 * norm.0.x).round() as isize,
-            y: FRAC_HEIGHT_2 as isize - (FRAC_HEIGHT_2 as f32 * norm.0.y).round() as isize,
-        }
+        RenderMetrics::base().pixel_from_normalized(norm)
     }
 }
 
 impl From<Position2> for Pixel {
     fn from(position: Position2) -> Self {
-        Self {
-            x: FRAC_WIDTH_2 as isize + (AUTOMAP_SCALE * position.0.x).round() as isize,
-            y: FRAC_HEIGHT_2 as isize - (AUTOMAP_SCALE * position.0.y).round() as isize,
-        }
+        RenderMetrics::base().pixel_from_automap_position(position)
     }
 }
 
@@ -102,9 +183,19 @@ impl RenderView {
 }
 
 pub fn render_frame(frame: &mut [u8], view: &RenderView, sectors: &[Sector], automap: Automap) {
+    render_frame_with_metrics(frame, &RenderMetrics::base(), view, sectors, automap);
+}
+
+pub fn render_frame_with_metrics(
+    frame: &mut [u8],
+    metrics: &RenderMetrics,
+    view: &RenderView,
+    sectors: &[Sector],
+    automap: Automap,
+) {
     clear_frame(frame);
-    world::render_world(frame, view, sectors);
-    automap::render_automap(frame, view, sectors, automap);
+    world::render_world_with_metrics(frame, metrics, view, sectors);
+    automap::render_automap_with_metrics(frame, metrics, view, sectors, automap);
 }
 
 #[cfg(test)]
@@ -350,6 +441,45 @@ mod tests {
         }
 
         frames
+    }
+
+    #[test]
+    fn render_metrics_clamp_extreme_window_aspects() {
+        let wide = RenderMetrics::from_window_size(4000.0, 200.0);
+        let tall = RenderMetrics::from_window_size(200.0, 4000.0);
+
+        let wide_aspect = wide.width as f32 / wide.height as f32;
+        let tall_aspect = tall.width as f32 / tall.height as f32;
+
+        assert!(wide_aspect <= MAX_ASPECT_RATIO + 0.01);
+        assert!(tall_aspect >= MIN_ASPECT_RATIO - 0.01);
+    }
+
+    #[test]
+    fn render_metrics_show_more_between_integer_scale_steps_then_snap_back() {
+        let intermediate = RenderMetrics::from_window_size(700.0, 525.0);
+        let snapped = RenderMetrics::from_window_size(960.0, 720.0);
+
+        assert!(intermediate.width > WIDTH);
+        assert!(intermediate.height > HEIGHT);
+        assert_eq!(snapped.width, WIDTH);
+        assert_eq!(snapped.height, HEIGHT);
+    }
+
+    #[test]
+    fn render_metrics_expand_fov_with_aspect_changes() {
+        let base = RenderMetrics::base();
+        let wide = RenderMetrics::from_window_size(840.0, 360.0);
+        let tall = RenderMetrics::from_window_size(360.0, 840.0);
+        let sample = Position2(vec2(1.0, 5.0));
+
+        let base_projection = math::project_with_metrics(&base, sample, Length(0.0));
+        let wide_projection = math::project_with_metrics(&wide, sample, Length(0.0));
+        let tall_projection = math::project_with_metrics(&tall, sample, Length(1.0));
+        let base_tall_projection = math::project_with_metrics(&base, sample, Length(1.0));
+
+        assert!(wide_projection.0.x.abs() < base_projection.0.x.abs());
+        assert!(tall_projection.0.y.abs() < base_tall_projection.0.y.abs());
     }
 
     #[test]

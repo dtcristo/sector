@@ -1,12 +1,18 @@
-use super::{
-    Normalized, BACK_CLIP_1, BACK_CLIP_2, LEFT_CLIP_1, LEFT_CLIP_2, NEAR, PERSPECTIVE_MATRIX,
-    RIGHT_CLIP_1, RIGHT_CLIP_2, X_NEAR,
-};
+use super::{Normalized, RenderMetrics, NEAR};
 use crate::{Length, Position2};
 
 use bevy::math::{vec2, vec3, Vec2};
 
+#[cfg(test)]
 pub(crate) fn clip_wall(
+    view_left: Position2,
+    view_right: Position2,
+) -> Option<(Position2, Position2)> {
+    clip_wall_with_metrics(&RenderMetrics::base(), view_left, view_right)
+}
+
+pub(crate) fn clip_wall_with_metrics(
+    metrics: &RenderMetrics,
     mut view_left: Position2,
     mut view_right: Position2,
 ) -> Option<(Position2, Position2)> {
@@ -14,9 +20,14 @@ pub(crate) fn clip_wall(
         return None;
     }
 
-    if let Some(intersection) = intersect(view_left.0, view_right.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
-        if intersection.x < -*X_NEAR {
-            if point_behind(view_left.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
+    if let Some(intersection) = intersect(
+        view_left.0,
+        view_right.0,
+        metrics.left_clip_1,
+        metrics.left_clip_2,
+    ) {
+        if intersection.x < -metrics.back_clip_1.x {
+            if point_behind(view_left.0, metrics.left_clip_1, metrics.left_clip_2) {
                 view_left = Position2(intersection);
             } else {
                 view_right = Position2(intersection);
@@ -24,9 +35,14 @@ pub(crate) fn clip_wall(
         }
     }
 
-    if let Some(intersection) = intersect(view_left.0, view_right.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
-        if intersection.x > *X_NEAR {
-            if point_behind(view_left.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
+    if let Some(intersection) = intersect(
+        view_left.0,
+        view_right.0,
+        metrics.right_clip_1,
+        metrics.right_clip_2,
+    ) {
+        if intersection.x > metrics.back_clip_1.x {
+            if point_behind(view_left.0, metrics.right_clip_1, metrics.right_clip_2) {
                 view_left = Position2(intersection);
             } else {
                 view_right = Position2(intersection);
@@ -35,9 +51,13 @@ pub(crate) fn clip_wall(
     }
 
     if view_left.0.y < NEAR || view_right.0.y < NEAR {
-        if let Some(intersection) = intersect(view_left.0, view_right.0, *BACK_CLIP_1, *BACK_CLIP_2)
-        {
-            if point_behind(view_left.0, *BACK_CLIP_1, *BACK_CLIP_2) {
+        if let Some(intersection) = intersect(
+            view_left.0,
+            view_right.0,
+            metrics.back_clip_1,
+            metrics.back_clip_2,
+        ) {
+            if point_behind(view_left.0, metrics.back_clip_1, metrics.back_clip_2) {
                 view_left = Position2(intersection);
             } else {
                 view_right = Position2(intersection);
@@ -45,19 +65,32 @@ pub(crate) fn clip_wall(
         }
     }
 
-    if point_behind(view_right.0, *LEFT_CLIP_1, *LEFT_CLIP_2) {
+    if point_behind(view_right.0, metrics.left_clip_1, metrics.left_clip_2) {
         return None;
     }
 
-    if point_behind(view_left.0, *RIGHT_CLIP_1, *RIGHT_CLIP_2) {
+    if point_behind(view_left.0, metrics.right_clip_1, metrics.right_clip_2) {
         return None;
     }
 
     Some((view_left, view_right))
 }
 
+#[cfg(test)]
 pub(crate) fn project(position: Position2, height: Length) -> Normalized {
-    Normalized(PERSPECTIVE_MATRIX.project_point3(vec3(position.0.x, height.0, -position.0.y)))
+    project_with_metrics(&RenderMetrics::base(), position, height)
+}
+
+pub(crate) fn project_with_metrics(
+    metrics: &RenderMetrics,
+    position: Position2,
+    height: Length,
+) -> Normalized {
+    Normalized(metrics.perspective_matrix.project_point3(vec3(
+        position.0.x,
+        height.0,
+        -position.0.y,
+    )))
 }
 
 pub(crate) fn lerp(start: f32, end: f32, t: f32) -> f32 {
