@@ -38,6 +38,7 @@ web-sys = { version = "0.3", features = ["Location", "Window"] }
 [features]
 sector = [
     "bevy/bevy_asset",
+    "bevy/bevy_state",
     "bevy_pixels",
     "image"
 ]

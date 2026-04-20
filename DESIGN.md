@@ -104,6 +104,7 @@ Airborne crouching is intentionally slightly gamey: the camera stays fixed while
 The runtime also exposes a lightweight console debug path: pressing `?` prints a RON-style snapshot of the player's movement state plus the current sector's geometry and portal connections so map and physics issues can be inspected without adding a heavyweight debug UI.
 
 For performance, the movement code operates directly on the static runtime sector slice, builds sector-id lookup tables once per simulation step, and avoids per-wall temporary `Vec` allocation while checking portals and blocking walls.
+Bevy's scheduler now splits runtime work intentionally: `Update` handles input, look, and UI-adjacent control logic, `FixedUpdate` advances movement on a fixed timestep, and a small Bevy state machine controls cursor capture/release instead of ad-hoc grab toggles spread across gameplay systems.
 
 ### Rendering
 

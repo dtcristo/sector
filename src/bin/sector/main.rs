@@ -25,6 +25,8 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+const FIXED_SIMULATION_HZ: f64 = 120.0;
+
 #[derive(Resource, Debug, PartialEq)]
 struct AutomapMode(Automap);
 
@@ -43,30 +45,48 @@ impl RuntimeSectors {
     }
 }
 
+#[derive(States, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+enum CursorCaptureState {
+    #[default]
+    Released,
+    Captured,
+}
+
 struct SectorRuntimePlugin;
 
 impl Plugin for SectorRuntimePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(AutomapMode(Automap::Off))
+        app.init_state::<CursorCaptureState>()
+            .insert_resource(AutomapMode(Automap::Off))
             .insert_resource(WindowTitleTimer(Timer::new(
                 Duration::from_millis(500),
                 TimerMode::Repeating,
             )))
+            .insert_resource(Time::<Fixed>::from_hz(FIXED_SIMULATION_HZ))
             .add_systems(Startup, (setup_player_system, init_runtime_system).chain())
+            .add_systems(
+                OnEnter(CursorCaptureState::Captured),
+                apply_captured_cursor_system,
+            )
+            .add_systems(
+                OnEnter(CursorCaptureState::Released),
+                apply_released_cursor_system,
+            )
             .add_systems(
                 Update,
                 (
                     update_title_system,
-                    mouse_capture_system,
+                    request_cursor_capture_system,
+                    release_cursor_with_mouse_system,
                     escape_system,
                     switch_automap_system,
-                    (
-                        player_look_system,
-                        player_simulation_system,
-                        dump_runtime_state_system,
-                    )
-                        .chain(),
+                    player_look_system,
+                    dump_runtime_state_system,
                 ),
+            )
+            .add_systems(
+                FixedUpdate,
+                player_simulation_system.run_if(in_state(CursorCaptureState::Captured)),
             )
             .add_systems(Draw, draw_frame_system);
     }
@@ -255,41 +275,60 @@ fn update_title_system(
     }
 }
 
-fn mouse_capture_system(
+fn request_cursor_capture_system(
     mouse_button: Res<ButtonInput<MouseButton>>,
-    mut cursor_options_query: Query<&mut CursorOptions>,
+    cursor_capture_state: Res<State<CursorCaptureState>>,
+    mut next_cursor_capture_state: ResMut<NextState<CursorCaptureState>>,
 ) {
+    if *cursor_capture_state.get() == CursorCaptureState::Released
+        && mouse_button.just_pressed(MouseButton::Left)
+    {
+        next_cursor_capture_state.set(CursorCaptureState::Captured);
+    }
+}
+
+fn release_cursor_with_mouse_system(
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    cursor_capture_state: Res<State<CursorCaptureState>>,
+    mut next_cursor_capture_state: ResMut<NextState<CursorCaptureState>>,
+) {
+    if *cursor_capture_state.get() == CursorCaptureState::Captured
+        && mouse_button.just_pressed(MouseButton::Right)
+    {
+        next_cursor_capture_state.set(CursorCaptureState::Released);
+    }
+}
+
+fn apply_captured_cursor_system(mut cursor_options_query: Query<&mut CursorOptions>) {
     let Ok(mut cursor_options) = cursor_options_query.single_mut() else {
         return;
     };
 
-    if cursor_options.grab_mode == CursorGrabMode::None {
-        if mouse_button.just_pressed(MouseButton::Left) {
-            cursor_options.grab_mode = CursorGrabMode::Locked;
-            cursor_options.visible = false;
-        }
-    } else if mouse_button.just_pressed(MouseButton::Right) {
-        cursor_options.grab_mode = CursorGrabMode::None;
-        cursor_options.visible = true;
-    }
+    cursor_options.grab_mode = CursorGrabMode::Locked;
+    cursor_options.visible = false;
+}
+
+fn apply_released_cursor_system(mut cursor_options_query: Query<&mut CursorOptions>) {
+    let Ok(mut cursor_options) = cursor_options_query.single_mut() else {
+        return;
+    };
+
+    cursor_options.grab_mode = CursorGrabMode::None;
+    cursor_options.visible = true;
 }
 
 fn escape_system(
     #[cfg(not(target_arch = "wasm32"))] mut app_exit_events: MessageWriter<AppExit>,
     key: Res<ButtonInput<KeyCode>>,
-    mut cursor_options_query: Query<&mut CursorOptions>,
+    cursor_capture_state: Res<State<CursorCaptureState>>,
+    mut next_cursor_capture_state: ResMut<NextState<CursorCaptureState>>,
 ) {
     if key.just_pressed(KeyCode::Escape) {
-        let Ok(mut cursor_options) = cursor_options_query.single_mut() else {
-            return;
-        };
-
-        if cursor_options.grab_mode == CursorGrabMode::None {
+        if *cursor_capture_state.get() == CursorCaptureState::Released {
             #[cfg(not(target_arch = "wasm32"))]
             app_exit_events.write(AppExit::Success);
         } else {
-            cursor_options.grab_mode = CursorGrabMode::None;
-            cursor_options.visible = true;
+            next_cursor_capture_state.set(CursorCaptureState::Released);
         }
     }
 }
@@ -477,7 +516,7 @@ fn player_look_system(
     mut player_query: Query<&mut Player>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
     key: Res<ButtonInput<KeyCode>>,
-    cursor_options_query: Query<&CursorOptions>,
+    cursor_capture_state: Res<State<CursorCaptureState>>,
 ) {
     let Ok(mut player) = player_query.single_mut() else {
         return;
@@ -486,10 +525,7 @@ fn player_look_system(
         .read()
         .map(|motion| motion.delta.x)
         .sum();
-    let cursor_locked = cursor_options_query
-        .single()
-        .map(|cursor_options| cursor_options.grab_mode == CursorGrabMode::Locked)
-        .unwrap_or(false);
+    let cursor_locked = *cursor_capture_state.get() == CursorCaptureState::Captured;
 
     let input = PlayerInput::from_keys(&key, key.just_pressed(KeyCode::Space))
         .with_mouse_look(mouse_delta_x, cursor_locked);
@@ -499,7 +535,7 @@ fn player_look_system(
 fn player_simulation_system(
     mut player_query: Query<&mut Player>,
     key: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     runtime_sectors: Res<RuntimeSectors>,
 ) {
     let Ok(mut player) = player_query.single_mut() else {

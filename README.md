@@ -61,6 +61,7 @@ just validate e1m1
 `just play` and `just validate` both default to the `default` map when no map name is provided.
 
 While playing, press `Shift+/` (`?`) to print a RON-style runtime state dump to the console with the player's position, velocity, facing, resolved sector, and current sector wall/portal data.
+Left click captures the cursor for play, right click or `Escape` releases it, and movement simulation now runs on a fixed Bevy timestep for steadier behavior across frame rates.
 
 ## Editor
 
