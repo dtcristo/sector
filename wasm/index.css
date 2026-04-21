@@ -21,8 +21,14 @@ canvas {
   height: 100vh !important;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  outline: none;
   object-fit: contain;
   width: 100vw !important;
+}
+
+canvas:focus,
+canvas:focus-visible {
+  outline: none;
 }
 
 #boot-error {
