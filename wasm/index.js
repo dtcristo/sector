@@ -1,29 +1,17 @@
-function mapNameFromPath(pathname) {
-  const trimmed = pathname.trim().replace(/^\/+|\/+$/g, "");
-  if (!trimmed || trimmed.toLowerCase() === "index.html") {
-    return "default";
-  }
+const bootError = document.getElementById("boot-error");
+const path = window.location.pathname.trim().replace(/^\/+|\/+$/g, "").toLowerCase();
+const mapName = path.split("/").pop();
+const resolvedMapName =
+  !mapName || mapName === "index.html" || !/^[a-z0-9_-]+$/.test(mapName)
+    ? "default"
+    : mapName;
 
-  const pieces = trimmed.split("/").filter(Boolean);
-  const mapName = pieces[pieces.length - 1].toLowerCase();
-  return /^[a-z0-9_-]+$/.test(mapName) ? mapName : "default";
-}
+document.title = resolvedMapName === "default" ? "sector" : `sector · ${resolvedMapName}`;
 
-function showBootError(error) {
-  const target = document.getElementById("boot-error");
-  target.hidden = false;
-  target.textContent =
-    "sector failed to start.\n\n" +
-    (error?.stack ?? String(error));
-}
-
-const mapName = mapNameFromPath(window.location.pathname);
-document.title = mapName === "default" ? "sector" : `sector · ${mapName}`;
-
-const { default: init } = await import("/target/sector.js");
 try {
-  await init();
+  await (await import("/target/sector.js")).default();
 } catch (error) {
   console.error(error);
-  showBootError(error);
+  bootError.hidden = false;
+  bootError.textContent = `sector failed to start.\n\n${error?.stack ?? String(error)}`;
 }
