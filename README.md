@@ -86,7 +86,7 @@ Left click captures the cursor for play, right click or `Escape` releases it, `N
 
 Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` at build time and embeds every shipped map so new maps can be exposed by route after rebuilding the web output.
 
-The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows. On the web, the runtime presents the software-rendered frame through a plain 2D canvas instead of the native `bevy_pixels` path, which avoids browser GPU initialization issues while keeping the same pixel-art output.
+The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows. The web runtime now goes back through `bevy_pixels` itself instead of the temporary 2D canvas fallback, using the sibling `../bevy_pixels` checkout while those wasm fixes are still local-only.
 
 ## CI/CD
 

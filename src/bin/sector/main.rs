@@ -27,9 +27,6 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-#[cfg(target_arch = "wasm32")]
-mod web_canvas;
-
 const FIXED_SIMULATION_HZ: f64 = 120.0;
 const FLY_MODE_DOUBLE_TAP_WINDOW_SECONDS: f64 = 0.3;
 
@@ -101,14 +98,8 @@ impl Plugin for SectorRuntimePlugin {
             .add_systems(
                 FixedUpdate,
                 player_simulation_system.run_if(in_state(CursorCaptureState::Captured)),
-            );
-
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_systems(Draw, draw_frame_system);
-
-        #[cfg(target_arch = "wasm32")]
-        app.add_systems(Update, web_canvas::ensure_web_canvas_system)
-            .add_systems(PostUpdate, draw_web_canvas_system);
+            )
+            .add_systems(Draw, draw_frame_system);
     }
 }
 
@@ -158,13 +149,11 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(SectorRuntimePlugin);
 
-    #[cfg(not(target_arch = "wasm32"))]
     app.add_plugins(runtime_pixels_plugin());
 
     app.run();
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 fn runtime_pixels_plugin() -> PixelsPlugin {
     PixelsPlugin {
         primary_window: Some(PixelsOptions {
@@ -664,38 +653,6 @@ fn draw_frame_system(
         runtime_sectors.as_slice(),
         automap.0,
     );
-}
-
-#[cfg(target_arch = "wasm32")]
-fn draw_web_canvas_system(
-    automap: Res<AutomapMode>,
-    player_query: Query<&Player>,
-    runtime_sectors: Res<RuntimeSectors>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    canvas: Option<ResMut<web_canvas::WebCanvasRenderer>>,
-) {
-    let Ok(player) = player_query.single() else {
-        return;
-    };
-    let Ok(window) = window_query.single() else {
-        return;
-    };
-    let Some(mut canvas) = canvas else {
-        return;
-    };
-    let (width, height) = RenderMetrics::buffer_size_for_window(window.width(), window.height());
-    canvas.resize(width, height);
-    let metrics = RenderMetrics::new(width, height);
-    render_frame_with_metrics(
-        canvas.frame_mut(),
-        &metrics,
-        &player_render_view(player),
-        runtime_sectors.as_slice(),
-        automap.0,
-    );
-    canvas
-        .present()
-        .expect("failed to present web canvas frame");
 }
 
 #[cfg(test)]

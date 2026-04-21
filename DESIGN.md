@@ -123,7 +123,7 @@ This keeps the presentation blocky and retro while making better use of resize e
 Presentation is platform-specific after the software frame is generated:
 
 - native builds resize the live `bevy_pixels` buffer to the computed logical size and present it through the normal pixels-backed window path
-- wasm builds draw the frame into the Bevy-owned browser canvas through a 2D canvas context, which avoids WebGPU adapter/format failures while preserving the same software-rendered output and pixel scaling rules
+- wasm builds now use the same `bevy_pixels` presentation path again, relying on the local sibling checkout while the browser async-initialization fixes are not yet published on crates.io
 
 The visual style is deliberately limited:
 

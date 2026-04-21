@@ -23,7 +23,7 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 
 # sector(bin) deps
-bevy_pixels = { version = "0.16.0", optional = true }
+bevy_pixels = { path = "../bevy_pixels", optional = true }
 image = { version = "0.24", optional = true }
 
 # sector_edit(bin) deps
@@ -35,10 +35,7 @@ rfd = { version = "0.15", optional = true }
 console_error_panic_hook = "0.1"
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = [
-    "CanvasRenderingContext2d",
     "Document",
-    "HtmlCanvasElement",
-    "ImageData",
     "Location",
     "Window",
 ] }

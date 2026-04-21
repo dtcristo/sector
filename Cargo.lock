@@ -1289,8 +1289,6 @@ dependencies = [
 [[package]]
 name = "bevy_pixels"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08bbeca926cfd4a8b4a92e0979657a4e89590b19f11eeb058b1c79fd83274eec"
 dependencies = [
  "bevy",
  "getrandom 0.3.4",
