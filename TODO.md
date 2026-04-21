@@ -6,7 +6,7 @@
 - Support richer map startup options beyond the current CLI/web-route flow, including selecting maps and spawn points from the runtime and editor UI.
 - Add simple gameplay objects such as pickups, switches, keys, and scripted triggers.
 - Improve player interaction feedback for low ceilings, blocked portals, and invalid transitions.
-- Add optional noclip/debug movement for map inspection and regression triage.
+- Add speed presets and quick-reset controls for the new debug movement modes so large imported maps are easier to inspect.
 - Expand the `?` console dump into a toggleable in-game debug overlay and snapshot history.
 
 ## Renderer

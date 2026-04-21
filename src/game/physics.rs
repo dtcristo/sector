@@ -23,6 +23,11 @@ pub fn simulate_player(
     }
 
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, sector)).collect();
+    if player.noclip {
+        simulate_player_noclip(player, input, dt_seconds, sectors, &sectors_by_id);
+        return;
+    }
+
     player.current_sector = resolve_current_sector_with_height(
         player.position,
         player.current_sector,
@@ -106,6 +111,26 @@ pub fn simulate_player(
     }
 }
 
+pub fn resolve_player_sector(player: &Player, sectors: &[Sector]) -> Option<SectorId> {
+    let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, sector)).collect();
+    if player.noclip {
+        resolve_current_sector_noclip(
+            player.position,
+            player.current_sector,
+            sectors,
+            &sectors_by_id,
+        )
+    } else {
+        resolve_current_sector_with_height(
+            player.position,
+            player.current_sector,
+            sectors,
+            &sectors_by_id,
+            player.height(),
+        )
+    }
+}
+
 pub fn resolve_current_sector(
     position: Position3,
     current_sector: Option<SectorId>,
@@ -119,6 +144,35 @@ pub fn resolve_current_sector(
         &sectors_by_id,
         PLAYER_HEIGHT_METERS,
     )
+}
+
+fn simulate_player_noclip(
+    player: &mut Player,
+    input: PlayerInput,
+    dt_seconds: f32,
+    sectors: &[Sector],
+    sectors_by_id: &HashMap<SectorId, &Sector>,
+) {
+    player.current_sector = resolve_current_sector_noclip(
+        player.position,
+        player.current_sector,
+        sectors,
+        sectors_by_id,
+    );
+    update_noclip_grounded_state(player, sectors_by_id);
+    update_crouch_state_noclip(player, input);
+
+    let horizontal_velocity = desired_horizontal_velocity(player, input);
+    player.velocity = Vec3::new(horizontal_velocity.x, horizontal_velocity.y, 0.0);
+    player.position.0 += horizontal_velocity * dt_seconds;
+
+    player.current_sector = resolve_current_sector_noclip(
+        player.position,
+        player.current_sector,
+        sectors,
+        sectors_by_id,
+    );
+    update_noclip_grounded_state(player, sectors_by_id);
 }
 
 fn resolve_current_sector_with_height(
@@ -182,6 +236,31 @@ fn resolve_current_sector_with_height(
     }
 
     first_matching_sector
+}
+
+fn resolve_current_sector_noclip(
+    position: Position3,
+    current_sector: Option<SectorId>,
+    sectors: &[Sector],
+    sectors_by_id: &HashMap<SectorId, &Sector>,
+) -> Option<SectorId> {
+    if let Some(current_sector_id) = current_sector {
+        if let Some(sector) = sectors_by_id.get(&current_sector_id).copied() {
+            if sector_contains_horizontal_point(sector, position.truncate().0) {
+                return Some(current_sector_id);
+            }
+        }
+    }
+
+    sectors
+        .iter()
+        .filter(|sector| sector_contains_horizontal_point(sector, position.truncate().0))
+        .min_by(|left, right| {
+            vertical_distance_to_sector(position.0.z, left)
+                .partial_cmp(&vertical_distance_to_sector(position.0.z, right))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|sector| sector.id)
 }
 
 pub fn sector_contains_player(sector: &Sector, position: Position3) -> bool {
@@ -475,6 +554,16 @@ fn portal_clearance(player: &Player, target_sector: &Sector) -> Option<f32> {
     Some(feet_z)
 }
 
+fn vertical_distance_to_sector(feet_z: f32, sector: &Sector) -> f32 {
+    if feet_z < sector.floor.0 {
+        sector.floor.0 - feet_z
+    } else if feet_z > sector.ceil.0 {
+        feet_z - sector.ceil.0
+    } else {
+        0.0
+    }
+}
+
 fn update_crouch_state(
     player: &mut Player,
     input: PlayerInput,
@@ -516,6 +605,34 @@ fn update_crouch_state(
         }
         player.crouching = false;
     }
+}
+
+fn update_crouch_state_noclip(player: &mut Player, input: PlayerInput) {
+    if input.crouch_pressed {
+        if !player.crouching {
+            if !player.grounded {
+                player.position.0.z += AIR_CROUCH_FEET_LIFT;
+            }
+            player.crouching = true;
+        }
+        return;
+    }
+
+    if !player.crouching {
+        return;
+    }
+
+    if !player.grounded {
+        player.position.0.z -= AIR_CROUCH_FEET_LIFT;
+    }
+    player.crouching = false;
+}
+
+fn update_noclip_grounded_state(player: &mut Player, sectors_by_id: &HashMap<SectorId, &Sector>) {
+    player.grounded = player
+        .current_sector
+        .and_then(|sector_id| sectors_by_id.get(&sector_id).copied())
+        .is_some_and(|sector| (player.position.0.z - sector.floor.0).abs() <= POSITION_EPSILON);
 }
 
 fn can_use_height_in_sector(sector: &Sector, feet_z: f32, height: f32) -> bool {
@@ -927,6 +1044,50 @@ mod tests {
         }
 
         assert!(player.position.0.x < 3.71);
+    }
+
+    #[test]
+    fn noclip_passes_through_solid_wall_without_stopping() {
+        let sectors = [simple_room()];
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(3.5, 0.0, 0.0)),
+            direction: Direction(-std::f32::consts::FRAC_PI_2),
+            noclip: true,
+            ..Player::default()
+        };
+
+        for _ in 0..20 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                &sectors,
+            );
+        }
+
+        assert!(player.position.0.x > 4.3);
+    }
+
+    #[test]
+    fn noclip_keeps_player_above_ceiling_without_vertical_clamp() {
+        let sectors = [simple_room()];
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(0.0, 0.0, 4.5)),
+            noclip: true,
+            ..Player::default()
+        };
+
+        simulate_player(&mut player, PlayerInput::default(), 1.0 / 60.0, &sectors);
+
+        assert_eq!(player.current_sector, Some(SectorId(0)));
+        assert!((player.position.0.z - 4.5).abs() < 0.0001);
+        assert!(!player.grounded);
+        assert_eq!(resolve_player_sector(&player, &sectors), Some(SectorId(0)));
     }
 
     #[test]

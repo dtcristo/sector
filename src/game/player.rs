@@ -29,6 +29,7 @@ pub struct Player {
     pub current_sector: Option<SectorId>,
     pub grounded: bool,
     pub crouching: bool,
+    pub noclip: bool,
 }
 
 impl Default for Player {
@@ -40,6 +41,7 @@ impl Default for Player {
             current_sector: None,
             grounded: true,
             crouching: false,
+            noclip: false,
         }
     }
 }

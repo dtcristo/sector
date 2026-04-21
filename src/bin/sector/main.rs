@@ -14,7 +14,7 @@ use bevy_pixels::prelude::*;
 use ron::ser::PrettyConfig;
 use sector::{
     game::{
-        apply_player_look, player_render_view, resolve_current_sector, sector_contains_player,
+        apply_player_look, player_render_view, resolve_player_sector, sector_contains_player,
         setup_player_system, simulate_player, Player, PlayerInput,
     },
     map::{load_map_from_path, map_to_sectors, shipped_map_path},
@@ -85,6 +85,7 @@ impl Plugin for SectorRuntimePlugin {
                     release_cursor_with_mouse_system,
                     escape_system,
                     switch_automap_system,
+                    toggle_noclip_system,
                     sync_pixel_buffer_system,
                     player_look_system,
                     dump_runtime_state_system,
@@ -396,6 +397,7 @@ struct PlayerStateDump {
     direction_degrees: f32,
     grounded: bool,
     crouching: bool,
+    noclip: bool,
     current_sector: Option<u32>,
 }
 
@@ -461,13 +463,28 @@ fn dump_runtime_state_system(
     println!("runtime_state: {ron}");
 }
 
+fn toggle_noclip_system(mut player_query: Query<&mut Player>, key: Res<ButtonInput<KeyCode>>) {
+    if !key.just_pressed(KeyCode::KeyN) {
+        return;
+    }
+
+    let Ok(mut player) = player_query.single_mut() else {
+        return;
+    };
+    player.noclip = !player.noclip;
+    player.velocity.z = 0.0;
+    println!(
+        "movement: noclip {}",
+        if player.noclip { "enabled" } else { "disabled" }
+    );
+}
+
 fn build_runtime_state_dump(
     map_path: &Path,
     player: &Player,
     sectors: &[Sector],
 ) -> RuntimeStateDump {
-    let resolved_sector = resolve_current_sector(player.position, player.current_sector, sectors)
-        .map(|sector_id| sector_id.0);
+    let resolved_sector = resolve_player_sector(player, sectors).map(|sector_id| sector_id.0);
     let current_sector = player
         .current_sector
         .and_then(|sector_id| sectors.iter().find(|sector| sector.id == sector_id))
@@ -487,6 +504,7 @@ fn build_runtime_state_dump(
             direction_degrees: player.direction.0.to_degrees(),
             grounded: player.grounded,
             crouching: player.crouching,
+            noclip: player.noclip,
             current_sector: player.current_sector.map(|sector_id| sector_id.0),
         },
         current_sector,
@@ -703,6 +721,7 @@ mod tests {
             current_sector: Some(SectorId(3)),
             grounded: false,
             crouching: true,
+            noclip: true,
         };
         let sectors = [current, target];
 
@@ -715,6 +734,7 @@ mod tests {
         assert_eq!(dump.player.current_sector, Some(3));
         assert_eq!(dump.player.velocity, [1.0, 2.0, 3.0]);
         assert!(dump.player.crouching);
+        assert!(dump.player.noclip);
 
         let current_sector = dump
             .current_sector

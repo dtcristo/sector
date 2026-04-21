@@ -94,6 +94,7 @@ The player simulation is built around a small first-person controller:
 - walk/strafe movement in the horizontal plane
 - jump using earth gravity
 - grounded crouch that lowers eye height, plus airborne crouch that lifts the feet instead
+- a noclip toggle for geometry inspection that bypasses wall and floor/ceiling collision while still resolving the closest horizontal sector for rendering/debugging
 - step-up support using `PLAYER_MAX_STEP_HEIGHT_METERS`
 - sector resolution that prefers the current or adjacent portal sector when possible
 
@@ -101,7 +102,7 @@ Horizontal movement is resolved against sector walls and portal openings. A port
 
 Airborne crouching is intentionally slightly gamey: the camera stays fixed while the collision capsule shortens upward, which allows limited crouch-jump behavior for ledges that are just out of reach with a normal jump.
 
-The runtime also exposes a lightweight console debug path: pressing `?` prints a RON-style snapshot of the player's movement state plus the current sector's geometry and portal connections so map and physics issues can be inspected without adding a heavyweight debug UI.
+The runtime also exposes a lightweight console debug path: pressing `?` prints a RON-style snapshot of the player's movement state, movement toggles, and the current sector's geometry and portal connections so map and physics issues can be inspected without adding a heavyweight debug UI.
 
 For performance, the movement code operates directly on the static runtime sector slice, builds sector-id lookup tables once per simulation step, and avoids per-wall temporary `Vec` allocation while checking portals and blocking walls.
 Bevy's scheduler now splits runtime work intentionally: `Update` handles input, look, and UI-adjacent control logic, `FixedUpdate` advances movement on a fixed timestep, and a small Bevy state machine controls cursor capture/release instead of ad-hoc grab toggles spread across gameplay systems.
