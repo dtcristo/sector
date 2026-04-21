@@ -31,12 +31,18 @@ use std::time::Duration;
 mod web_canvas;
 
 const FIXED_SIMULATION_HZ: f64 = 120.0;
+const FLY_MODE_DOUBLE_TAP_WINDOW_SECONDS: f64 = 0.3;
 
 #[derive(Resource, Debug, PartialEq)]
 struct AutomapMode(Automap);
 
 #[derive(Resource, Debug)]
 struct WindowTitleTimer(Timer);
+
+#[derive(Resource, Debug, Default)]
+struct FlyToggleTracker {
+    last_space_tap_seconds: Option<f64>,
+}
 
 #[derive(Resource, Debug, Clone)]
 struct RuntimeMapPath(PathBuf);
@@ -63,6 +69,7 @@ impl Plugin for SectorRuntimePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<CursorCaptureState>()
             .insert_resource(AutomapMode(Automap::Off))
+            .insert_resource(FlyToggleTracker::default())
             .insert_resource(WindowTitleTimer(Timer::new(
                 Duration::from_millis(500),
                 TimerMode::Repeating,
@@ -398,6 +405,7 @@ struct PlayerStateDump {
     grounded: bool,
     crouching: bool,
     noclip: bool,
+    fly_mode: bool,
     current_sector: Option<u32>,
 }
 
@@ -479,6 +487,16 @@ fn toggle_noclip_system(mut player_query: Query<&mut Player>, key: Res<ButtonInp
     );
 }
 
+fn space_double_tap_detected(tracker: &mut FlyToggleTracker, now_seconds: f64) -> bool {
+    let toggled = tracker
+        .last_space_tap_seconds
+        .is_some_and(|last_space_tap| {
+            now_seconds - last_space_tap <= FLY_MODE_DOUBLE_TAP_WINDOW_SECONDS
+        });
+    tracker.last_space_tap_seconds = if toggled { None } else { Some(now_seconds) };
+    toggled
+}
+
 fn build_runtime_state_dump(
     map_path: &Path,
     player: &Player,
@@ -505,6 +523,7 @@ fn build_runtime_state_dump(
             grounded: player.grounded,
             crouching: player.crouching,
             noclip: player.noclip,
+            fly_mode: player.fly_mode,
             current_sector: player.current_sector.map(|sector_id| sector_id.0),
         },
         current_sector,
@@ -590,13 +609,33 @@ fn player_look_system(
 fn player_simulation_system(
     mut player_query: Query<&mut Player>,
     key: Res<ButtonInput<KeyCode>>,
+    mut fly_toggle_tracker: ResMut<FlyToggleTracker>,
     time: Res<Time<Fixed>>,
     runtime_sectors: Res<RuntimeSectors>,
 ) {
     let Ok(mut player) = player_query.single_mut() else {
         return;
     };
-    let input = PlayerInput::from_keys(&key, key.just_pressed(KeyCode::Space));
+    let jump_just_pressed = key.just_pressed(KeyCode::Space);
+    let toggled_fly_mode = jump_just_pressed
+        && space_double_tap_detected(&mut fly_toggle_tracker, time.elapsed_secs_f64());
+    if toggled_fly_mode {
+        player.fly_mode = !player.fly_mode;
+        player.velocity.z = 0.0;
+        println!(
+            "movement: fly mode {}",
+            if player.fly_mode {
+                "enabled"
+            } else {
+                "disabled"
+            }
+        );
+    }
+
+    let input = PlayerInput::from_keys(
+        &key,
+        jump_just_pressed && !toggled_fly_mode && !player.fly_mode,
+    );
     simulate_player(
         &mut player,
         input,
@@ -722,6 +761,7 @@ mod tests {
             grounded: false,
             crouching: true,
             noclip: true,
+            fly_mode: true,
         };
         let sectors = [current, target];
 
@@ -735,6 +775,7 @@ mod tests {
         assert_eq!(dump.player.velocity, [1.0, 2.0, 3.0]);
         assert!(dump.player.crouching);
         assert!(dump.player.noclip);
+        assert!(dump.player.fly_mode);
 
         let current_sector = dump
             .current_sector
@@ -776,5 +817,18 @@ mod tests {
     #[test]
     fn web_route_ignores_hash_fallback() {
         assert_eq!(map_name_from_route("/index.html"), "default");
+    }
+
+    #[test]
+    fn fly_mode_toggle_requires_two_space_taps_within_window() {
+        let mut tracker = FlyToggleTracker::default();
+
+        assert!(!space_double_tap_detected(&mut tracker, 1.0));
+        assert!(space_double_tap_detected(&mut tracker, 1.2));
+        assert!(!space_double_tap_detected(&mut tracker, 2.0));
+        assert!(!space_double_tap_detected(
+            &mut tracker,
+            2.0 + FLY_MODE_DOUBLE_TAP_WINDOW_SECONDS + 0.05
+        ));
     }
 }

@@ -95,6 +95,7 @@ The player simulation is built around a small first-person controller:
 - jump using earth gravity
 - grounded crouch that lowers eye height, plus airborne crouch that lifts the feet instead
 - a noclip toggle for geometry inspection that bypasses wall and floor/ceiling collision while still resolving the closest horizontal sector for rendering/debugging
+- a fly mode toggled by double-tapping jump, with hover-style vertical movement that still respects wall/floor/ceiling clipping unless noclip is also enabled
 - step-up support using `PLAYER_MAX_STEP_HEIGHT_METERS`
 - sector resolution that prefers the current or adjacent portal sector when possible
 

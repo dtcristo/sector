@@ -1,8 +1,8 @@
 use crate::{
     player::{
         EARTH_GRAVITY_MPS2, PLAYER_CROUCH_EYE_HEIGHT_METERS, PLAYER_CROUCH_HEIGHT_METERS,
-        PLAYER_EYE_HEIGHT_METERS, PLAYER_HEIGHT_METERS, PLAYER_JUMP_HEIGHT_METERS,
-        PLAYER_WALK_SPEED_MPS,
+        PLAYER_EYE_HEIGHT_METERS, PLAYER_FLY_SPEED_MPS, PLAYER_HEIGHT_METERS,
+        PLAYER_JUMP_HEIGHT_METERS, PLAYER_WALK_SPEED_MPS,
     },
     Position3, SectorId,
 };
@@ -30,6 +30,7 @@ pub struct Player {
     pub grounded: bool,
     pub crouching: bool,
     pub noclip: bool,
+    pub fly_mode: bool,
 }
 
 impl Default for Player {
@@ -42,6 +43,7 @@ impl Default for Player {
             grounded: true,
             crouching: false,
             noclip: false,
+            fly_mode: false,
         }
     }
 }
@@ -80,6 +82,8 @@ pub struct PlayerInput {
     pub strafe_right: bool,
     pub jump_pressed: bool,
     pub crouch_pressed: bool,
+    pub ascend: bool,
+    pub descend: bool,
     pub turn_left: bool,
     pub turn_right: bool,
     pub mouse_delta_x: f32,
@@ -96,6 +100,8 @@ impl PlayerInput {
             jump_pressed,
             crouch_pressed: keys.pressed(KeyCode::ControlLeft)
                 || keys.pressed(KeyCode::ControlRight),
+            ascend: keys.pressed(KeyCode::Space),
+            descend: keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight),
             turn_left: keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::KeyQ),
             turn_right: keys.pressed(KeyCode::ArrowRight) || keys.pressed(KeyCode::KeyE),
             ..Self::default()
@@ -151,6 +157,14 @@ pub fn desired_horizontal_velocity(player: &Player, input: PlayerInput) -> Vec3 
     }
 
     velocity * PLAYER_WALK_SPEED_MPS
+}
+
+pub fn desired_fly_vertical_velocity(input: PlayerInput) -> f32 {
+    match (input.ascend, input.descend) {
+        (true, false) => PLAYER_FLY_SPEED_MPS,
+        (false, true) => -PLAYER_FLY_SPEED_MPS,
+        _ => 0.0,
+    }
 }
 
 pub fn jump_speed_mps() -> f32 {
@@ -217,6 +231,18 @@ mod tests {
         let mut keys = ButtonInput::<KeyCode>::default();
         keys.press(KeyCode::ControlLeft);
 
-        assert!(PlayerInput::from_keys(&keys, false).crouch_pressed);
+        let input = PlayerInput::from_keys(&keys, false);
+        assert!(input.crouch_pressed);
+        assert!(input.descend);
+    }
+
+    #[test]
+    fn space_key_drives_fly_ascend_input() {
+        let mut keys = ButtonInput::<KeyCode>::default();
+        keys.press(KeyCode::Space);
+
+        let input = PlayerInput::from_keys(&keys, false);
+        assert!(input.ascend);
+        assert_eq!(desired_fly_vertical_velocity(input), PLAYER_FLY_SPEED_MPS);
     }
 }

@@ -61,7 +61,7 @@ just validate e1m1
 `just play` and `just validate` both default to the `default` map when no map name is provided.
 
 While playing, press `Shift+/` (`?`) to print a RON-style runtime state dump to the console with the player's position, velocity, facing, resolved sector, movement flags, and current sector wall/portal data.
-Left click captures the cursor for play, right click or `Escape` releases it, `N` toggles noclip, and movement simulation now runs on a fixed Bevy timestep for steadier behavior across frame rates. As the window changes size, the game resizes its live pixel buffer and FOV together instead of staying locked to a single 320x240 view; 4:3 remains the preferred baseline, while wider windows reveal more horizontally and taller windows reveal more vertically.
+Left click captures the cursor for play, right click or `Escape` releases it, `N` toggles noclip, and a double tap on `Space` toggles fly mode. While flying, hold `Space` to rise and `Ctrl` to descend; clipping still applies unless noclip is also enabled. Movement simulation now runs on a fixed Bevy timestep for steadier behavior across frame rates. As the window changes size, the game resizes its live pixel buffer and FOV together instead of staying locked to a single 320x240 view; 4:3 remains the preferred baseline, while wider windows reveal more horizontally and taller windows reveal more vertically.
 
 ## Editor
 

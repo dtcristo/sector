@@ -4,9 +4,9 @@ use bevy::math::{Vec2, Vec3};
 use std::collections::HashMap;
 
 use super::{
-    desired_horizontal_velocity, jump_speed_mps, Player, PlayerInput, EARTH_GRAVITY_MPS2,
-    PLAYER_CROUCH_EYE_HEIGHT_METERS, PLAYER_EYE_HEIGHT_METERS, PLAYER_HEIGHT_METERS,
-    PLAYER_MAX_STEP_HEIGHT_METERS, PLAYER_RADIUS_METERS,
+    desired_fly_vertical_velocity, desired_horizontal_velocity, jump_speed_mps, Player,
+    PlayerInput, EARTH_GRAVITY_MPS2, PLAYER_CROUCH_EYE_HEIGHT_METERS, PLAYER_EYE_HEIGHT_METERS,
+    PLAYER_HEIGHT_METERS, PLAYER_MAX_STEP_HEIGHT_METERS, PLAYER_RADIUS_METERS,
 };
 
 const POSITION_EPSILON: f32 = 0.0001;
@@ -25,6 +25,10 @@ pub fn simulate_player(
     let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, sector)).collect();
     if player.noclip {
         simulate_player_noclip(player, input, dt_seconds, sectors, &sectors_by_id);
+        return;
+    }
+    if player.fly_mode {
+        simulate_player_fly(player, input, dt_seconds, sectors, &sectors_by_id);
         return;
     }
 
@@ -160,11 +164,16 @@ fn simulate_player_noclip(
         sectors_by_id,
     );
     update_noclip_grounded_state(player, sectors_by_id);
-    update_crouch_state_noclip(player, input);
+    update_crouch_state_noclip(player, noclip_crouch_input(input, player.fly_mode));
 
     let horizontal_velocity = desired_horizontal_velocity(player, input);
-    player.velocity = Vec3::new(horizontal_velocity.x, horizontal_velocity.y, 0.0);
-    player.position.0 += horizontal_velocity * dt_seconds;
+    let vertical_velocity = noclip_vertical_velocity(input, player.fly_mode);
+    player.velocity = Vec3::new(
+        horizontal_velocity.x,
+        horizontal_velocity.y,
+        vertical_velocity,
+    );
+    player.position.0 += player.velocity * dt_seconds;
 
     player.current_sector = resolve_current_sector_noclip(
         player.position,
@@ -173,6 +182,90 @@ fn simulate_player_noclip(
         sectors_by_id,
     );
     update_noclip_grounded_state(player, sectors_by_id);
+}
+
+fn simulate_player_fly(
+    player: &mut Player,
+    input: PlayerInput,
+    dt_seconds: f32,
+    sectors: &[Sector],
+    sectors_by_id: &HashMap<SectorId, &Sector>,
+) {
+    player.current_sector = resolve_current_sector_with_height(
+        player.position,
+        player.current_sector,
+        sectors,
+        sectors_by_id,
+        player.height(),
+    );
+    update_crouch_state(
+        player,
+        PlayerInput {
+            crouch_pressed: false,
+            ..input
+        },
+        sectors_by_id,
+    );
+
+    let vertical_velocity = desired_fly_vertical_velocity(input);
+    player.velocity.z = vertical_velocity;
+    player.position.0.z += vertical_velocity * dt_seconds;
+    player.grounded = false;
+    player.current_sector = resolve_current_sector_with_height(
+        player.position,
+        player.current_sector,
+        sectors,
+        sectors_by_id,
+        player.height(),
+    );
+
+    let horizontal_velocity = desired_horizontal_velocity(player, input);
+    player.velocity.x = horizontal_velocity.x;
+    player.velocity.y = horizontal_velocity.y;
+    let movement_delta = horizontal_velocity.truncate() * dt_seconds;
+    let (horizontal_position, sector_id, _) =
+        move_player_horizontally(player, movement_delta, sectors, sectors_by_id);
+    player.position.0.x = horizontal_position.x;
+    player.position.0.y = horizontal_position.y;
+    player.current_sector = sector_id.or(player.current_sector);
+    player.current_sector = resolve_current_sector_with_height(
+        player.position,
+        player.current_sector,
+        sectors,
+        sectors_by_id,
+        player.height(),
+    );
+
+    if let Some(current_sector) = player
+        .current_sector
+        .and_then(|sector_id| sectors_by_id.get(&sector_id).copied())
+    {
+        let min_feet_z = current_sector.floor.0;
+        let max_feet_z = current_sector.ceil.0 - player.height();
+        if player.position.0.z < min_feet_z {
+            player.position.0.z = min_feet_z;
+            if player.velocity.z < 0.0 {
+                player.velocity.z = 0.0;
+            }
+        }
+        if player.position.0.z > max_feet_z {
+            player.position.0.z = max_feet_z;
+            if player.velocity.z > 0.0 {
+                player.velocity.z = 0.0;
+            }
+        }
+
+        player.current_sector = resolve_current_sector_with_height(
+            player.position,
+            player.current_sector,
+            sectors,
+            sectors_by_id,
+            player.height(),
+        );
+        player.grounded = (player.position.0.z - min_feet_z).abs() <= POSITION_EPSILON;
+    } else {
+        player.grounded = false;
+    }
 }
 
 fn resolve_current_sector_with_height(
@@ -523,6 +616,7 @@ fn portal_transition_for_wall(
     let feet_z = portal_clearance(player, target_sector)?;
     let floor_delta = target_sector.floor.0 - player.position.0.z;
     let step_to_floor = if player.grounded
+        && !player.fly_mode
         && floor_delta.abs() > POSITION_EPSILON
         && floor_delta.abs() <= PLAYER_MAX_STEP_HEIGHT_METERS
     {
@@ -626,6 +720,25 @@ fn update_crouch_state_noclip(player: &mut Player, input: PlayerInput) {
         player.position.0.z -= AIR_CROUCH_FEET_LIFT;
     }
     player.crouching = false;
+}
+
+fn noclip_crouch_input(input: PlayerInput, fly_mode: bool) -> PlayerInput {
+    if fly_mode {
+        PlayerInput {
+            crouch_pressed: false,
+            ..input
+        }
+    } else {
+        input
+    }
+}
+
+fn noclip_vertical_velocity(input: PlayerInput, fly_mode: bool) -> f32 {
+    if fly_mode {
+        desired_fly_vertical_velocity(input)
+    } else {
+        0.0
+    }
 }
 
 fn update_noclip_grounded_state(player: &mut Player, sectors_by_id: &HashMap<SectorId, &Sector>) {
@@ -1088,6 +1201,99 @@ mod tests {
         assert!((player.position.0.z - 4.5).abs() < 0.0001);
         assert!(!player.grounded);
         assert_eq!(resolve_player_sector(&player, &sectors), Some(SectorId(0)));
+    }
+
+    #[test]
+    fn fly_mode_hovers_without_gravity_and_still_hits_walls() {
+        let sectors = [simple_room()];
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(3.5, 0.0, 1.0)),
+            direction: Direction(-std::f32::consts::FRAC_PI_2),
+            fly_mode: true,
+            ..Player::default()
+        };
+
+        for _ in 0..20 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    forward: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                &sectors,
+            );
+        }
+
+        assert!(player.position.0.x < 3.71);
+        assert!((player.position.0.z - 1.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn fly_mode_vertical_controls_clip_to_ceiling_and_floor() {
+        let sectors = [simple_room()];
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(0.0, 0.0, 0.5)),
+            fly_mode: true,
+            ..Player::default()
+        };
+
+        for _ in 0..80 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    ascend: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                &sectors,
+            );
+        }
+
+        let max_feet_z = sectors[0].ceil.0 - player.height();
+        assert!((player.position.0.z - max_feet_z).abs() < 0.0001);
+
+        for _ in 0..80 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    descend: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                &sectors,
+            );
+        }
+
+        assert!((player.position.0.z - sectors[0].floor.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn fly_mode_with_noclip_moves_past_ceiling() {
+        let sectors = [simple_room()];
+        let mut player = Player {
+            current_sector: Some(SectorId(0)),
+            position: Position3(vec3(0.0, 0.0, 0.5)),
+            noclip: true,
+            fly_mode: true,
+            ..Player::default()
+        };
+
+        for _ in 0..40 {
+            simulate_player(
+                &mut player,
+                PlayerInput {
+                    ascend: true,
+                    ..PlayerInput::default()
+                },
+                1.0 / 60.0,
+                &sectors,
+            );
+        }
+
+        assert!(player.position.0.z > sectors[0].ceil.0 - player.height() + 0.5);
     }
 
     #[test]
