@@ -196,7 +196,7 @@ The importer currently:
 2. Reads the palette, patch tables, textures, and flats so it can average source art into flat wall/floor/ceiling colors.
 3. Builds plan-view polygons from Doom linedefs, then decomposes those shapes into convex cells acceptable to this engine.
 4. Scales XY and Z from Doom units so the current player radius and eye height line up with Doom's feel.
-5. Emits view-only portals for impassable linedefs, converts sky ceilings into `no_ceiling` sectors with a flat tint derived from the map's sky texture, and opens door sectors by following Doom door linedef specials and lifting those sectors to neighboring ceiling heights.
+5. Emits view-only portals for non-door impassable linedefs, converts sky ceilings into `no_ceiling` sectors with a flat tint derived from the map's sky texture, and opens door sectors by following Doom door linedef specials plus zero-height and door-texture heuristics, lifting those sectors to neighboring ceiling heights while clearing the matching doorway portals for traversal.
 6. Saves the generated map through the normal validation pipeline, typically as MessagePack for imported content.
 
 This keeps imported maps honest: if the converted result cannot satisfy the same convexity, portal, overlap, spawn, and clearance rules as native content, the import fails instead of shipping a broken asset.

@@ -23,7 +23,7 @@
 
 - Add helpers that decompose complex shapes into valid convex sectors automatically.
 - Improve map validation diagnostics with clearer geometry context and suggested fixes.
-- Extend the DOOM importer beyond the current door-special and sky-texture handling to cover more linedef specials, more thing types, and richer metadata.
+- Extend the DOOM importer beyond the current open-door heuristics and sky-texture handling to cover more linedef specials, more thing types, and richer metadata.
 - Add map metadata for themes, authoring notes, and per-map tuning values.
 
 ## Editor

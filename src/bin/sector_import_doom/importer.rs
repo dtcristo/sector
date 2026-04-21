@@ -534,10 +534,12 @@ pub fn import_doom_map(wad_path: &Path, map_name: &str) -> Result<ConvertedMap, 
     let boundary_points = build_sector_boundary_points(&vertices, &linedefs, &sidedefs);
     let wall_defaults =
         build_sector_wall_defaults(&linedefs, &sidedefs, &doom_sectors, &mut textures);
+    let open_door_sectors = collect_open_passage_door_sectors(&doom_sectors, &linedefs, &sidedefs);
     let boundary_segments = build_boundary_segments(
         &vertices,
         &linedefs,
         &sidedefs,
+        &open_door_sectors,
         &wall_defaults,
         &mut textures,
     );
@@ -546,8 +548,7 @@ pub fn import_doom_map(wad_path: &Path, map_name: &str) -> Result<ConvertedMap, 
         &normalized_map_name,
         &doom_sectors,
         &neighbors,
-        &linedefs,
-        &sidedefs,
+        &open_door_sectors,
         &wall_defaults,
         &mut textures,
     );
@@ -935,6 +936,7 @@ fn build_boundary_segments(
     vertices: &[IntPoint],
     linedefs: &[LineDef],
     sidedefs: &[SideDef],
+    open_door_sectors: &HashSet<usize>,
     wall_defaults: &HashMap<usize, [u8; 3]>,
     textures: &mut TextureAverages<'_>,
 ) -> HashMap<usize, Vec<BoundarySegment>> {
@@ -959,6 +961,7 @@ fn build_boundary_segments(
     for linedef in linedefs {
         let start = vertices[linedef.start];
         let end = vertices[linedef.end];
+        let walkable = linedef_is_walkable(linedef, sidedefs, open_door_sectors);
         if linedef.right >= 0 {
             let sector_index = sidedefs[linedef.right as usize].sector;
             segments
@@ -968,7 +971,7 @@ fn build_boundary_segments(
                     start,
                     end,
                     surface: surface_for_side(linedef.right as usize),
-                    walkable: !linedef.is_blocking(),
+                    walkable,
                 });
         }
         if linedef.left >= 0 {
@@ -980,7 +983,7 @@ fn build_boundary_segments(
                     start,
                     end,
                     surface: surface_for_side(linedef.left as usize),
-                    walkable: !linedef.is_blocking(),
+                    walkable,
                 });
         }
     }
@@ -1018,25 +1021,16 @@ fn build_sector_profiles(
     map_name: &str,
     sectors: &[DoomSector],
     neighbors: &HashMap<usize, HashSet<usize>>,
-    linedefs: &[LineDef],
-    sidedefs: &[SideDef],
+    open_door_sectors: &HashSet<usize>,
     wall_defaults: &HashMap<usize, [u8; 3]>,
     textures: &mut TextureAverages<'_>,
 ) -> HashMap<usize, SectorProfile> {
-    let opened_door_sectors = collect_open_door_sectors(sectors, linedefs, sidedefs);
     let sky_color = textures.average(sky_texture_name_for_map(map_name));
     let mut heights = (0..sectors.len())
         .map(|sector_index| {
             (
                 sector_index,
-                scaled_floor_and_ceil(
-                    sector_index,
-                    sectors,
-                    neighbors,
-                    linedefs,
-                    sidedefs,
-                    &opened_door_sectors,
-                ),
+                scaled_floor_and_ceil(sector_index, sectors, neighbors, open_door_sectors),
             )
         })
         .collect::<HashMap<_, _>>();
@@ -1071,9 +1065,7 @@ fn scaled_floor_and_ceil(
     sector_index: usize,
     sectors: &[DoomSector],
     neighbors: &HashMap<usize, HashSet<usize>>,
-    linedefs: &[LineDef],
-    sidedefs: &[SideDef],
-    opened_door_sectors: &HashSet<usize>,
+    open_door_sectors: &HashSet<usize>,
 ) -> (f32, f32) {
     let source = &sectors[sector_index];
     let floor = source.floor as f32 / Z_SCALE;
@@ -1083,10 +1075,7 @@ fn scaled_floor_and_ceil(
         ceil = ceil.max(OUTDOOR_CEILING_METERS);
     }
 
-    if opened_door_sectors.contains(&sector_index)
-        || source.ceil == source.floor
-        || sector_has_door_textures(sector_index, linedefs, sidedefs)
-    {
+    if open_door_sectors.contains(&sector_index) {
         if let Some(neighbor_ceil) = neighbors.get(&sector_index).and_then(|sector_neighbors| {
             sector_neighbors
                 .iter()
@@ -1203,6 +1192,21 @@ fn collect_open_door_sectors(
     opened
 }
 
+fn collect_open_passage_door_sectors(
+    sectors: &[DoomSector],
+    linedefs: &[LineDef],
+    sidedefs: &[SideDef],
+) -> HashSet<usize> {
+    let mut opened = collect_open_door_sectors(sectors, linedefs, sidedefs);
+    for (sector_index, sector) in sectors.iter().enumerate() {
+        if sector.ceil == sector.floor || sector_has_door_textures(sector_index, linedefs, sidedefs)
+        {
+            opened.insert(sector_index);
+        }
+    }
+    opened
+}
+
 fn local_door_sector_for_linedef(
     linedef: &LineDef,
     sectors: &[DoomSector],
@@ -1222,6 +1226,17 @@ fn adjacent_sector_indices(linedef: &LineDef, sidedefs: &[SideDef]) -> Vec<usize
     adjacent.sort_unstable();
     adjacent.dedup();
     adjacent
+}
+
+fn linedef_is_walkable(
+    linedef: &LineDef,
+    sidedefs: &[SideDef],
+    open_door_sectors: &HashSet<usize>,
+) -> bool {
+    !linedef.is_blocking()
+        || adjacent_sector_indices(linedef, sidedefs)
+            .into_iter()
+            .any(|sector_index| open_door_sectors.contains(&sector_index))
 }
 
 fn door_sector_priority(sector: &DoomSector) -> (i16, i16, i16) {
@@ -1675,6 +1690,21 @@ mod tests {
         }
     }
 
+    fn encode_name(name: &str) -> [u8; 8] {
+        let mut bytes = [0_u8; 8];
+        for (target, source) in bytes.iter_mut().zip(name.bytes()) {
+            *target = source;
+        }
+        bytes
+    }
+
+    fn sidedef_with_middle(sector: usize, middle: &str) -> SideDef {
+        SideDef {
+            middle: encode_name(middle),
+            ..sidedef(sector)
+        }
+    }
+
     #[test]
     fn sky_texture_name_tracks_doom_episode_and_map_conventions() {
         assert_eq!(sky_texture_name_for_map("E1M1"), "SKY1");
@@ -1718,5 +1748,79 @@ mod tests {
 
         assert!(opened.contains(&1));
         assert!(opened.contains(&2));
+    }
+
+    #[test]
+    fn collect_open_passage_door_sectors_includes_zero_height_and_textured_doors() {
+        let sectors = vec![
+            doom_sector(0, 128, 0),
+            doom_sector(0, 0, 0),
+            doom_sector(0, 96, 0),
+        ];
+        let sidedefs = vec![
+            sidedef(0),
+            sidedef(1),
+            sidedef(2),
+            sidedef_with_middle(2, "BIGDOOR2"),
+        ];
+        let linedefs = vec![
+            LineDef {
+                start: 0,
+                end: 1,
+                flags: 0,
+                special: 0,
+                tag: 0,
+                right: 0,
+                left: 1,
+            },
+            LineDef {
+                start: 1,
+                end: 2,
+                flags: 0,
+                special: 0,
+                tag: 0,
+                right: 2,
+                left: 3,
+            },
+        ];
+
+        let opened = collect_open_passage_door_sectors(&sectors, &linedefs, &sidedefs);
+
+        assert!(opened.contains(&1));
+        assert!(opened.contains(&2));
+    }
+
+    #[test]
+    fn impassable_door_linedefs_become_walkable_when_imported_open() {
+        let sectors = vec![doom_sector(0, 128, 0), doom_sector(0, 0, 0)];
+        let sidedefs = vec![sidedef(0), sidedef(1)];
+        let linedef = LineDef {
+            start: 0,
+            end: 1,
+            flags: IMPASSABLE_FLAG,
+            special: 0,
+            tag: 0,
+            right: 0,
+            left: 1,
+        };
+        let open_door_sectors =
+            collect_open_passage_door_sectors(&sectors, std::slice::from_ref(&linedef), &sidedefs);
+
+        assert!(linedef_is_walkable(&linedef, &sidedefs, &open_door_sectors));
+    }
+
+    #[test]
+    fn scaled_floor_and_ceil_raises_open_door_to_neighbor_ceiling() {
+        let sectors = vec![
+            doom_sector(0, 128, 0),
+            doom_sector(0, 0, 0),
+            doom_sector(0, 144, 0),
+        ];
+        let neighbors = HashMap::from([(1_usize, HashSet::from([0_usize, 2_usize]))]);
+        let open_door_sectors = HashSet::from([1_usize]);
+
+        let (_, ceil) = scaled_floor_and_ceil(1, &sectors, &neighbors, &open_door_sectors);
+
+        assert_eq!(ceil, 144.0 / Z_SCALE);
     }
 }

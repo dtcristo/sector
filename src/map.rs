@@ -1197,7 +1197,9 @@ mod tests {
             .sectors
             .iter()
             .flat_map(|sector| sector.walls.iter())
-            .any(|wall| !wall.walkable));
+            .any(|wall| wall.portal.is_some()
+                && wall.walkable
+                && (wall.upper_color.is_some() || wall.lower_color.is_some())));
     }
 
     #[test]

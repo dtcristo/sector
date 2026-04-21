@@ -95,7 +95,7 @@ The browser build uses the same adaptive viewport rules as native play, so route
 ## Shipped maps
 
 - `default`: hand-authored testbed map for movement, rendering, stairs, portals, crouch spaces, and overlapping-height rooms
-- `e1m1`: imported from the DOOM shareware WAD as MessagePack, with doors held open from Doom door specials, sky sectors converted into `no_ceiling` spaces tinted from the map sky texture, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
+- `e1m1`: imported from the DOOM shareware WAD as MessagePack, with door sectors held open from Doom door specials, zero-height door sectors, and door-texture heuristics while keeping the actual doorways walkable, sky sectors converted into `no_ceiling` spaces tinted from the map sky texture, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
 
 ## DOOM import workflow
 
@@ -111,8 +111,8 @@ The importer:
 - preserves the Doom player start position and facing direction relative to the current player model
 - decomposes Doom sectors into convex cells that satisfy this engine's validation rules
 - converts `F_SKY1` ceilings into `no_ceiling` sectors, tinting them from the correct Doom sky texture for the imported map
-- opens sectors targeted by Doom door linedef specials instead of leaving those doors closed in the converted map
-- keeps impassable linedefs as view-only portals
+- opens Doom door sectors from linedef specials, zero-height sectors, and door-texture hints, then clears those doorway portals so imported doors stay traversable
+- keeps non-door impassable linedefs as view-only portals
 - averages wall textures and flats into this engine's flat-color material model
 
 Pass a third argument to the binary if you want a different output path.
