@@ -1,29 +1,20 @@
 html,
-body {
-  background: #000;
-  color: #f0f0f0;
+body,
+#shell {
+  width: 100%;
   height: 100%;
   margin: 0;
   overflow: hidden;
-}
-
-body {
-  font-family: ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
-}
-
-#shell {
-  height: 100%;
-  width: 100%;
+  background: #000;
 }
 
 canvas {
   display: block;
-  height: 100vh !important;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  outline: none;
-  object-fit: contain;
   width: 100vw !important;
+  height: 100vh !important;
+  object-fit: contain;
+  image-rendering: pixelated;
+  outline: none;
 }
 
 canvas:focus,
@@ -31,19 +22,19 @@ canvas:focus-visible {
   outline: none;
 }
 
-#boot-error {
-  background: rgba(0, 0, 0, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
-  bottom: 16px;
-  left: 16px;
-  max-width: min(560px, calc(100vw - 32px));
-  padding: 12px 14px;
-  position: fixed;
-  white-space: pre-wrap;
-  z-index: 10;
-}
-
 #boot-error[hidden] {
   display: none;
+}
+
+#boot-error {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  max-width: min(32rem, calc(100vw - 2rem));
+  padding: 0.75rem;
+  border: 1px solid #fff3;
+  background: #000c;
+  color: #fff;
+  white-space: pre-wrap;
+  font: 14px/1.4 monospace;
 }
