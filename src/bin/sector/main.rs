@@ -7,7 +7,8 @@ use bevy::{
     input::ButtonInput,
     prelude::*,
     window::{
-        CursorGrabMode, CursorOptions, PrimaryWindow, WindowResizeConstraints, WindowResolution,
+        CursorGrabMode, CursorOptions, PresentMode, PrimaryWindow, WindowResizeConstraints,
+        WindowResolution,
     },
 };
 use bevy_pixels::prelude::*;
@@ -18,7 +19,10 @@ use sector::{
         setup_player_system, simulate_player, Player, PlayerInput,
     },
     map::{load_map_from_path, map_to_sectors, shipped_map_path},
-    render::{render_frame_with_metrics, Automap, RenderMetrics, HEIGHT, WIDTH, WINDOW_SCALE},
+    render::{
+        render_frame_with_metrics, render_frame_with_metrics_and_timings, Automap, RenderMetrics,
+        RenderTimings, HEIGHT, WIDTH, WINDOW_SCALE,
+    },
     *,
 };
 use serde::Serialize;
@@ -35,6 +39,62 @@ struct AutomapMode(Automap);
 
 #[derive(Resource, Debug)]
 struct WindowTitleTimer(Timer);
+
+#[derive(Resource, Debug)]
+struct RendererTimingState {
+    enabled: bool,
+    sampled_frames: u32,
+    accumulated: RenderTimings,
+}
+
+impl Default for RendererTimingState {
+    fn default() -> Self {
+        Self {
+            enabled: render_timings_enabled_by_default(),
+            sampled_frames: 0,
+            accumulated: RenderTimings::default(),
+        }
+    }
+}
+
+impl RendererTimingState {
+    fn reset(&mut self) {
+        self.sampled_frames = 0;
+        self.accumulated = RenderTimings::default();
+    }
+
+    fn record(&mut self, timings: &RenderTimings, metrics: &RenderMetrics) {
+        self.accumulated.accumulate(timings);
+        self.sampled_frames += 1;
+        if self.sampled_frames < 60 {
+            return;
+        }
+
+        let average = |duration: std::time::Duration| -> f64 {
+            duration.as_secs_f64() * 1000.0 / self.sampled_frames as f64
+        };
+        let total_ms = average(self.accumulated.total);
+        let fps = if total_ms <= f64::EPSILON {
+            0.0
+        } else {
+            1000.0 / total_ms
+        };
+        println!(
+            "sector: render timings [{}x{}] {:.2} ms ({:.0} fps) | clear {:.2} | world setup {:.2}, roots {:.2}, tree {:.2}, outlines {:.2} | automap {:.2}",
+            metrics.width,
+            metrics.height,
+            total_ms,
+            fps,
+            average(self.accumulated.clear),
+            average(self.accumulated.world.setup),
+            average(self.accumulated.world.root_sectors),
+            average(self.accumulated.world.sector_tree),
+            average(self.accumulated.world.outlines),
+            average(self.accumulated.automap),
+        );
+        self.reset();
+    }
+}
 
 #[derive(Resource, Debug, Default)]
 struct FlyToggleTracker {
@@ -66,6 +126,7 @@ impl Plugin for SectorRuntimePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<CursorCaptureState>()
             .insert_resource(AutomapMode(Automap::Off))
+            .insert_resource(RendererTimingState::default())
             .insert_resource(FlyToggleTracker::default())
             .insert_resource(WindowTitleTimer(Timer::new(
                 Duration::from_millis(500),
@@ -89,6 +150,7 @@ impl Plugin for SectorRuntimePlugin {
                     release_cursor_with_mouse_system,
                     escape_system,
                     switch_automap_system,
+                    toggle_renderer_timings_system,
                     toggle_noclip_system,
                     sync_pixel_buffer_system,
                     player_look_system,
@@ -140,6 +202,7 @@ fn main() {
                             min_height: HEIGHT as f32,
                             ..default()
                         },
+                        present_mode: PresentMode::AutoNoVsync,
                         fit_canvas_to_parent: true,
                         ..default()
                     }),
@@ -168,6 +231,16 @@ fn runtime_pixels_plugin() -> PixelsPlugin {
             ..default()
         }),
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn render_timings_enabled_by_default() -> bool {
+    env::var_os("SECTOR_RENDER_TIMINGS").is_some()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn render_timings_enabled_by_default() -> bool {
+    false
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -375,6 +448,26 @@ fn switch_automap_system(mut automap: ResMut<AutomapMode>, key: Res<ButtonInput<
     if key.just_pressed(KeyCode::Tab) {
         automap.0 = automap.0.next();
     }
+}
+
+fn toggle_renderer_timings_system(
+    mut timing_state: ResMut<RendererTimingState>,
+    key: Res<ButtonInput<KeyCode>>,
+) {
+    if !key.just_pressed(KeyCode::F3) {
+        return;
+    }
+
+    timing_state.enabled = !timing_state.enabled;
+    timing_state.reset();
+    println!(
+        "sector: renderer timings {}",
+        if timing_state.enabled {
+            "enabled (averages print every 60 frames)"
+        } else {
+            "disabled"
+        }
+    );
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -641,6 +734,7 @@ fn draw_frame_system(
     automap: Res<AutomapMode>,
     player_query: Query<&Player>,
     runtime_sectors: Res<RuntimeSectors>,
+    mut timing_state: ResMut<RendererTimingState>,
     mut wrapper_query: Query<(&mut PixelsWrapper, &PixelsOptions)>,
 ) {
     let Ok(player) = player_query.single() else {
@@ -650,13 +744,27 @@ fn draw_frame_system(
         return;
     };
     let metrics = RenderMetrics::new(pixels_options.width, pixels_options.height);
-    render_frame_with_metrics(
-        wrapper.pixels.frame_mut(),
-        &metrics,
-        &player_render_view(player),
-        runtime_sectors.as_slice(),
-        automap.0,
-    );
+    let view = player_render_view(player);
+    if timing_state.enabled {
+        let mut frame_timings = RenderTimings::default();
+        render_frame_with_metrics_and_timings(
+            wrapper.pixels.frame_mut(),
+            &metrics,
+            &view,
+            runtime_sectors.as_slice(),
+            automap.0,
+            &mut frame_timings,
+        );
+        timing_state.record(&frame_timings, &metrics);
+    } else {
+        render_frame_with_metrics(
+            wrapper.pixels.frame_mut(),
+            &metrics,
+            &view,
+            runtime_sectors.as_slice(),
+            automap.0,
+        );
+    }
 }
 
 #[cfg(test)]

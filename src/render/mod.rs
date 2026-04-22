@@ -6,6 +6,7 @@ mod world;
 use crate::{Position2, Position3, Sector, SectorId};
 
 use bevy::{math::vec2, prelude::*};
+use std::time::{Duration, Instant};
 
 pub use frame::{clear_frame, FrameBuffer, Pixel, FRAME_BYTES};
 
@@ -129,6 +130,42 @@ impl Default for RenderMetrics {
     }
 }
 
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+pub struct WorldRenderTimings {
+    pub setup: Duration,
+    pub root_sectors: Duration,
+    pub sector_tree: Duration,
+    pub outlines: Duration,
+    pub total: Duration,
+}
+
+impl WorldRenderTimings {
+    pub fn accumulate(&mut self, other: &Self) {
+        self.setup += other.setup;
+        self.root_sectors += other.root_sectors;
+        self.sector_tree += other.sector_tree;
+        self.outlines += other.outlines;
+        self.total += other.total;
+    }
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+pub struct RenderTimings {
+    pub clear: Duration,
+    pub world: WorldRenderTimings,
+    pub automap: Duration,
+    pub total: Duration,
+}
+
+impl RenderTimings {
+    pub fn accumulate(&mut self, other: &Self) {
+        self.clear += other.clear;
+        self.world.accumulate(&other.world);
+        self.automap += other.automap;
+        self.total += other.total;
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Normalized(pub Vec3);
 
@@ -196,6 +233,29 @@ pub fn render_frame_with_metrics(
     clear_frame(frame);
     world::render_world_with_metrics(frame, metrics, view, sectors);
     automap::render_automap_with_metrics(frame, metrics, view, sectors, automap);
+}
+
+pub fn render_frame_with_metrics_and_timings(
+    frame: &mut [u8],
+    metrics: &RenderMetrics,
+    view: &RenderView,
+    sectors: &[Sector],
+    automap: Automap,
+    timings: &mut RenderTimings,
+) {
+    *timings = RenderTimings::default();
+    let total_start = Instant::now();
+
+    let clear_start = Instant::now();
+    clear_frame(frame);
+    timings.clear = clear_start.elapsed();
+
+    world::render_world_with_metrics_and_timings(frame, metrics, view, sectors, &mut timings.world);
+
+    let automap_start = Instant::now();
+    automap::render_automap_with_metrics(frame, metrics, view, sectors, automap);
+    timings.automap = automap_start.elapsed();
+    timings.total = total_start.elapsed();
 }
 
 #[cfg(test)]

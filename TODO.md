@@ -14,8 +14,8 @@
 - Introduce textured walls, floors, and ceilings without losing the crisp software-rendered look.
 - Add real skybox art or skyline rendering for `no_ceiling` sectors instead of the current flat sky tint / black fallback.
 - Expose player-facing viewport presets and tuning over the current adaptive resize behavior, such as a strict 4:3 lock, per-platform pixel density caps, or configurable FOV limits.
-- Continue profiling portal traversal and column drawing to reduce overdraw and unnecessary work.
-- Investigate caching shade ramps across reused colors and reducing full-frame work further now that the hot path no longer rebuilds wall lists every frame.
+- Continue profiling sector-tree traversal and outline masking to reduce overdraw and full-frame post-pass cost on dense imported maps.
+- Reuse renderer scratch buffers across frames so surface tags, clip spans, and deferred wall columns do not reallocate on every draw.
 - Explore wider support for stacked spaces or room-over-room approximations that preserve current performance goals.
 - Add more renderer regression coverage for large imported maps and unusual portal topologies.
 
@@ -39,7 +39,7 @@
 - Add regression tests that cover additional shipped maps beyond `default`.
 - Add focused tests for imported-map edge cases such as long corridors, tight door clearances, and large outdoor approximations.
 - Add performance benchmarks for the renderer and movement simulation on representative maps.
-- Add lightweight stage timing so portal traversal, column shading, automap, and final presentation costs can be compared quickly while tuning framerate.
+- Add committed performance baselines or alerts so renderer stage timing regressions are easier to spot before they ship.
 - Add screenshot or frame-diff tooling for stable visual regression checks where it stays fast enough.
 - Add a committed Playwright smoke test that catches broken web routing or missing bundled maps before deployment.
 

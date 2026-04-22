@@ -89,7 +89,10 @@ impl Default for FrameBuffer {
 }
 
 pub fn clear_frame(frame: &mut [u8]) {
-    frame.copy_from_slice(&[0x00, 0x00, 0x00, 0xff].repeat(frame.len() / 4));
+    frame.fill(0);
+    for alpha in frame[3..].iter_mut().step_by(4) {
+        *alpha = 0xff;
+    }
 }
 
 #[cfg(test)]

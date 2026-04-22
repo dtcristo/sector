@@ -105,7 +105,7 @@ Horizontal movement is resolved against sector walls and portal openings. A port
 
 Airborne crouching is intentionally slightly gamey: the camera stays fixed while the collision capsule shortens upward, which allows limited crouch-jump behavior for ledges that are just out of reach with a normal jump.
 
-The runtime also exposes a lightweight console debug path: pressing `?` prints a RON-style snapshot of the player's movement state, movement toggles, and the current sector's geometry and portal connections so map and physics issues can be inspected without adding a heavyweight debug UI.
+The runtime also exposes a lightweight console debug path: pressing `?` prints a RON-style snapshot of the player's movement state, movement toggles, and the current sector's geometry and portal connections so map and physics issues can be inspected without adding a heavyweight debug UI. Pressing `F3` enables rolling renderer stage timings in the console, and native builds can start with those timings already enabled through `SECTOR_RENDER_TIMINGS=1`.
 
 For performance, the movement code operates directly on the static runtime sector slice, builds sector-id lookup tables once per simulation step, and avoids per-wall temporary `Vec` allocation while checking portals and blocking walls.
 Bevy's scheduler now splits runtime work intentionally: `Update` handles input, look, and UI-adjacent control logic, `FixedUpdate` advances movement on a fixed timestep, and a small Bevy state machine controls cursor capture/release instead of ad-hoc grab toggles spread across gameplay systems.
@@ -148,7 +148,9 @@ At a high level:
 
 The renderer is portal-based, not BSP-based. It depends on valid reciprocal portal topology and convex sectors to stay simple.
 
-The current render hot path avoids dynamic wall expansion and uses small per-surface shade ramps so wall, floor, and ceiling columns do not pay for repeated HSV-to-RGB conversion on every pixel.
+The current render hot path avoids dynamic wall expansion, reuses small per-surface shade ramps so wall, floor, and ceiling columns do not pay for repeated HSV-to-RGB conversion on every pixel, writes columns directly into the RGBA and surface-tag buffers, and walks the outline mask linearly instead of repeatedly re-indexing neighbors through helper calls.
+
+On native builds the runtime window uses Bevy's no-vsync present mode. That keeps the renderer timing debug path honest and avoids a 60 Hz swap cap masking software-render throughput while tuning performance.
 
 When two adjacent portal-connected sectors both use `no_ceiling`, the renderer suppresses the upper trim between them so imported sky openings read as one continuous sky span instead of a floating wall band.
 

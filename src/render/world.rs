@@ -1,13 +1,13 @@
 use super::{
-    frame::{draw_pixel_with_metrics, Pixel},
     math::{clip_wall_with_metrics, lerp, project_with_metrics},
-    RenderMetrics, RenderView, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, NEAR, SHADE_BANDS, SHADE_FAR,
+    RenderMetrics, RenderView, WorldRenderTimings, BRIGHTNESS_FAR, BRIGHTNESS_NEAR, NEAR,
+    SHADE_BANDS, SHADE_FAR,
 };
 use crate::{Position2, Position3, RawColor, Sector, SectorId};
 
 use bevy::{math::vec2, prelude::*};
 use palette::{Hsv, IntoColor, Srgb};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{collections::VecDeque, time::Instant};
 
 #[derive(Debug, Copy, Clone)]
 struct PortalSpan<'a> {
@@ -106,6 +106,27 @@ impl ShadeRamp {
     }
 }
 
+#[derive(Default)]
+struct ShadeRampCache {
+    entries: Vec<(RawColor, ShadeRamp)>,
+}
+
+impl ShadeRampCache {
+    fn ramp(&mut self, color: RawColor) -> ShadeRamp {
+        if let Some((_, ramp)) = self
+            .entries
+            .iter()
+            .find(|(entry_color, _)| *entry_color == color)
+        {
+            return *ramp;
+        }
+
+        let ramp = ShadeRamp::new(color);
+        self.entries.push((color, ramp));
+        ramp
+    }
+}
+
 const CONTAINMENT_EPSILON: f32 = 0.001;
 const OUTLINE_COLOR: RawColor = RawColor([0, 0, 0]);
 const ROOT_PORTAL_EPSILON: f32 = 0.05;
@@ -121,26 +142,50 @@ pub(crate) fn render_world_with_metrics(
     view: &RenderView,
     sectors: &[Sector],
 ) {
-    let sectors_by_id: HashMap<_, _> = sectors.iter().map(|sector| (sector.id, sector)).collect();
-    let root_sectors = root_sectors(metrics, view, sectors, &sectors_by_id);
+    let mut timings = WorldRenderTimings::default();
+    render_world_with_metrics_and_timings(frame, metrics, view, sectors, &mut timings);
+}
+
+pub(crate) fn render_world_with_metrics_and_timings(
+    frame: &mut [u8],
+    metrics: &RenderMetrics,
+    view: &RenderView,
+    sectors: &[Sector],
+    timings: &mut WorldRenderTimings,
+) {
+    *timings = WorldRenderTimings::default();
+    let total_start = Instant::now();
+
+    let roots_start = Instant::now();
+    let root_sectors = root_sectors(metrics, view, sectors);
+    timings.root_sectors = roots_start.elapsed();
     if root_sectors.is_empty() {
+        timings.total = total_start.elapsed();
         return;
     }
 
+    let setup_start = Instant::now();
     let view_matrix = Mat3::from_rotation_z(-view.direction)
         * Mat3::from_translation(-vec2(view.position.0.x, view.position.0.y));
     let mut surfaces = vec![None; metrics.frame_bytes() / 4];
+    timings.setup = setup_start.elapsed();
+
+    let tree_start = Instant::now();
     render_sector_tree(
         frame,
         metrics,
         &mut surfaces,
         view,
-        &sectors_by_id,
+        sectors,
         &root_sectors,
         view_matrix,
     );
+    timings.sector_tree = tree_start.elapsed();
 
+    let outlines_start = Instant::now();
     apply_outlines_with_metrics(frame, metrics, &surfaces);
+    timings.outlines = outlines_start.elapsed();
+    timings.total = total_start.elapsed();
 }
 
 fn render_sector_tree<'a>(
@@ -148,7 +193,7 @@ fn render_sector_tree<'a>(
     metrics: &RenderMetrics,
     surfaces: &mut [Option<SurfaceTag>],
     view: &RenderView,
-    sectors_by_id: &HashMap<SectorId, &'a Sector>,
+    sectors: &'a [Sector],
     root_sectors: &[&'a Sector],
     view_matrix: Mat3,
 ) {
@@ -156,6 +201,7 @@ fn render_sector_tree<'a>(
     let mut y_min_vec = vec![0; metrics.width as usize];
     let mut y_max_vec = vec![metrics.height as isize; metrics.width as usize];
     let mut deferred_walls = Vec::new();
+    let mut shade_ramps = ShadeRampCache::default();
 
     portal_queue.extend(root_sectors.iter().copied().map(|root_sector| PortalSpan {
         sector: root_sector,
@@ -168,8 +214,8 @@ fn render_sector_tree<'a>(
         let sector = self_portal.sector;
         let view_floor = crate::Length(sector.floor.0 - view.position.0.z);
         let view_ceil = crate::Length(sector.ceil.0 - view.position.0.z);
-        let ceiling_ramp = ShadeRamp::new(sector.ceil_color);
-        let floor_ramp = ShadeRamp::new(sector.floor_color);
+        let ceiling_ramp = shade_ramps.ramp(sector.ceil_color);
+        let floor_ramp = shade_ramps.ramp(sector.floor_color);
         let ceiling_tag = SurfaceTag::ceiling(sector.ceil_color, sector.ceil.0);
         let floor_tag = SurfaceTag::floor(sector.floor_color, sector.floor.0);
         let sky_tag = sector.sky_color.map(SurfaceTag::sky);
@@ -239,9 +285,7 @@ fn render_sector_tree<'a>(
                     continue 'walls;
                 }
 
-                let portal_sector = wall
-                    .portal_sector
-                    .and_then(|id| sectors_by_id.get(&id).copied());
+                let portal_sector = wall.portal_sector.and_then(|id| sector_by_id(sectors, id));
 
                 let (y_portal_top, y_portal_bottom, y_drop_face_bottom) =
                     if let Some(portal_sector) = portal_sector {
@@ -290,13 +334,13 @@ fn render_sector_tree<'a>(
                         (None, None, None)
                     };
 
-                let wall_ramp = ShadeRamp::new(wall.color);
+                let wall_ramp = shade_ramps.ramp(wall.color);
                 let wall_tag = SurfaceTag::wall(wall.color);
                 let portal_upper_color = wall.portal_upper_color.unwrap_or(wall.color);
-                let portal_upper_ramp = ShadeRamp::new(portal_upper_color);
+                let portal_upper_ramp = shade_ramps.ramp(portal_upper_color);
                 let portal_upper_tag = SurfaceTag::wall(portal_upper_color);
                 let portal_lower_color = wall.portal_lower_color.unwrap_or(wall.color);
-                let portal_lower_ramp = ShadeRamp::new(portal_lower_color);
+                let portal_lower_ramp = shade_ramps.ramp(portal_lower_color);
                 let portal_lower_tag = SurfaceTag::wall(portal_lower_color);
 
                 for x in x_left..x_right {
@@ -445,18 +489,15 @@ fn root_sectors<'a>(
     metrics: &RenderMetrics,
     view: &RenderView,
     sectors: &'a [Sector],
-    sectors_by_id: &HashMap<SectorId, &'a Sector>,
 ) -> Vec<&'a Sector> {
     let mut roots = Vec::new();
-    let mut seen = HashSet::new();
-    let current_sector = view
-        .current_sector
-        .and_then(|id| sectors_by_id.get(&id).copied());
+    let mut seen = vec![false; sectors.len()];
+    let current_sector = view.current_sector.and_then(|id| sector_by_id(sectors, id));
 
     for sector in sectors {
         if (sector_contains_view(sector, view.position)
             || sector_intersects_view_near_plane(metrics, sector, view))
-            && seen.insert(sector.id)
+            && mark_root_seen(&mut seen, sector.id)
         {
             roots.push(sector);
         }
@@ -464,7 +505,9 @@ fn root_sectors<'a>(
 
     if roots.is_empty() {
         for sector in sectors {
-            if sector_has_portal_near_view(sector, view.position) && seen.insert(sector.id) {
+            if sector_has_portal_near_view(sector, view.position)
+                && mark_root_seen(&mut seen, sector.id)
+            {
                 roots.push(sector);
             }
         }
@@ -473,11 +516,26 @@ fn root_sectors<'a>(
     if roots.is_empty() {
         if let Some(current_sector) = current_sector {
             roots.push(current_sector);
-            seen.insert(current_sector.id);
         }
     }
 
     roots
+}
+
+fn sector_by_id(sectors: &[Sector], id: SectorId) -> Option<&Sector> {
+    sectors.get(id.0 as usize).filter(|sector| sector.id == id)
+}
+
+fn mark_root_seen(seen: &mut [bool], id: SectorId) -> bool {
+    let Some(slot) = seen.get_mut(id.0 as usize) else {
+        return false;
+    };
+    if *slot {
+        return false;
+    }
+
+    *slot = true;
+    true
 }
 
 fn sector_intersects_view_near_plane(
@@ -633,8 +691,21 @@ fn draw_wall_column(
     color: RawColor,
     surface_tag: SurfaceTag,
 ) {
-    for y in y_top..y_bottom {
-        draw_surface_pixel(frame, metrics, surfaces, x, y, color, surface_tag);
+    let Some((width, x, y_start, y_end)) = clamped_column_bounds(metrics, x, y_top, y_bottom)
+    else {
+        return;
+    };
+    let mut pixel_offset = (y_start * width + x) * 4;
+    let mut surface_index = y_start * width + x;
+
+    for _ in y_start..y_end {
+        frame[pixel_offset] = color.0[0];
+        frame[pixel_offset + 1] = color.0[1];
+        frame[pixel_offset + 2] = color.0[2];
+        frame[pixel_offset + 3] = 0xff;
+        surfaces[surface_index] = Some(surface_tag);
+        pixel_offset += width * 4;
+        surface_index += width;
     }
 }
 
@@ -649,29 +720,46 @@ fn draw_surface_column(
     surface_tag: SurfaceTag,
     plane_height: f32,
 ) {
-    for y in y_top..y_bottom {
+    let Some((width, x, y_start, y_end)) = clamped_column_bounds(metrics, x, y_top, y_bottom)
+    else {
+        return;
+    };
+    let mut pixel_offset = (y_start * width + x) * 4;
+    let mut surface_index = y_start * width + x;
+
+    for y in y_start..y_end {
         let color = shade_ramp.sample(surface_distance_with_metrics(
             metrics,
             plane_height,
-            surface_sample_y(plane_height, y),
+            surface_sample_y(plane_height, y as isize),
         ));
-        draw_surface_pixel(frame, metrics, surfaces, x, y, color, surface_tag);
+        frame[pixel_offset] = color.0[0];
+        frame[pixel_offset + 1] = color.0[1];
+        frame[pixel_offset + 2] = color.0[2];
+        frame[pixel_offset + 3] = 0xff;
+        surfaces[surface_index] = Some(surface_tag);
+        pixel_offset += width * 4;
+        surface_index += width;
     }
 }
 
-fn draw_surface_pixel(
-    frame: &mut [u8],
+fn clamped_column_bounds(
     metrics: &RenderMetrics,
-    surfaces: &mut [Option<SurfaceTag>],
     x: isize,
-    y: isize,
-    color: RawColor,
-    surface_tag: SurfaceTag,
-) {
-    draw_pixel_with_metrics(frame, metrics, Pixel::new(x, y), color);
-    if let Some(index) = surface_index_with_metrics(metrics, x, y) {
-        surfaces[index] = Some(surface_tag);
+    y_top: isize,
+    y_bottom: isize,
+) -> Option<(usize, usize, usize, usize)> {
+    if x < 0 || x >= metrics.width as isize {
+        return None;
     }
+
+    let y_start = y_top.max(0) as usize;
+    let y_end = y_bottom.min(metrics.height as isize) as usize;
+    if y_start >= y_end {
+        return None;
+    }
+
+    Some((metrics.width as usize, x as usize, y_start, y_end))
 }
 
 #[cfg(test)]
@@ -684,15 +772,28 @@ fn apply_outlines_with_metrics(
     metrics: &RenderMetrics,
     surfaces: &[Option<SurfaceTag>],
 ) {
-    for y in 0..metrics.height as isize {
-        for x in 0..metrics.width as isize {
-            let Some(current) = surface_at_with_metrics(metrics, surfaces, x, y) else {
+    let width = metrics.width as usize;
+    let height = metrics.height as usize;
+
+    for y in 0..height {
+        let row_start = y * width;
+        for x in 0..width {
+            let index = row_start + x;
+            let Some(current) = surfaces[index] else {
                 continue;
             };
-            let left = surface_at_with_metrics(metrics, surfaces, x - 1, y);
-            let up = surface_at_with_metrics(metrics, surfaces, x, y - 1);
-            let upper_left = surface_at_with_metrics(metrics, surfaces, x - 1, y - 1);
-            let upper_right = surface_at_with_metrics(metrics, surfaces, x + 1, y - 1);
+            let left = if x > 0 { surfaces[index - 1] } else { None };
+            let up = if y > 0 { surfaces[index - width] } else { None };
+            let upper_left = if x > 0 && y > 0 {
+                surfaces[index - width - 1]
+            } else {
+                None
+            };
+            let upper_right = if y > 0 && x + 1 < width {
+                surfaces[index - width + 1]
+            } else {
+                None
+            };
 
             let needs_outline = (should_outline_edge(current, left)
                 && up == Some(current)
@@ -701,7 +802,11 @@ fn apply_outlines_with_metrics(
                     && (upper_left != Some(current) || upper_right != Some(current)));
 
             if needs_outline {
-                draw_pixel_with_metrics(frame, metrics, Pixel::new(x, y), OUTLINE_COLOR);
+                let pixel_offset = index * 4;
+                frame[pixel_offset] = OUTLINE_COLOR.0[0];
+                frame[pixel_offset + 1] = OUTLINE_COLOR.0[1];
+                frame[pixel_offset + 2] = OUTLINE_COLOR.0[2];
+                frame[pixel_offset + 3] = 0xff;
             }
         }
     }
@@ -716,6 +821,7 @@ fn surface_index(x: isize, y: isize) -> Option<usize> {
     surface_index_with_metrics(&RenderMetrics::base(), x, y)
 }
 
+#[cfg(test)]
 fn surface_index_with_metrics(metrics: &RenderMetrics, x: isize, y: isize) -> Option<usize> {
     if x >= 0 && x < metrics.width as isize && y >= 0 && y < metrics.height as isize {
         Some(y as usize * metrics.width as usize + x as usize)
@@ -730,6 +836,7 @@ fn surface_at(surfaces: &[Option<SurfaceTag>], x: isize, y: isize) -> Option<Sur
     surface_at_with_metrics(&RenderMetrics::base(), surfaces, x, y)
 }
 
+#[cfg(test)]
 fn surface_at_with_metrics(
     metrics: &RenderMetrics,
     surfaces: &[Option<SurfaceTag>],
@@ -835,7 +942,7 @@ fn shade_band_t(distance: f32) -> f32 {
 mod tests {
     use super::*;
     use crate::{
-        render::{math::project, HEIGHT, WIDTH},
+        render::{math::project, Pixel, HEIGHT, WIDTH},
         Length, Position2, Position3, CEILING_COLOR, FLOOR_COLOR,
     };
     use bevy::math::{vec2, vec3};
@@ -889,17 +996,13 @@ mod tests {
                 4.0,
             ),
         ];
-        let sectors_by_id = sectors
-            .iter()
-            .map(|sector| (sector.id, sector))
-            .collect::<HashMap<_, _>>();
         let view = RenderView::new(
             Position3(vec3(0.0, 1.0, 1.62)),
             -std::f32::consts::FRAC_PI_2,
             Some(SectorId(0)),
         );
 
-        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors, &sectors_by_id);
+        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors);
 
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
@@ -924,17 +1027,13 @@ mod tests {
                 4.0,
             ),
         ];
-        let sectors_by_id = sectors
-            .iter()
-            .map(|sector| (sector.id, sector))
-            .collect::<HashMap<_, _>>();
         let view = RenderView::new(
             Position3(vec3(0.0, 0.975, 1.62)),
             -std::f32::consts::FRAC_PI_2,
             Some(SectorId(0)),
         );
 
-        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors, &sectors_by_id);
+        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors);
 
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
@@ -959,17 +1058,13 @@ mod tests {
                 3.0,
             ),
         ];
-        let sectors_by_id = sectors
-            .iter()
-            .map(|sector| (sector.id, sector))
-            .collect::<HashMap<_, _>>();
         let view = RenderView::new(
             Position3(vec3(0.0, 0.95, 1.62)),
             -std::f32::consts::FRAC_PI_2 + 0.05,
             Some(SectorId(0)),
         );
 
-        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors, &sectors_by_id);
+        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors);
 
         assert_eq!(roots.len(), 2);
         assert!(roots.iter().any(|sector| sector.id == SectorId(0)));
@@ -994,13 +1089,9 @@ mod tests {
                 4.0,
             ),
         ];
-        let sectors_by_id = sectors
-            .iter()
-            .map(|sector| (sector.id, sector))
-            .collect::<HashMap<_, _>>();
         let view = RenderView::new(Position3(vec3(0.0, 2.0, 1.62)), 0.0, Some(SectorId(0)));
 
-        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors, &sectors_by_id);
+        let roots = root_sectors(&RenderMetrics::base(), &view, &sectors);
 
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].id, SectorId(1));
