@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package sector.map.v1;
+
+message Vec2 {
+  float x = 1;
+  float y = 2;
+}
+
+message RgbColor {
+  uint32 r = 1;
+  uint32 g = 2;
+  uint32 b = 3;
+}
+
+message SectorRef {
+  uint32 id = 1;
+}
+
+message BoolFlag {
+  bool value = 1;
+}
+
+message Wall {
+  RgbColor color = 1;
+  SectorRef portal = 2;
+  BoolFlag walkable = 3;
+  RgbColor upper_color = 4;
+  RgbColor lower_color = 5;
+}
+
+message Sector {
+  float floor = 1;
+  float ceil = 2;
+  RgbColor floor_color = 3;
+  RgbColor ceil_color = 4;
+  bool no_ceiling = 5;
+  RgbColor sky_color = 6;
+  repeated Vec2 vertices = 7;
+  repeated Wall walls = 8;
+}
+
+message SectorMap {
+  uint32 initial_sector = 1;
+  Vec2 initial_position = 2;
+  float initial_direction_degrees = 3;
+  repeated Sector sectors = 4;
+}

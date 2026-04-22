@@ -17,6 +17,11 @@ use std::{
 };
 use thiserror::Error;
 
+#[allow(mismatched_lifetime_syntaxes)]
+mod proto_map {
+    include!(concat!(env!("OUT_DIR"), "/map_proto/generated.rs"));
+}
+
 #[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
 pub struct SectorMap {
     pub initial_sector: usize,
@@ -84,6 +89,12 @@ include!(concat!(env!("OUT_DIR"), "/embedded_maps.rs"));
 
 const MAP_EPSILON: f32 = 0.0001;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MapDataFormat {
+    Ron,
+    Protobuf,
+}
+
 fn default_true() -> bool {
     true
 }
@@ -112,6 +123,14 @@ fn is_default_ceil_color(value: &[u8; 3]) -> bool {
     *value == default_ceil_color()
 }
 
+fn map_data_format_for_path(path: &Path) -> MapDataFormat {
+    if path.extension().is_some_and(|extension| extension == "pb") {
+        MapDataFormat::Protobuf
+    } else {
+        MapDataFormat::Ron
+    }
+}
+
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum SectorMapError {
@@ -121,10 +140,14 @@ pub enum SectorMapError {
     RonSpanned(#[from] ron::error::SpannedError),
     #[error("Could not serialize RON map: {0}")]
     RonSerialize(#[from] ron::Error),
-    #[error("Could not parse MessagePack map: {0}")]
-    MessagePackDecode(#[from] rmp_serde::decode::Error),
-    #[error("Could not serialize MessagePack map: {0}")]
-    MessagePackEncode(#[from] rmp_serde::encode::Error),
+    #[error("Could not parse protobuf map: {0}")]
+    ProtobufParse(#[source] protobuf::ParseError),
+    #[error("Could not serialize protobuf map: {0}")]
+    ProtobufSerialize(#[source] protobuf::SerializeError),
+    #[error("Protobuf map is missing required field `{field}`")]
+    MissingProtobufField { field: &'static str },
+    #[error("Protobuf map field `{field}` has out-of-range value {value}")]
+    InvalidProtobufValue { field: &'static str, value: u32 },
     #[error("Map initial sector {initial_sector} is out of bounds for {sector_count} sectors")]
     InvalidInitialSector {
         initial_sector: usize,
@@ -237,15 +260,15 @@ impl AssetLoader for SectorMapLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &(),
-        _load_context: &mut LoadContext<'_>,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        parse_map_bytes(&bytes)
+        parse_map_bytes_with_format(&bytes, map_data_format_for_path(load_context.path().path()))
     }
 
     fn extensions(&self) -> &[&str] {
-        &["map.ron", "sector.ron", "map.mp", "sector.mp"]
+        &["map.ron", "sector.ron", "map.pb", "sector.pb"]
     }
 }
 
@@ -273,20 +296,17 @@ pub fn load_map_from_path(path: impl AsRef<Path>) -> Result<SectorMap, SectorMap
     #[cfg(not(target_arch = "wasm32"))]
     {
         let bytes = fs::read(path)?;
-        parse_map_bytes(&bytes)
+        parse_map_bytes_with_format(&bytes, map_data_format_for_path(path))
     }
 }
 
-fn parse_map_bytes(bytes: &[u8]) -> Result<SectorMap, SectorMapError> {
-    let map = if bytes
-        .iter()
-        .copied()
-        .find(|byte| !byte.is_ascii_whitespace())
-        .is_some_and(|byte| byte.is_ascii())
-    {
-        ron::de::from_bytes::<SectorMap>(bytes)?
-    } else {
-        rmp_serde::from_slice::<SectorMap>(bytes)?
+fn parse_map_bytes_with_format(
+    bytes: &[u8],
+    format: MapDataFormat,
+) -> Result<SectorMap, SectorMapError> {
+    let map = match format {
+        MapDataFormat::Ron => ron::de::from_bytes::<SectorMap>(bytes)?,
+        MapDataFormat::Protobuf => parse_protobuf_map(bytes)?,
     };
     validate_map(&map)?;
     Ok(map)
@@ -300,7 +320,7 @@ fn load_map_from_embedded_path(path: &Path) -> Result<SectorMap, SectorMapError>
             format!("web map asset is not bundled: {}", path.display()),
         )
     })?;
-    parse_map_bytes(bytes)
+    parse_map_bytes_with_format(bytes, map_data_format_for_path(path))
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -344,7 +364,7 @@ fn resolve_shipped_map_path(map_name: &str) -> Option<PathBuf> {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        ["map.mp", "map.ron"].into_iter().find_map(|extension| {
+        ["map.pb", "map.ron"].into_iter().find_map(|extension| {
             let path = PathBuf::from("assets")
                 .join("maps")
                 .join(format!("{map_name}.{extension}"));
@@ -359,16 +379,229 @@ pub fn save_map_to_path(map: &SectorMap, path: impl AsRef<Path>) -> Result<(), S
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    if path.extension().is_some_and(|extension| extension == "mp") {
-        fs::write(path, rmp_serde::to_vec_named(map)?)?;
-    } else {
-        let pretty = ron::ser::PrettyConfig::default()
-            .indentor("  ".to_owned())
-            .new_line("\n".to_owned());
-        let ron = ron::ser::to_string_pretty(map, pretty)?;
-        fs::write(path, ron)?;
+    match map_data_format_for_path(path) {
+        MapDataFormat::Protobuf => fs::write(path, serialize_protobuf_map(map)?)?,
+        MapDataFormat::Ron => {
+            let pretty = ron::ser::PrettyConfig::default()
+                .indentor("  ".to_owned())
+                .new_line("\n".to_owned());
+            let ron = ron::ser::to_string_pretty(map, pretty)?;
+            fs::write(path, ron)?;
+        }
     }
     Ok(())
+}
+
+fn parse_protobuf_map(bytes: &[u8]) -> Result<SectorMap, SectorMapError> {
+    let map = proto_map::SectorMap::parse(bytes).map_err(SectorMapError::ProtobufParse)?;
+    sector_map_from_protobuf(map)
+}
+
+fn serialize_protobuf_map(map: &SectorMap) -> Result<Vec<u8>, SectorMapError> {
+    protobuf::Serialize::serialize(&sector_map_to_protobuf(map))
+        .map_err(SectorMapError::ProtobufSerialize)
+}
+
+fn sector_map_to_protobuf(map: &SectorMap) -> proto_map::SectorMap {
+    let mut protobuf_map = proto_map::SectorMap::new();
+    protobuf_map.set_initial_sector(map.initial_sector as u32);
+    protobuf_map.set_initial_position(vertex_to_protobuf(map.initial_position));
+    protobuf_map.set_initial_direction_degrees(map.initial_direction_degrees);
+    {
+        let mut sectors = protobuf_map.sectors_mut();
+        for sector in &map.sectors {
+            sectors.push(sector_to_protobuf(sector));
+        }
+    }
+    protobuf_map
+}
+
+fn sector_map_from_protobuf(
+    protobuf_map: proto_map::SectorMap,
+) -> Result<SectorMap, SectorMapError> {
+    Ok(SectorMap {
+        initial_sector: protobuf_map.initial_sector() as usize,
+        initial_position: vertex_from_protobuf(required_field(
+            protobuf_map.initial_position_opt(),
+            "initial_position",
+        )?),
+        initial_direction_degrees: protobuf_map.initial_direction_degrees(),
+        sectors: protobuf_map
+            .sectors()
+            .iter()
+            .map(sector_from_protobuf)
+            .collect::<Result<Vec<_>, _>>()?,
+    })
+}
+
+fn sector_to_protobuf(sector: &MapSector) -> proto_map::Sector {
+    let mut protobuf_sector = proto_map::Sector::new();
+    protobuf_sector.set_floor(sector.floor);
+    protobuf_sector.set_ceil(sector.ceil);
+    protobuf_sector.set_floor_color(color_to_protobuf(sector.floor_color));
+    protobuf_sector.set_ceil_color(color_to_protobuf(sector.ceil_color));
+    protobuf_sector.set_no_ceiling(sector.no_ceiling);
+    if let Some(sky_color) = sector.sky_color {
+        protobuf_sector.set_sky_color(color_to_protobuf(sky_color));
+    }
+    {
+        let mut vertices = protobuf_sector.vertices_mut();
+        for vertex in sector.vertices.iter().copied() {
+            vertices.push(vertex_to_protobuf(vertex));
+        }
+    }
+    {
+        let mut walls = protobuf_sector.walls_mut();
+        for wall in &sector.walls {
+            walls.push(wall_to_protobuf(wall));
+        }
+    }
+    protobuf_sector
+}
+
+fn sector_from_protobuf(
+    protobuf_sector: proto_map::SectorView<'_>,
+) -> Result<MapSector, SectorMapError> {
+    Ok(MapSector {
+        floor: protobuf_sector.floor(),
+        ceil: protobuf_sector.ceil(),
+        floor_color: protobuf_sector
+            .floor_color_opt()
+            .into_option()
+            .map(|color| color_from_protobuf(color, "floor_color"))
+            .transpose()?
+            .unwrap_or_else(default_floor_color),
+        ceil_color: protobuf_sector
+            .ceil_color_opt()
+            .into_option()
+            .map(|color| color_from_protobuf(color, "ceil_color"))
+            .transpose()?
+            .unwrap_or_else(default_ceil_color),
+        no_ceiling: protobuf_sector.no_ceiling(),
+        sky_color: protobuf_sector
+            .sky_color_opt()
+            .into_option()
+            .map(|color| color_from_protobuf(color, "sky_color"))
+            .transpose()?,
+        vertices: protobuf_sector
+            .vertices()
+            .iter()
+            .map(vertex_from_protobuf)
+            .collect(),
+        walls: protobuf_sector
+            .walls()
+            .iter()
+            .map(wall_from_protobuf)
+            .collect::<Result<Vec<_>, _>>()?,
+    })
+}
+
+fn wall_to_protobuf(wall: &MapWall) -> proto_map::Wall {
+    let mut protobuf_wall = proto_map::Wall::new();
+    protobuf_wall.set_color(color_to_protobuf(wall.color));
+    if let Some(portal) = wall.portal {
+        protobuf_wall.set_portal(portal_to_protobuf(portal));
+    }
+    protobuf_wall.set_walkable(bool_flag_to_protobuf(wall.walkable));
+    if let Some(color) = wall.upper_color {
+        protobuf_wall.set_upper_color(color_to_protobuf(color));
+    }
+    if let Some(color) = wall.lower_color {
+        protobuf_wall.set_lower_color(color_to_protobuf(color));
+    }
+    protobuf_wall
+}
+
+fn wall_from_protobuf(protobuf_wall: proto_map::WallView<'_>) -> Result<MapWall, SectorMapError> {
+    Ok(MapWall {
+        color: color_from_protobuf(
+            required_field(protobuf_wall.color_opt(), "wall.color")?,
+            "wall.color",
+        )?,
+        portal: protobuf_wall
+            .portal_opt()
+            .into_option()
+            .map(portal_from_protobuf),
+        walkable: protobuf_wall
+            .walkable_opt()
+            .into_option()
+            .map_or_else(default_true, bool_flag_from_protobuf),
+        upper_color: protobuf_wall
+            .upper_color_opt()
+            .into_option()
+            .map(|color| color_from_protobuf(color, "wall.upper_color"))
+            .transpose()?,
+        lower_color: protobuf_wall
+            .lower_color_opt()
+            .into_option()
+            .map(|color| color_from_protobuf(color, "wall.lower_color"))
+            .transpose()?,
+    })
+}
+
+fn vertex_to_protobuf(vertex: MapVertex) -> proto_map::Vec2 {
+    let mut protobuf_vertex = proto_map::Vec2::new();
+    protobuf_vertex.set_x(vertex.0);
+    protobuf_vertex.set_y(vertex.1);
+    protobuf_vertex
+}
+
+fn vertex_from_protobuf(protobuf_vertex: proto_map::Vec2View<'_>) -> MapVertex {
+    MapVertex(protobuf_vertex.x(), protobuf_vertex.y())
+}
+
+fn color_to_protobuf(color: [u8; 3]) -> proto_map::RgbColor {
+    let mut protobuf_color = proto_map::RgbColor::new();
+    protobuf_color.set_r(color[0].into());
+    protobuf_color.set_g(color[1].into());
+    protobuf_color.set_b(color[2].into());
+    protobuf_color
+}
+
+fn color_from_protobuf(
+    protobuf_color: proto_map::RgbColorView<'_>,
+    field: &'static str,
+) -> Result<[u8; 3], SectorMapError> {
+    Ok([
+        protobuf_u8(protobuf_color.r(), field)?,
+        protobuf_u8(protobuf_color.g(), field)?,
+        protobuf_u8(protobuf_color.b(), field)?,
+    ])
+}
+
+fn bool_flag_to_protobuf(value: bool) -> proto_map::BoolFlag {
+    let mut protobuf_flag = proto_map::BoolFlag::new();
+    protobuf_flag.set_value(value);
+    protobuf_flag
+}
+
+fn bool_flag_from_protobuf(flag: proto_map::BoolFlagView<'_>) -> bool {
+    flag.value()
+}
+
+fn portal_to_protobuf(portal: usize) -> proto_map::SectorRef {
+    let mut protobuf_portal = proto_map::SectorRef::new();
+    protobuf_portal.set_id(portal as u32);
+    protobuf_portal
+}
+
+fn portal_from_protobuf(portal: proto_map::SectorRefView<'_>) -> usize {
+    portal.id() as usize
+}
+
+fn required_field<T>(
+    field: protobuf::Optional<T>,
+    field_name: &'static str,
+) -> Result<T, SectorMapError> {
+    field
+        .into_option()
+        .ok_or(SectorMapError::MissingProtobufField { field: field_name })
+}
+
+fn protobuf_u8(value: u32, field: &'static str) -> Result<u8, SectorMapError> {
+    value
+        .try_into()
+        .map_err(|_| SectorMapError::InvalidProtobufValue { field, value })
 }
 
 pub fn map_to_sectors(map: &SectorMap) -> Result<(InitialSector, Vec<Sector>), SectorMapError> {
@@ -1173,9 +1406,9 @@ mod tests {
     }
 
     #[test]
-    fn parses_messagepack_map_bytes() {
-        let bytes = rmp_serde::to_vec_named(&sample_map()).unwrap();
-        let map = parse_map_bytes(&bytes).unwrap();
+    fn parses_protobuf_map_bytes() {
+        let bytes = serialize_protobuf_map(&sample_map()).unwrap();
+        let map = parse_protobuf_map(&bytes).unwrap();
 
         assert_eq!(map.sectors[1].sky_color, Some([90, 120, 180]));
         validate_map(&map).unwrap();
@@ -1183,7 +1416,7 @@ mod tests {
 
     #[test]
     fn parses_e1m1_map_asset() {
-        let map = parse_map_bytes(include_bytes!("../assets/maps/e1m1.map.mp")).unwrap();
+        let map = load_map_from_path("assets/maps/e1m1.map.pb").unwrap();
 
         validate_map(&map).unwrap();
         assert!(map.sectors.len() >= 300);

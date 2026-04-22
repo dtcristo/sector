@@ -2,6 +2,26 @@ use std::{env, fs, path::PathBuf};
 
 fn main() {
     println!("cargo:rerun-if-changed=assets/maps");
+    println!("cargo:rerun-if-changed=proto/sector_map.proto");
+
+    let protoc = protoc_bin_vendored::protoc_bin_path().expect("vendored protoc should exist");
+    let protoc_dir = protoc
+        .parent()
+        .expect("vendored protoc path should have a parent directory");
+    let existing_path = env::var_os("PATH").unwrap_or_default();
+    let mut path_entries = env::split_paths(&existing_path).collect::<Vec<_>>();
+    path_entries.insert(0, protoc_dir.to_path_buf());
+    let updated_path = env::join_paths(path_entries).expect("joined PATH should be valid");
+    env::set_var("PATH", updated_path);
+
+    protobuf_codegen::CodeGen::new()
+        .include("proto")
+        .input("sector_map.proto")
+        .output_dir(
+            PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR should exist")).join("map_proto"),
+        )
+        .generate_and_compile()
+        .expect("failed to generate protobuf map bindings");
 
     let manifest_dir =
         PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR should exist"));

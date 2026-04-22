@@ -27,7 +27,7 @@ The repository currently has four primary binaries:
 
 The shared library code lives in `src/`:
 
-- `src/map.rs`: RON/MessagePack map asset formats, load/save helpers, wasm embedded-map lookup, and structural validation.
+- `src/map.rs`: RON/Protobuf map asset formats, load/save helpers, wasm embedded-map lookup, and structural validation.
 - `src/world.rs`: runtime sector types and allocation-free wall expansion helpers.
 - `src/game/`: player state, input, and physics/movement simulation.
 - `src/render/`: software renderer, automap, projection math, and frame utilities.
@@ -49,7 +49,7 @@ This is a classic sector graph rather than a general polygon soup. Each sector i
 
 ### Asset format
 
-Maps are stored as either RON (`*.map.ron`) or MessagePack (`*.map.mp`) in `assets/maps/`. `SectorMap` mirrors the runtime world but stays asset-friendly:
+Maps are stored as either RON (`*.map.ron`) or Protobuf (`*.map.pb`) in `assets/maps/`. `SectorMap` mirrors the runtime world but stays asset-friendly:
 
 - `initial_sector`
 - `initial_position`
@@ -67,6 +67,8 @@ Maps are stored as either RON (`*.map.ron`) or MessagePack (`*.map.mp`) in `asse
     - optional `walkable` (defaults to `true`)
     - optional `upper_color`
     - optional `lower_color`
+
+The binary `.map.pb` flavor is defined by the checked-in `proto/sector_map.proto` schema and compiled during `build.rs` with the official Rust `protobuf` v4 toolchain, so the runtime/editor/importer all share one binary layout instead of ad-hoc serializers.
 
 Flat wall, floor, and ceiling colors are the material system today. There are no textures, no slopes, and no per-surface UVs. A sector without a rendered ceiling still keeps a numeric ceiling height for collision and portal opening checks, and may optionally carry a `sky_color` so open ceilings can render as a flat sky tint instead of the black fallback.
 
@@ -198,7 +200,7 @@ The importer currently:
 3. Builds plan-view polygons from Doom linedefs, then decomposes those shapes into convex cells acceptable to this engine.
 4. Scales XY and Z from Doom units so the current player radius and eye height line up with Doom's feel.
 5. Emits view-only portals for non-door impassable linedefs, converts sky ceilings into `no_ceiling` sectors with a flat tint derived from the map's sky texture, and opens door sectors by following Doom door linedef specials plus zero-height and door-texture heuristics, lifting those sectors to neighboring ceiling heights while clearing the matching doorway portals for traversal.
-6. Saves the generated map through the normal validation pipeline, typically as MessagePack for imported content.
+6. Saves the generated map through the normal validation pipeline, typically as Protobuf for imported content.
 
 This keeps imported maps honest: if the converted result cannot satisfy the same convexity, portal, overlap, spawn, and clearance rules as native content, the import fails instead of shipping a broken asset.
 
@@ -206,7 +208,7 @@ This keeps imported maps honest: if the converted result cannot satisfy the same
 
 The editor is intentionally secondary to the runtime, but it is now a substantial native-only egui tool built around an in-memory `EditorDocument` that uses the same `Sector` data as the runtime. It:
 
-1. Loads arbitrary `.map.ron` and `.map.mp` files through the shared map helpers, can start a brand-new starter map in memory, and lets the user choose the next save format independently of the currently loaded file.
+1. Loads arbitrary `.map.ron` and `.map.pb` files through the shared map helpers, can start a brand-new starter map in memory, and lets the user choose the next save format independently of the currently loaded file.
 2. Validates on explicit save before writing files, surfacing map errors in the UI instead of silently persisting broken data.
 3. Keeps an explicit plot viewport state so launch/open/reload centers the map view on the spawn, while panning and zooming stay under user control between frames.
 4. Exposes three main authoring tools: selecting/editing sectors, drafting rooms directly in the map view, and placing the player spawn.

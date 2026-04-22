@@ -13,7 +13,7 @@
 
 `sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional open ceilings with either black fallback or flat sky tint, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
 
-The native runtime and editor share the same `SectorMap` data model across both RON and MessagePack assets in `assets/maps/*.map.ron` and `assets/maps/*.map.mp`. The runtime now treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 21:9 or growing vertically to 9:16 before letterboxing extreme shapes. The web build ships the play runtime only, bundles the shipped maps, and resolves the current map from the URL path.
+The native runtime and editor share the same `SectorMap` data model across both RON and Protobuf assets in `assets/maps/*.map.ron` and `assets/maps/*.map.pb`. The runtime now treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 21:9 or growing vertically to 9:16 before letterboxing extreme shapes. The web build ships the play runtime only, bundles the shipped maps, and resolves the current map from the URL path.
 
 ## Repository docs
 
@@ -37,7 +37,7 @@ The native runtime and editor share the same `SectorMap` data model across both 
 ```sh
 cargo test --features "sector sector_edit doom_import"
 cargo run --features sector --bin sector -- assets/maps/default.map.ron
-cargo run --features sector --bin sector -- assets/maps/e1m1.map.mp
+cargo run --features sector --bin sector -- assets/maps/e1m1.map.pb
 cargo run --features sector_edit --bin sector_edit
 cargo run --bin sector_import_doom --features doom_import -- ../DOOM1.WAD E1M1
 cargo run --bin sector_validate -- assets/maps/default.map.ron
@@ -67,7 +67,7 @@ Left click captures the cursor for play, right click or `Escape` releases it, `N
 
 `sector_edit` is now a native-only egui map authoring tool over the shared map format. It can:
 
-- create a new starter map, open/reload existing maps, and save or save-as both `.map.ron` and `.map.mp` files
+- create a new starter map, open/reload existing maps, and save or save-as both `.map.ron` and `.map.pb` files
 - validate the current document on save before it writes anything
 - edit sector heights, wall colors, trims, portal walkability, spawn position, and spawn facing
 - center the map view around the spawn on load and give you explicit pan/zoom controls while editing
@@ -95,11 +95,11 @@ The browser build uses the same adaptive viewport rules as native play, so route
 ## Shipped maps
 
 - `default`: hand-authored testbed map for movement, rendering, stairs, portals, crouch spaces, and overlapping-height rooms
-- `e1m1`: imported from the DOOM shareware WAD as MessagePack, with door sectors held open from Doom door specials, zero-height door sectors, and door-texture heuristics while keeping the actual doorways walkable, sky sectors converted into `no_ceiling` spaces tinted from the map sky texture, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
+- `e1m1`: imported from the DOOM shareware WAD as Protobuf, with door sectors held open from Doom door specials, zero-height door sectors, and door-texture heuristics while keeping the actual doorways walkable, sky sectors converted into `no_ceiling` spaces tinted from the map sky texture, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
 
 ## DOOM import workflow
 
-`sector_import_doom` imports a WAD map by lump name and writes `assets/maps/<map-id-lowercase>.map.mp` by default:
+`sector_import_doom` imports a WAD map by lump name and writes `assets/maps/<map-id-lowercase>.map.pb` by default:
 
 ```sh
 cargo run --bin sector_import_doom --features doom_import -- ../DOOM1.WAD E1M1

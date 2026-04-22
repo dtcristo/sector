@@ -44,21 +44,21 @@ struct EditorDocument {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MapFileFormat {
     Ron,
-    MessagePack,
+    Protobuf,
 }
 
 impl MapFileFormat {
     fn label(self) -> &'static str {
         match self {
             Self::Ron => "RON",
-            Self::MessagePack => "MessagePack",
+            Self::Protobuf => "Protobuf",
         }
     }
 
     fn suffix(self) -> &'static str {
         match self {
             Self::Ron => ".map.ron",
-            Self::MessagePack => ".map.mp",
+            Self::Protobuf => ".map.pb",
         }
     }
 }
@@ -432,8 +432,8 @@ fn egui_system(
                             );
                             ui.selectable_value(
                                 &mut selected_output_format,
-                                MapFileFormat::MessagePack,
-                                MapFileFormat::MessagePack.label(),
+                                MapFileFormat::Protobuf,
+                                MapFileFormat::Protobuf.label(),
                             );
                         });
 
@@ -1191,7 +1191,7 @@ fn egui_system(
 
     if request_open {
         if let Some(path) = FileDialog::new()
-            .add_filter("Sector maps", &["ron", "mp"])
+            .add_filter("Sector maps", &["ron", "pb"])
             .set_directory("assets/maps")
             .pick_file()
         {
@@ -1232,7 +1232,7 @@ fn egui_system(
             .to_owned();
         if let Some(path) = FileDialog::new()
             .add_filter("RON maps", &["ron"])
-            .add_filter("MessagePack maps", &["mp"])
+            .add_filter("Protobuf maps", &["pb"])
             .set_directory("assets/maps")
             .set_file_name(&current_name)
             .save_file()
@@ -2014,8 +2014,8 @@ fn status_color(tone: StatusTone) -> egui::Color32 {
 }
 
 fn map_format_for_path(path: &Path) -> MapFileFormat {
-    if path.extension().is_some_and(|extension| extension == "mp") {
-        MapFileFormat::MessagePack
+    if path.extension().is_some_and(|extension| extension == "pb") {
+        MapFileFormat::Protobuf
     } else {
         MapFileFormat::Ron
     }
@@ -2023,7 +2023,7 @@ fn map_format_for_path(path: &Path) -> MapFileFormat {
 
 fn map_output_path(path: &Path, format: MapFileFormat) -> PathBuf {
     let path_string = path.display().to_string();
-    for suffix in [".map.ron", ".map.mp"] {
+    for suffix in [".map.ron", ".map.pb"] {
         if let Some(stem) = path_string.strip_suffix(suffix) {
             return PathBuf::from(format!("{}{}", stem, format.suffix()));
         }
@@ -2032,7 +2032,7 @@ fn map_output_path(path: &Path, format: MapFileFormat) -> PathBuf {
     if path.extension().is_some() {
         let extension = match format {
             MapFileFormat::Ron => "ron",
-            MapFileFormat::MessagePack => "mp",
+            MapFileFormat::Protobuf => "pb",
         };
         return path.with_extension(extension);
     }
@@ -2155,16 +2155,16 @@ mod tests {
     }
 
     #[test]
-    fn map_output_path_swaps_between_ron_and_messagepack() {
+    fn map_output_path_swaps_between_ron_and_protobuf() {
         assert_eq!(
             map_output_path(
                 Path::new("assets/maps/test.map.ron"),
-                MapFileFormat::MessagePack
+                MapFileFormat::Protobuf
             ),
-            PathBuf::from("assets/maps/test.map.mp")
+            PathBuf::from("assets/maps/test.map.pb")
         );
         assert_eq!(
-            map_output_path(Path::new("assets/maps/test.map.mp"), MapFileFormat::Ron),
+            map_output_path(Path::new("assets/maps/test.map.pb"), MapFileFormat::Ron),
             PathBuf::from("assets/maps/test.map.ron")
         );
     }
@@ -2176,11 +2176,8 @@ mod tests {
             PathBuf::from("assets/maps/test.map.ron")
         );
         assert_eq!(
-            normalize_map_output_path(
-                PathBuf::from("assets/maps/test"),
-                MapFileFormat::MessagePack,
-            ),
-            PathBuf::from("assets/maps/test.map.mp")
+            normalize_map_output_path(PathBuf::from("assets/maps/test"), MapFileFormat::Protobuf,),
+            PathBuf::from("assets/maps/test.map.pb")
         );
     }
 }
