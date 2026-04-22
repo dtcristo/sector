@@ -124,6 +124,7 @@ Presentation is platform-specific after the software frame is generated:
 
 - native builds resize the live `bevy_pixels` buffer to the computed logical size and present it through the normal pixels-backed window path
 - wasm builds now use the same `bevy_pixels` presentation path again, relying on the local sibling checkout while the browser async-initialization fixes are not yet published on crates.io
+- the runtime installs `PixelsPlugin` before its own `Draw` systems so the pixels-backed `Draw` schedule exists before frame-writing systems are registered; this avoids schedule replacement regressions that can otherwise leave the window presenting an untouched black buffer
 
 The visual style is deliberately limited:
 

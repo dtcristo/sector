@@ -146,12 +146,16 @@ fn main() {
                     ..default()
                 }),
         )
-        .add_plugins(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(SectorRuntimePlugin);
+        .add_plugins(FrameTimeDiagnosticsPlugin::default());
 
-    app.add_plugins(runtime_pixels_plugin());
+    configure_runtime_plugins(&mut app);
 
     app.run();
+}
+
+fn configure_runtime_plugins(app: &mut App) {
+    app.add_plugins(runtime_pixels_plugin())
+        .add_plugins(SectorRuntimePlugin);
 }
 
 fn runtime_pixels_plugin() -> PixelsPlugin {
@@ -774,6 +778,22 @@ mod tests {
     #[test]
     fn web_route_ignores_hash_fallback() {
         assert_eq!(map_name_from_route("/index.html"), "default");
+    }
+
+    #[test]
+    fn runtime_plugin_setup_preserves_draw_schedule_systems() {
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+
+        configure_runtime_plugins(&mut app);
+
+        assert_eq!(
+            app.get_schedule(Draw)
+                .expect("pixels plugin should install the draw schedule")
+                .systems_len(),
+            1,
+            "runtime draw schedule should keep the frame blit system"
+        );
     }
 
     #[test]
