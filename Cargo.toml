@@ -10,7 +10,7 @@ repository = "https://github.com/dtcristo/sector"
 publish = false
 
 [dependencies]
-bevy = { version = "0.18.1", default-features = false, features = ["bevy_scene"] }
+bevy = { version = "0.19", default-features = false, features = ["bevy_asset", "bevy_scene"] }
 earcutr = { version = "0.5", optional = true }
 geo = { version = "0.32", optional = true }
 geo-polygonize-core = { version = "0.33", optional = true }
@@ -23,12 +23,12 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 
 # sector(bin) deps
-bevy_pixels = { path = "../bevy_pixels", optional = true }
+bevy_pixels = { version = "0.17", optional = true }
 image = { version = "0.24", optional = true }
 
 # sector_edit(bin) deps
-bevy_egui = { version = "0.39.1", optional = true }
-egui_plot = { version = "0.34.0", optional = true }
+bevy_egui = { version = "0.40", optional = true }
+egui_plot = { version = "0.35", optional = true }
 rfd = { version = "0.15", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -46,7 +46,6 @@ protoc-bin-vendored = "3.2.0"
 
 [features]
 sector = [
-    "bevy/bevy_asset",
     "bevy/bevy_state",
     "bevy_pixels",
     "image"
@@ -58,7 +57,6 @@ doom_import = [
     "geo-types"
 ]
 sector_edit = [
-    "bevy/bevy_asset",
     "bevy/bevy_winit",
     "bevy/ui_bevy_render",
     "earcutr",
