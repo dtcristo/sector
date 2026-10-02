@@ -133,7 +133,8 @@ This keeps the presentation blocky and retro while making better use of resize e
 Presentation is platform-specific after the software frame is generated:
 
 - native builds resize the live `bevy_pixels` buffer to the computed logical size and present it through the normal pixels-backed window path
-- wasm builds use the same published `bevy_pixels` 0.17 presentation path as native builds, including asynchronous browser initialization
+- wasm builds use the same published `bevy_pixels` 0.17 presentation path as native builds, including asynchronous browser initialization; when the pixels wrapper appears, the runtime reconciles its surface with the current physical window size because earlier resize messages may have arrived before initialization finished
+- browser windows have no minimum canvas size; logical buffers can shrink below 320x240 to fit small viewports, while native windows keep their 320x240 minimum
 - the runtime installs `PixelsPlugin` before its own `Draw` systems so the pixels-backed `Draw` schedule exists before frame-writing systems are registered; this avoids schedule replacement regressions that can otherwise leave the window presenting an untouched black buffer
 
 The visual style is deliberately limited:
