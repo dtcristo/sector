@@ -36,7 +36,7 @@
 
 ## Testing and quality
 
-- Add regression tests that cover additional shipped maps beyond `default`.
+- Extend shipped E1M1 renderer coverage beyond the outdoor clipping regression to more camera paths and portal transitions.
 - Add focused tests for imported-map edge cases such as long corridors, tight door clearances, and large outdoor approximations.
 - Add performance benchmarks for the renderer and movement simulation on representative maps.
 - Add committed performance baselines or alerts so renderer stage timing regressions are easier to spot before they ship.

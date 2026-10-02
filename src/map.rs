@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
 };
+use prost::Message;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -17,9 +18,8 @@ use std::{
 };
 use thiserror::Error;
 
-#[allow(mismatched_lifetime_syntaxes)]
 mod proto_map {
-    include!(concat!(env!("OUT_DIR"), "/map_proto/generated.rs"));
+    include!(concat!(env!("OUT_DIR"), "/sector.map.v1.rs"));
 }
 
 #[derive(Asset, TypePath, Debug, Clone, Serialize, Deserialize)]
@@ -141,9 +141,9 @@ pub enum SectorMapError {
     #[error("Could not serialize RON map: {0}")]
     RonSerialize(#[from] ron::Error),
     #[error("Could not parse protobuf map: {0}")]
-    ProtobufParse(#[source] protobuf::ParseError),
+    ProtobufParse(#[source] prost::DecodeError),
     #[error("Could not serialize protobuf map: {0}")]
-    ProtobufSerialize(#[source] protobuf::SerializeError),
+    ProtobufSerialize(#[source] prost::EncodeError),
     #[error("Protobuf map is missing required field `{field}`")]
     MissingProtobufField { field: &'static str },
     #[error("Protobuf map field `{field}` has out-of-range value {value}")]
@@ -393,41 +393,38 @@ pub fn save_map_to_path(map: &SectorMap, path: impl AsRef<Path>) -> Result<(), S
 }
 
 fn parse_protobuf_map(bytes: &[u8]) -> Result<SectorMap, SectorMapError> {
-    let map = proto_map::SectorMap::parse(bytes).map_err(SectorMapError::ProtobufParse)?;
+    let map = proto_map::SectorMap::decode(bytes).map_err(SectorMapError::ProtobufParse)?;
     sector_map_from_protobuf(map)
 }
 
 fn serialize_protobuf_map(map: &SectorMap) -> Result<Vec<u8>, SectorMapError> {
-    protobuf::Serialize::serialize(&sector_map_to_protobuf(map))
-        .map_err(SectorMapError::ProtobufSerialize)
+    let message = sector_map_to_protobuf(map);
+    let mut bytes = Vec::with_capacity(message.encoded_len());
+    message
+        .encode(&mut bytes)
+        .map_err(SectorMapError::ProtobufSerialize)?;
+    Ok(bytes)
 }
 
 fn sector_map_to_protobuf(map: &SectorMap) -> proto_map::SectorMap {
-    let mut protobuf_map = proto_map::SectorMap::new();
-    protobuf_map.set_initial_sector(map.initial_sector as u32);
-    protobuf_map.set_initial_position(vertex_to_protobuf(map.initial_position));
-    protobuf_map.set_initial_direction_degrees(map.initial_direction_degrees);
-    {
-        let mut sectors = protobuf_map.sectors_mut();
-        for sector in &map.sectors {
-            sectors.push(sector_to_protobuf(sector));
-        }
+    proto_map::SectorMap {
+        initial_sector: map.initial_sector as u32,
+        initial_position: Some(vertex_to_protobuf(map.initial_position)),
+        initial_direction_degrees: map.initial_direction_degrees,
+        sectors: map.sectors.iter().map(sector_to_protobuf).collect(),
     }
-    protobuf_map
 }
 
-fn sector_map_from_protobuf(
-    protobuf_map: proto_map::SectorMap,
-) -> Result<SectorMap, SectorMapError> {
+fn sector_map_from_protobuf(map: proto_map::SectorMap) -> Result<SectorMap, SectorMapError> {
     Ok(SectorMap {
-        initial_sector: protobuf_map.initial_sector() as usize,
+        initial_sector: map.initial_sector as usize,
         initial_position: vertex_from_protobuf(required_field(
-            protobuf_map.initial_position_opt(),
+            map.initial_position.as_ref(),
             "initial_position",
         )?),
-        initial_direction_degrees: protobuf_map.initial_direction_degrees(),
-        sectors: protobuf_map
-            .sectors()
+        initial_direction_degrees: map.initial_direction_degrees,
+        sectors: map
+            .sectors
             .iter()
             .map(sector_from_protobuf)
             .collect::<Result<Vec<_>, _>>()?,
@@ -435,61 +432,48 @@ fn sector_map_from_protobuf(
 }
 
 fn sector_to_protobuf(sector: &MapSector) -> proto_map::Sector {
-    let mut protobuf_sector = proto_map::Sector::new();
-    protobuf_sector.set_floor(sector.floor);
-    protobuf_sector.set_ceil(sector.ceil);
-    protobuf_sector.set_floor_color(color_to_protobuf(sector.floor_color));
-    protobuf_sector.set_ceil_color(color_to_protobuf(sector.ceil_color));
-    protobuf_sector.set_no_ceiling(sector.no_ceiling);
-    if let Some(sky_color) = sector.sky_color {
-        protobuf_sector.set_sky_color(color_to_protobuf(sky_color));
+    proto_map::Sector {
+        floor: sector.floor,
+        ceil: sector.ceil,
+        floor_color: Some(color_to_protobuf(sector.floor_color)),
+        ceil_color: Some(color_to_protobuf(sector.ceil_color)),
+        no_ceiling: sector.no_ceiling,
+        sky_color: sector.sky_color.map(color_to_protobuf),
+        vertices: sector
+            .vertices
+            .iter()
+            .copied()
+            .map(vertex_to_protobuf)
+            .collect(),
+        walls: sector.walls.iter().map(wall_to_protobuf).collect(),
     }
-    {
-        let mut vertices = protobuf_sector.vertices_mut();
-        for vertex in sector.vertices.iter().copied() {
-            vertices.push(vertex_to_protobuf(vertex));
-        }
-    }
-    {
-        let mut walls = protobuf_sector.walls_mut();
-        for wall in &sector.walls {
-            walls.push(wall_to_protobuf(wall));
-        }
-    }
-    protobuf_sector
 }
 
-fn sector_from_protobuf(
-    protobuf_sector: proto_map::SectorView<'_>,
-) -> Result<MapSector, SectorMapError> {
+fn sector_from_protobuf(sector: &proto_map::Sector) -> Result<MapSector, SectorMapError> {
     Ok(MapSector {
-        floor: protobuf_sector.floor(),
-        ceil: protobuf_sector.ceil(),
-        floor_color: protobuf_sector
-            .floor_color_opt()
-            .into_option()
-            .map(|color| color_from_protobuf(color, "floor_color"))
+        floor: sector.floor,
+        ceil: sector.ceil,
+        floor_color: sector
+            .floor_color
+            .as_ref()
+            .map(|c| color_from_protobuf(c, "floor_color"))
             .transpose()?
             .unwrap_or_else(default_floor_color),
-        ceil_color: protobuf_sector
-            .ceil_color_opt()
-            .into_option()
-            .map(|color| color_from_protobuf(color, "ceil_color"))
+        ceil_color: sector
+            .ceil_color
+            .as_ref()
+            .map(|c| color_from_protobuf(c, "ceil_color"))
             .transpose()?
             .unwrap_or_else(default_ceil_color),
-        no_ceiling: protobuf_sector.no_ceiling(),
-        sky_color: protobuf_sector
-            .sky_color_opt()
-            .into_option()
-            .map(|color| color_from_protobuf(color, "sky_color"))
+        no_ceiling: sector.no_ceiling,
+        sky_color: sector
+            .sky_color
+            .as_ref()
+            .map(|c| color_from_protobuf(c, "sky_color"))
             .transpose()?,
-        vertices: protobuf_sector
-            .vertices()
-            .iter()
-            .map(vertex_from_protobuf)
-            .collect(),
-        walls: protobuf_sector
-            .walls()
+        vertices: sector.vertices.iter().map(vertex_from_protobuf).collect(),
+        walls: sector
+            .walls
             .iter()
             .map(wall_from_protobuf)
             .collect::<Result<Vec<_>, _>>()?,
@@ -497,105 +481,73 @@ fn sector_from_protobuf(
 }
 
 fn wall_to_protobuf(wall: &MapWall) -> proto_map::Wall {
-    let mut protobuf_wall = proto_map::Wall::new();
-    protobuf_wall.set_color(color_to_protobuf(wall.color));
-    if let Some(portal) = wall.portal {
-        protobuf_wall.set_portal(portal_to_protobuf(portal));
+    proto_map::Wall {
+        color: Some(color_to_protobuf(wall.color)),
+        portal: wall.portal.map(|id| proto_map::SectorRef { id: id as u32 }),
+        walkable: Some(proto_map::BoolFlag {
+            value: wall.walkable,
+        }),
+        upper_color: wall.upper_color.map(color_to_protobuf),
+        lower_color: wall.lower_color.map(color_to_protobuf),
     }
-    protobuf_wall.set_walkable(bool_flag_to_protobuf(wall.walkable));
-    if let Some(color) = wall.upper_color {
-        protobuf_wall.set_upper_color(color_to_protobuf(color));
-    }
-    if let Some(color) = wall.lower_color {
-        protobuf_wall.set_lower_color(color_to_protobuf(color));
-    }
-    protobuf_wall
 }
 
-fn wall_from_protobuf(protobuf_wall: proto_map::WallView<'_>) -> Result<MapWall, SectorMapError> {
+fn wall_from_protobuf(wall: &proto_map::Wall) -> Result<MapWall, SectorMapError> {
     Ok(MapWall {
         color: color_from_protobuf(
-            required_field(protobuf_wall.color_opt(), "wall.color")?,
+            required_field(wall.color.as_ref(), "wall.color")?,
             "wall.color",
         )?,
-        portal: protobuf_wall
-            .portal_opt()
-            .into_option()
-            .map(portal_from_protobuf),
-        walkable: protobuf_wall
-            .walkable_opt()
-            .into_option()
-            .map_or_else(default_true, bool_flag_from_protobuf),
-        upper_color: protobuf_wall
-            .upper_color_opt()
-            .into_option()
-            .map(|color| color_from_protobuf(color, "wall.upper_color"))
+        portal: wall.portal.as_ref().map(|p| p.id as usize),
+        walkable: wall
+            .walkable
+            .as_ref()
+            .map_or_else(default_true, |f| f.value),
+        upper_color: wall
+            .upper_color
+            .as_ref()
+            .map(|c| color_from_protobuf(c, "wall.upper_color"))
             .transpose()?,
-        lower_color: protobuf_wall
-            .lower_color_opt()
-            .into_option()
-            .map(|color| color_from_protobuf(color, "wall.lower_color"))
+        lower_color: wall
+            .lower_color
+            .as_ref()
+            .map(|c| color_from_protobuf(c, "wall.lower_color"))
             .transpose()?,
     })
 }
 
 fn vertex_to_protobuf(vertex: MapVertex) -> proto_map::Vec2 {
-    let mut protobuf_vertex = proto_map::Vec2::new();
-    protobuf_vertex.set_x(vertex.0);
-    protobuf_vertex.set_y(vertex.1);
-    protobuf_vertex
+    proto_map::Vec2 {
+        x: vertex.0,
+        y: vertex.1,
+    }
 }
 
-fn vertex_from_protobuf(protobuf_vertex: proto_map::Vec2View<'_>) -> MapVertex {
-    MapVertex(protobuf_vertex.x(), protobuf_vertex.y())
+fn vertex_from_protobuf(vertex: &proto_map::Vec2) -> MapVertex {
+    MapVertex(vertex.x, vertex.y)
 }
 
 fn color_to_protobuf(color: [u8; 3]) -> proto_map::RgbColor {
-    let mut protobuf_color = proto_map::RgbColor::new();
-    protobuf_color.set_r(color[0].into());
-    protobuf_color.set_g(color[1].into());
-    protobuf_color.set_b(color[2].into());
-    protobuf_color
+    proto_map::RgbColor {
+        r: color[0].into(),
+        g: color[1].into(),
+        b: color[2].into(),
+    }
 }
 
 fn color_from_protobuf(
-    protobuf_color: proto_map::RgbColorView<'_>,
+    color: &proto_map::RgbColor,
     field: &'static str,
 ) -> Result<[u8; 3], SectorMapError> {
     Ok([
-        protobuf_u8(protobuf_color.r(), field)?,
-        protobuf_u8(protobuf_color.g(), field)?,
-        protobuf_u8(protobuf_color.b(), field)?,
+        protobuf_u8(color.r, field)?,
+        protobuf_u8(color.g, field)?,
+        protobuf_u8(color.b, field)?,
     ])
 }
 
-fn bool_flag_to_protobuf(value: bool) -> proto_map::BoolFlag {
-    let mut protobuf_flag = proto_map::BoolFlag::new();
-    protobuf_flag.set_value(value);
-    protobuf_flag
-}
-
-fn bool_flag_from_protobuf(flag: proto_map::BoolFlagView<'_>) -> bool {
-    flag.value()
-}
-
-fn portal_to_protobuf(portal: usize) -> proto_map::SectorRef {
-    let mut protobuf_portal = proto_map::SectorRef::new();
-    protobuf_portal.set_id(portal as u32);
-    protobuf_portal
-}
-
-fn portal_from_protobuf(portal: proto_map::SectorRefView<'_>) -> usize {
-    portal.id() as usize
-}
-
-fn required_field<T>(
-    field: protobuf::Optional<T>,
-    field_name: &'static str,
-) -> Result<T, SectorMapError> {
-    field
-        .into_option()
-        .ok_or(SectorMapError::MissingProtobufField { field: field_name })
+fn required_field<T>(field: Option<T>, field_name: &'static str) -> Result<T, SectorMapError> {
+    field.ok_or(SectorMapError::MissingProtobufField { field: field_name })
 }
 
 fn protobuf_u8(value: u32, field: &'static str) -> Result<u8, SectorMapError> {
@@ -1407,11 +1359,48 @@ mod tests {
 
     #[test]
     fn parses_protobuf_map_bytes() {
-        let bytes = serialize_protobuf_map(&sample_map()).unwrap();
+        let original = sample_map();
+        let bytes = serialize_protobuf_map(&original).unwrap();
         let map = parse_protobuf_map(&bytes).unwrap();
 
-        assert_eq!(map.sectors[1].sky_color, Some([90, 120, 180]));
+        assert_eq!(
+            ron::ser::to_string(&map).unwrap(),
+            ron::ser::to_string(&original).unwrap()
+        );
         validate_map(&map).unwrap();
+    }
+
+    #[test]
+    fn protobuf_preserves_absent_field_defaults_and_zero_portal_target() {
+        // Empty position; one sector with a wall containing an empty color
+        // and an explicit portal to sector zero. Walkability is omitted.
+        let map = parse_protobuf_map(&[0x12, 0, 0x22, 6, 0x42, 4, 0x0a, 0, 0x12, 0]).unwrap();
+        assert_eq!(map.initial_position, MapVertex(0.0, 0.0));
+        assert_eq!(map.sectors[0].floor_color, default_floor_color());
+        assert_eq!(map.sectors[0].ceil_color, default_ceil_color());
+        assert_eq!(map.sectors[0].sky_color, None);
+        let wall = &map.sectors[0].walls[0];
+        assert_eq!(wall.color, [0, 0, 0]);
+        assert_eq!(wall.portal, Some(0));
+        assert!(wall.walkable);
+    }
+
+    #[test]
+    fn protobuf_rejects_missing_position_and_out_of_range_color() {
+        assert!(matches!(
+            parse_protobuf_map(&[]),
+            Err(SectorMapError::MissingProtobufField {
+                field: "initial_position"
+            })
+        ));
+        // Wall color red channel is 256, which cannot fit in a map color.
+        assert!(matches!(
+            parse_protobuf_map(&[0x12, 0, 0x22, 7, 0x42, 5, 0x0a, 3, 0x08, 0x80, 2]),
+            Err(SectorMapError::InvalidProtobufValue {
+                field: "wall.color",
+                value: 256
+            })
+        ));
     }
 
     #[test]

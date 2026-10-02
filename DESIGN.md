@@ -68,7 +68,7 @@ Maps are stored as either RON (`*.map.ron`) or Protobuf (`*.map.pb`) in `assets/
     - optional `upper_color`
     - optional `lower_color`
 
-The binary `.map.pb` flavor is defined by the checked-in `proto/sector_map.proto` schema and compiled during `build.rs` with the official Rust `protobuf` v4 toolchain, so the runtime/editor/importer all share one binary layout instead of ad-hoc serializers.
+The binary `.map.pb` flavor is defined by the checked-in `proto/sector_map.proto` schema and compiled during `build.rs` with `prost-build` and vendored `protoc`, so the runtime/editor/importer all share one binary layout instead of ad-hoc serializers. `prost` keeps decoding and encoding in pure Rust so the wasm target does not need the C runtime used by the former Protobuf v4 backend.
 
 Flat wall, floor, and ceiling colors are the material system today. There are no textures, no slopes, and no per-surface UVs. A sector without a rendered ceiling still keeps a numeric ceiling height for collision and portal opening checks, and may optionally carry a `sky_color` so open ceilings can render as a flat sky tint instead of the black fallback.
 
@@ -125,7 +125,7 @@ This keeps the presentation blocky and retro while making better use of resize e
 Presentation is platform-specific after the software frame is generated:
 
 - native builds resize the live `bevy_pixels` buffer to the computed logical size and present it through the normal pixels-backed window path
-- wasm builds now use the same `bevy_pixels` presentation path again, relying on the local sibling checkout while the browser async-initialization fixes are not yet published on crates.io
+- wasm builds use the same published `bevy_pixels` 0.17 presentation path as native builds, including asynchronous browser initialization
 - the runtime installs `PixelsPlugin` before its own `Draw` systems so the pixels-backed `Draw` schedule exists before frame-writing systems are registered; this avoids schedule replacement regressions that can otherwise leave the window presenting an untouched black buffer
 
 The visual style is deliberately limited:
@@ -145,6 +145,8 @@ At a high level:
 5. Project wall columns and flat floor/ceiling spans, skipping ceiling spans for `no_ceiling` sectors.
 6. Shade by distance using a banded brightness curve.
 7. Apply a post-pass outline mask so seams stay crisp and single-pixel thick.
+
+Wall clipping restricts the segment parameter against the near plane and both horizontal frustum half-planes before projection. This avoids coordinate-bound rounding errors on vertical or horizontal walls that can leave endpoints behind the camera and invert portal column bounds. Renderer stage timings use Bevy's platform clock on both native and wasm targets.
 
 The renderer is portal-based, not BSP-based. It depends on valid reciprocal portal topology and convex sectors to stay simple.
 
@@ -225,7 +227,7 @@ The project leans on fast unit tests instead of heavy end-to-end harnesses:
 
 - map tests verify validation rules and asset expectations
 - physics tests cover collision, stepping, jumping, crouching, and portal transitions
-- renderer tests cover filling behavior, portal continuity, shading, and outline behavior
+- renderer tests cover filling behavior, portal continuity, shading, and outline behavior, including the shipped E1M1 outdoor clipping failure at baseline, wide, and tall buffer sizes
 - automap tests cover visible/full modes and portal edge handling
 
 This keeps feedback quick while still protecting the important visual and gameplay invariants.

@@ -5,9 +5,10 @@ use super::{
 };
 use crate::{Position2, Position3, RawColor, Sector, SectorId};
 
+use bevy::platform::time::Instant;
 use bevy::{math::vec2, prelude::*};
 use palette::{Hsv, IntoColor, Srgb};
-use std::{collections::VecDeque, time::Instant};
+use std::collections::VecDeque;
 
 #[derive(Debug, Copy, Clone)]
 struct PortalSpan<'a> {
@@ -947,6 +948,26 @@ mod tests {
     };
     use bevy::math::{vec2, vec3};
     use std::collections::BTreeSet;
+
+    #[test]
+    fn e1m1_outdoor_portal_keeps_column_bounds_ordered() {
+        let map = crate::map::load_map_from_path("assets/maps/e1m1.map.pb").unwrap();
+        let (_, sectors) = crate::map::map_to_sectors(&map).unwrap();
+        let view = RenderView::new(
+            Position3(vec3(35.399998, -55.05, -2.212683 + 1.62)),
+            std::f32::consts::FRAC_PI_2,
+            Some(SectorId(20)),
+        );
+        for metrics in [
+            RenderMetrics::base(),
+            RenderMetrics::new(560, 240),
+            RenderMetrics::new(320, 569),
+        ] {
+            let mut frame = vec![0; metrics.frame_bytes()];
+            render_world_with_metrics(&mut frame, &metrics, &view, &sectors);
+            assert!(frame.chunks_exact(4).all(|pixel| pixel[3] == 255));
+        }
+    }
 
     fn sector(
         id: u32,
