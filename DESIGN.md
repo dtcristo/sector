@@ -35,6 +35,14 @@ The shared library code lives in `src/`:
 - `src/color.rs`, `src/geometry.rs`, `src/player.rs`: shared primitive types and gameplay constants.
 - `build.rs`: scans shipped maps and generates the embedded map registry used by the wasm runtime.
 
+## Default demo map
+
+`sector_demo` regenerates the shipped RON asset through the normal validator. It composes larger rooms from convex sectors, splits shared edges at doorway corners, and creates reciprocal portals. A shared affine skew gives corridors oblique walls; the foyer, spiral and star court add other wall directions.
+
+The route begins in a modest foyer, then reveals a 13-metre atrium around nested chambers with a second storey. A 48-tread spiral climbs 9.6 metres across two turns. Its midway exit reaches a viewing gallery and a 24-tread descent back to the entrance. Separate sky courts and a crouch passage reward exploration. View-only portals protect overlooks from accidental drops.
+
+This content uses ordinary coincident portals and vertically separated volumes. It demonstrates rooms within rooms, stacked spaces and spatial loops; it does not introduce transformed portals. Historical renderer and movement repros retain the former map in `tests/fixtures/movement.map.ron`.
+
 ## Data model
 
 ### Runtime world

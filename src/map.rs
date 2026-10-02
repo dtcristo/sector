@@ -1484,7 +1484,7 @@ mod tests {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
 
-        for sector_index in 3_usize..10 {
+        for sector_index in 48_usize..95 {
             let sector = &map.sectors[sector_index];
             let next_sector = &map.sectors[sector_index + 1];
             assert!(sector
@@ -1494,12 +1494,12 @@ mod tests {
             let floor_delta = next_sector.floor - sector.floor;
             assert!(floor_delta > 0.0 && floor_delta <= 0.45);
         }
-        assert!(map.sectors[10]
+        assert!(map.sectors[95]
             .walls
             .iter()
-            .any(|wall| wall.portal == Some(15)));
+            .any(|wall| wall.portal == Some(100)));
 
-        let portal_angles = (3_usize..=10)
+        let portal_angles = (48_usize..=95)
             .map(|sector_index| {
                 let sector = &map.sectors[sector_index];
                 let wall_index = sector
@@ -1507,8 +1507,8 @@ mod tests {
                     .iter()
                     .position(|wall| {
                         wall.portal
-                            == Some(if sector_index == 10 {
-                                15
+                            == Some(if sector_index == 95 {
+                                100
                             } else {
                                 sector_index + 1
                             })
@@ -1532,15 +1532,15 @@ mod tests {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
 
-        let lower_room = &map.sectors[2];
-        let upper_room = &map.sectors[19];
+        let lower_room = &map.sectors[8];
+        let upper_room = &map.sectors[37];
 
         assert!(sectors_overlap_in_2d(lower_room, upper_room));
         assert!(upper_room.floor >= lower_room.ceil + 0.3);
     }
 
     #[test]
-    fn default_map_spawn_faces_staircase() {
+    fn default_map_spawn_faces_entrance() {
         let map =
             ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
         let initial_sector = &map.sectors[map.initial_sector];
@@ -1548,7 +1548,7 @@ mod tests {
             .walls
             .iter()
             .position(|wall| wall.portal == Some(1))
-            .expect("default map should have a portal from the initial room to the staircase");
+            .expect("default map should have an entrance portal");
         let wall_start = initial_sector.vertices[stair_wall_index];
         let wall_end =
             initial_sector.vertices[(stair_wall_index + 1) % initial_sector.vertices.len()];
@@ -1563,14 +1563,15 @@ mod tests {
 
         assert!(
             alignment > 0.99,
-            "spawn should face staircase, alignment was {alignment}"
+            "spawn should face entrance, alignment was {alignment}"
         );
     }
 
     #[test]
-    fn default_map_has_high_window_sector_between_rooms() {
+    fn movement_fixture_has_high_window_sector_between_rooms() {
         let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+            ron::de::from_str::<SectorMap>(include_str!("../tests/fixtures/movement.map.ron"))
+                .unwrap();
 
         let has_high_window_sector = map.sectors.iter().any(|sector| {
             let portal_targets = sector

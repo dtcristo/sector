@@ -435,8 +435,9 @@ mod tests {
     }
 
     fn staircase_portal_walk_frames(direction_sign: f32) -> Vec<FrameBuffer> {
-        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
-            .unwrap();
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../../tests/fixtures/movement.map.ron"))
+                .unwrap();
         let (_, sectors) = map_to_sectors(&map).unwrap();
         let source_sector_id = if direction_sign > 0.0 {
             SectorId(3)
@@ -935,9 +936,10 @@ mod tests {
     }
 
     #[test]
-    fn default_map_snapshot_near_portal_boundary_keeps_columns_filled() {
-        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
-            .unwrap();
+    fn movement_fixture_snapshot_near_portal_boundary_keeps_columns_filled() {
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../../tests/fixtures/movement.map.ron"))
+                .unwrap();
         let (_, sectors) = map_to_sectors(&map).unwrap();
         let player = Player {
             position: Position3(Vec3::new(-0.4816283, 0.17646588, 0.0)),
@@ -991,8 +993,9 @@ mod tests {
 
     #[test]
     fn brown_sector_view_back_to_spawn_avoids_wide_black_gaps() {
-        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
-            .unwrap();
+        let map =
+            ron::de::from_str::<SectorMap>(include_str!("../../tests/fixtures/movement.map.ron"))
+                .unwrap();
         let (_, sectors) = map_to_sectors(&map).unwrap();
         let sector = sectors
             .iter()

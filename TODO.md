@@ -43,6 +43,8 @@
 - Add screenshot or frame-diff tooling for stable visual regression checks where it stays fast enough.
 - Add a committed Playwright smoke test that catches broken web routing or missing bundled maps before deployment.
 
+- Explore rotated or translated portal connections as a separate engine task; the default demo currently uses coincident portals and stacked geometry.
+
 ## Documentation
 
 - Keep `DESIGN.md` aligned with new engine capabilities and data-model changes.
