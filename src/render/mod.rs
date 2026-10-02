@@ -5,8 +5,9 @@ mod world;
 
 use crate::{Position2, Position3, Sector, SectorId};
 
+use bevy::platform::time::Instant;
 use bevy::{math::vec2, prelude::*};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub use frame::{clear_frame, FrameBuffer, Pixel, FRAME_BYTES};
 

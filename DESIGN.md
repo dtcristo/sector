@@ -146,6 +146,8 @@ At a high level:
 6. Shade by distance using a banded brightness curve.
 7. Apply a post-pass outline mask so seams stay crisp and single-pixel thick.
 
+Wall clipping restricts the segment parameter against the near plane and both horizontal frustum half-planes before projection. This avoids coordinate-bound rounding errors on vertical or horizontal walls that can leave endpoints behind the camera and invert portal column bounds. Renderer stage timings use Bevy's platform clock on both native and wasm targets.
+
 The renderer is portal-based, not BSP-based. It depends on valid reciprocal portal topology and convex sectors to stay simple.
 
 The current render hot path avoids dynamic wall expansion, reuses small per-surface shade ramps so wall, floor, and ceiling columns do not pay for repeated HSV-to-RGB conversion on every pixel, writes columns directly into the RGBA and surface-tag buffers, and walks the outline mask linearly instead of repeatedly re-indexing neighbors through helper calls.
@@ -225,7 +227,7 @@ The project leans on fast unit tests instead of heavy end-to-end harnesses:
 
 - map tests verify validation rules and asset expectations
 - physics tests cover collision, stepping, jumping, crouching, and portal transitions
-- renderer tests cover filling behavior, portal continuity, shading, and outline behavior
+- renderer tests cover filling behavior, portal continuity, shading, and outline behavior, including the shipped E1M1 outdoor clipping failure at baseline, wide, and tall buffer sizes
 - automap tests cover visible/full modes and portal edge handling
 
 This keeps feedback quick while still protecting the important visual and gameplay invariants.

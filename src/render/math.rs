@@ -1,7 +1,9 @@
 use super::{Normalized, RenderMetrics, NEAR};
 use crate::{Length, Position2};
 
-use bevy::math::{vec2, vec3, Vec2};
+#[cfg(test)]
+use bevy::math::vec2;
+use bevy::math::vec3;
 
 #[cfg(test)]
 pub(crate) fn clip_wall(
@@ -13,67 +15,47 @@ pub(crate) fn clip_wall(
 
 pub(crate) fn clip_wall_with_metrics(
     metrics: &RenderMetrics,
-    mut view_left: Position2,
-    mut view_right: Position2,
+    view_left: Position2,
+    view_right: Position2,
 ) -> Option<(Position2, Position2)> {
-    if view_left.0.y < NEAR && view_right.0.y < NEAR {
-        return None;
-    }
+    let left = view_left.0;
+    let right = view_right.0;
+    let tan_half_fov = metrics.back_clip_1.x / NEAR;
+    let mut start = 0.0_f32;
+    let mut end = 1.0_f32;
 
-    if let Some(intersection) = intersect(
-        view_left.0,
-        view_right.0,
-        metrics.left_clip_1,
-        metrics.left_clip_2,
-    ) {
-        if intersection.x < -metrics.back_clip_1.x {
-            if point_behind(view_left.0, metrics.left_clip_1, metrics.left_clip_2) {
-                view_left = Position2(intersection);
-            } else {
-                view_right = Position2(intersection);
-            }
+    // Clip the segment parameter against three half-planes. Computing a line
+    // intersection and then checking its XY bounds loses vertical/horizontal
+    // walls to rounding, allowing endpoints behind the camera to be projected.
+    for (left_distance, right_distance) in [
+        (left.y - NEAR, right.y - NEAR),
+        (
+            left.x + left.y * tan_half_fov,
+            right.x + right.y * tan_half_fov,
+        ),
+        (
+            left.y * tan_half_fov - left.x,
+            right.y * tan_half_fov - right.x,
+        ),
+    ] {
+        if left_distance < 0.0 && right_distance < 0.0 {
+            return None;
+        }
+        if left_distance < 0.0 {
+            start = start.max(left_distance / (left_distance - right_distance));
+        } else if right_distance < 0.0 {
+            end = end.min(left_distance / (left_distance - right_distance));
+        }
+        if start >= end {
+            return None;
         }
     }
 
-    if let Some(intersection) = intersect(
-        view_left.0,
-        view_right.0,
-        metrics.right_clip_1,
-        metrics.right_clip_2,
-    ) {
-        if intersection.x > metrics.back_clip_1.x {
-            if point_behind(view_left.0, metrics.right_clip_1, metrics.right_clip_2) {
-                view_left = Position2(intersection);
-            } else {
-                view_right = Position2(intersection);
-            }
-        }
-    }
-
-    if view_left.0.y < NEAR || view_right.0.y < NEAR {
-        if let Some(intersection) = intersect(
-            view_left.0,
-            view_right.0,
-            metrics.back_clip_1,
-            metrics.back_clip_2,
-        ) {
-            if point_behind(view_left.0, metrics.back_clip_1, metrics.back_clip_2) {
-                view_left = Position2(intersection);
-            } else {
-                view_right = Position2(intersection);
-            }
-        }
-    }
-
-    if point_behind(view_right.0, metrics.left_clip_1, metrics.left_clip_2) {
-        return None;
-    }
-
-    if point_behind(view_left.0, metrics.right_clip_1, metrics.right_clip_2) {
-        return None;
-    }
-
-    Some((view_left, view_right))
+    let mut clipped_left = left.lerp(right, start);
+    let mut clipped_right = left.lerp(right, end);
+    clipped_left.y = clipped_left.y.max(NEAR);
+    clipped_right.y = clipped_right.y.max(NEAR);
+    Some((Position2(clipped_left), Position2(clipped_right)))
 }
 
 #[cfg(test)]
@@ -97,50 +79,9 @@ pub(crate) fn lerp(start: f32, end: f32, t: f32) -> f32 {
     start * (1.0 - t) + end * t
 }
 
-pub(crate) fn intersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
-    let a_perp_dot = a1.perp_dot(a2);
-    let b_perp_dot = b1.perp_dot(b2);
-
-    let divisor = vec2(a1.x - a2.x, a1.y - a2.y).perp_dot(vec2(b1.x - b2.x, b1.y - b2.y));
-    if divisor == 0.0 {
-        return None;
-    };
-
-    let result = vec2(
-        vec2(a_perp_dot, a1.x - a2.x).perp_dot(vec2(b_perp_dot, b1.x - b2.x)) / divisor,
-        vec2(a_perp_dot, a1.y - a2.y).perp_dot(vec2(b_perp_dot, b1.y - b2.y)) / divisor,
-    );
-
-    if between(result.x, a1.x, a2.x) && between(result.y, a1.y, a2.y) {
-        Some(result)
-    } else {
-        None
-    }
-}
-
-pub(crate) fn between(test: f32, a: f32, b: f32) -> bool {
-    test >= a.min(b) && test <= a.max(b)
-}
-
-pub(crate) fn point_behind(point: Vec2, a: Vec2, b: Vec2) -> bool {
-    vec2(b.x - a.x, b.y - a.y).perp_dot(vec2(point.x - a.x, point.y - a.y)) > 0.0
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn intersect_finds_crossing_lines() {
-        let intersection = intersect(
-            vec2(-1.0, -1.0),
-            vec2(1.0, 1.0),
-            vec2(-1.0, 1.0),
-            vec2(1.0, -1.0),
-        )
-        .unwrap();
-        assert_eq!(intersection, Vec2::ZERO);
-    }
 
     #[test]
     fn clip_wall_removes_segment_behind_camera() {
@@ -155,16 +96,15 @@ mod tests {
     }
 
     #[test]
-    fn point_behind_uses_directed_edge() {
-        assert!(point_behind(
-            vec2(0.0, 1.0),
-            vec2(-1.0, 0.0),
-            vec2(1.0, 0.0)
-        ));
-        assert!(!point_behind(
-            vec2(0.0, -1.0),
-            vec2(-1.0, 0.0),
-            vec2(1.0, 0.0)
-        ));
+    fn clip_wall_trims_vertical_e1m1_edge_crossing_camera_plane() {
+        let left = Position2(vec2(-3.1500015, 4.0499954));
+        let right = Position2(vec2(-3.1500015, -0.15000153));
+        for (left, right) in [(left, right), (right, left)] {
+            let (left, right) = clip_wall(left, right).unwrap();
+            for endpoint in [left.0, right.0] {
+                assert!(endpoint.y >= NEAR);
+                assert!(endpoint.x.abs() <= endpoint.y + 0.00001);
+            }
+        }
     }
 }
