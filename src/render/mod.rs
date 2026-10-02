@@ -82,8 +82,8 @@ impl RenderMetrics {
     }
 
     pub fn buffer_size_for_window(window_width: f32, window_height: f32) -> (u32, u32) {
-        let window_width = window_width.max(WIDTH as f32);
-        let window_height = window_height.max(HEIGHT as f32);
+        let window_width = window_width.max(1.0);
+        let window_height = window_height.max(1.0);
         let window_aspect_ratio = window_width / window_height;
         let (content_width, content_height) = if window_aspect_ratio > MAX_ASPECT_RATIO {
             (window_height * MAX_ASPECT_RATIO, window_height)
@@ -503,6 +503,19 @@ mod tests {
         }
 
         frames
+    }
+
+    #[test]
+    fn buffer_size_fits_windows_smaller_than_the_baseline() {
+        assert_eq!(
+            RenderMetrics::buffer_size_for_window(300.0, 500.0),
+            (300, 500)
+        );
+        assert_eq!(
+            RenderMetrics::buffer_size_for_window(400.0, 200.0),
+            (400, 200)
+        );
+        assert_eq!(RenderMetrics::buffer_size_for_window(0.0, 0.0), (1, 1));
     }
 
     #[test]

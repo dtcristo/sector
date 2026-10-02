@@ -91,7 +91,7 @@ cargo install wasm-bindgen-cli --version 0.2.127 --locked
 
 Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` at build time and embeds every shipped map so new maps can be exposed by route after rebuilding the web output.
 
-The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows. Native and web builds use published `bevy_pixels` 0.17 with Bevy 0.19. No sibling checkout is needed. Protobuf maps use the same `.map.pb` schema on both platforms through the pure Rust `prost` runtime.
+The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows. The canvas follows the browser viewport even below the native 320x240 minimum, and the GPU surface catches up with any resize during startup. Native and web builds use published `bevy_pixels` 0.17 with Bevy 0.19. No sibling checkout is needed. Protobuf maps use the same `.map.pb` schema on both platforms through the pure Rust `prost` runtime.
 
 ## CI/CD
 

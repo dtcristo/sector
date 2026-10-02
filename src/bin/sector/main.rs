@@ -198,8 +198,17 @@ fn main() {
                             WINDOW_SCALE * HEIGHT,
                         ),
                         resize_constraints: WindowResizeConstraints {
-                            min_width: WIDTH as f32,
-                            min_height: HEIGHT as f32,
+                            // A browser viewport can shrink below the native window minimum.
+                            min_width: if cfg!(target_arch = "wasm32") {
+                                0.0
+                            } else {
+                                WIDTH as f32
+                            },
+                            min_height: if cfg!(target_arch = "wasm32") {
+                                0.0
+                            } else {
+                                HEIGHT as f32
+                            },
                             ..default()
                         },
                         present_mode: PresentMode::AutoNoVsync,
@@ -372,6 +381,19 @@ fn sync_pixel_buffer_system(
     let Ok((window, mut pixels_options, mut wrapper)) = window_query.single_mut() else {
         return;
     };
+
+    // Web GPU initialization is asynchronous. Resize events can arrive before the
+    // wrapper exists, so reconcile the surface once it becomes available.
+    #[cfg(target_arch = "wasm32")]
+    if wrapper.is_added() {
+        wrapper
+            .pixels
+            .resize_surface(
+                window.physical_width().max(1),
+                window.physical_height().max(1),
+            )
+            .expect("failed to resize pixel surface");
+    }
 
     let (width, height) = RenderMetrics::buffer_size_for_window(window.width(), window.height());
     if pixels_options.width == width && pixels_options.height == height {

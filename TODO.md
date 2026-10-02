@@ -18,6 +18,7 @@
 - Reuse renderer scratch buffers across frames so surface tags, clip spans, and deferred wall columns do not reallocate on every draw.
 - Explore wider support for stacked spaces or room-over-room approximations that preserve current performance goals.
 - Add more renderer regression coverage for large imported maps and unusual portal topologies.
+- Automate browser GPU startup and resize coverage, including resizes during asynchronous initialization and display scale changes.
 
 ## Map format and tooling
 
