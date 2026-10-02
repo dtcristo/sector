@@ -97,6 +97,8 @@ The browser build uses the same adaptive viewport rules as native play, so route
 
 `.github/workflows/ci-cd.yml` runs formatting, native checks, tests, shipped-map validation, and the web bundle build on pushes and pull requests. Pushes to `main` then deploy the generated `wasm/` bundle to Cloudflare Pages project `sector`.
 
+Deployment uses `cloudflare/wrangler-action@v4`. Configure repository Actions secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` before deploying. The token needs Account > Cloudflare Pages > Edit permission for the project's account.
+
 ## Shipped maps
 
 - `default`: bright 141-sector exploration demo. An angled foyer opens into a tall atrium with nested, stacked chambers. A two-turn spiral rises 9.6 metres to an overlook; a midway gallery and long descent loop back to the entrance. A nine-sector star court, sky courtyard, and crouch shortcut add alternate routes.
