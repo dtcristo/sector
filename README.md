@@ -77,7 +77,12 @@ Left click captures the cursor for play, right click or `Escape` releases it, `N
 
 ## Web build
 
-`just build-web` builds the browser version of the play runtime only. The editor and Doom importer are native-only tools.
+`just build-web` builds the browser version of the play runtime only. The editor and Doom importer are native-only tools. Install the wasm target and the CLI version matching the pinned `wasm-bindgen` dependency first:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.127 --locked
+```
 
 `just serve-web` serves the `wasm/` directory as a small SPA so map routes work locally. The browser runtime resolves the map from the URL path:
 
@@ -86,7 +91,7 @@ Left click captures the cursor for play, right click or `Escape` releases it, `N
 
 Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` at build time and embeds every shipped map so new maps can be exposed by route after rebuilding the web output.
 
-The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows. The web runtime now goes back through `bevy_pixels` itself instead of the temporary 2D canvas fallback, using the sibling `../bevy_pixels` checkout while those wasm fixes are still local-only.
+The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows. Native and web builds use published `bevy_pixels` 0.17 with Bevy 0.19. No sibling checkout is needed. Protobuf maps use the same `.map.pb` schema on both platforms through the pure Rust `prost` runtime.
 
 ## CI/CD
 
