@@ -99,8 +99,10 @@ The browser build uses the same adaptive viewport rules as native play, so route
 
 ## Shipped maps
 
-- `default`: hand-authored testbed map for movement, rendering, stairs, portals, crouch spaces, and overlapping-height rooms
+- `default`: bright 141-sector exploration demo. An angled foyer opens into a tall atrium with nested, stacked chambers. A two-turn spiral rises 9.6 metres to an overlook; a midway gallery and long descent loop back to the entrance. A nine-sector star court, sky courtyard, and crouch shortcut add alternate routes.
 - `e1m1`: imported from the DOOM shareware WAD as Protobuf, with door sectors held open from Doom door specials, zero-height door sectors, and door-texture heuristics while keeping the actual doorways walkable, sky sectors converted into `no_ceiling` spaces tinted from the map sky texture, spawn/facing matched to the Doom start, and wall/floor/ceiling colors derived from the average colors of the source textures and flats
+
+Rebuild the default map with `cargo run --bin sector_demo`, then run `just validate default`. The generator authors convex pieces and joins shared boundaries into reciprocal portals. The rooms use the current engine geometry, including vertical overlap and view-only windows.
 
 ## DOOM import workflow
 

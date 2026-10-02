@@ -962,37 +962,6 @@ mod tests {
         Direction((-delta.x).atan2(delta.y))
     }
 
-    fn simulate_forward_steps(
-        sectors: &[Sector],
-        start_sector: SectorId,
-        start: Vec2,
-        feet_z: f32,
-        direction: Direction,
-        steps: usize,
-    ) -> Player {
-        let mut player = Player {
-            current_sector: Some(start_sector),
-            position: Position3(vec3(start.x, start.y, feet_z)),
-            direction,
-            grounded: true,
-            ..Player::default()
-        };
-
-        for _ in 0..steps {
-            simulate_player(
-                &mut player,
-                PlayerInput {
-                    forward: true,
-                    ..PlayerInput::default()
-                },
-                1.0 / 60.0,
-                &sectors,
-            );
-        }
-
-        player
-    }
-
     #[test]
     fn sector_contains_player_checks_polygon_and_height() {
         let sector = simple_room();
@@ -1723,6 +1692,32 @@ mod tests {
         let offset = PLAYER_RADIUS_METERS + 0.05;
         let mut checked_pairs = 0;
 
+        // Thin doorway sectors are crossed within one or two frames. Observe
+        // entry instead of assuming a fixed 30-frame walk ends in that sector.
+        let walk_until_entry = |source: &Sector, target: &Sector, start: Vec2, aim: Vec2| {
+            let mut player = Player {
+                position: Position3(vec3(start.x, start.y, source.floor.0)),
+                current_sector: Some(source.id),
+                direction: direction_toward(start, aim),
+                ..Player::default()
+            };
+            for _ in 0..30 {
+                simulate_player(
+                    &mut player,
+                    PlayerInput {
+                        forward: true,
+                        ..PlayerInput::default()
+                    },
+                    1.0 / 60.0,
+                    &sectors,
+                );
+                if player.current_sector == Some(target.id) {
+                    break;
+                }
+            }
+            player
+        };
+
         for source_sector in &sectors {
             let source_centroid = sector_centroid(source_sector);
             for wall in source_sector.wall_segments() {
@@ -1741,9 +1736,16 @@ mod tests {
                     .find(|sector| sector.id == target_sector_id)
                     .unwrap();
                 let midpoint = (wall.left.0 + wall.right.0) * 0.5;
-                let source_start = midpoint + (source_centroid - midpoint).normalize() * offset;
                 let target_centroid = sector_centroid(target_sector);
-                let target_start = midpoint + (target_centroid - midpoint).normalize() * offset;
+                let edge = wall.right.0 - wall.left.0;
+                let mut inward = Vec2::new(-edge.y, edge.x).normalize();
+                if inward.dot(source_centroid - midpoint) < 0. {
+                    inward = -inward;
+                }
+                let source_offset = offset.min(inward.dot(source_centroid - midpoint) * 0.5);
+                let target_offset = offset.min(-inward.dot(target_centroid - midpoint) * 0.5);
+                let source_start = midpoint + inward * source_offset;
+                let target_start = midpoint - inward * target_offset;
 
                 let from_source = Player {
                     position: Position3(vec3(
@@ -1772,14 +1774,8 @@ mod tests {
 
                 checked_pairs += 1;
 
-                let toward_target = simulate_forward_steps(
-                    &sectors,
-                    source_sector.id,
-                    source_start,
-                    source_sector.floor.0,
-                    direction_toward(source_start, target_centroid),
-                    30,
-                );
+                let toward_target =
+                    walk_until_entry(source_sector, target_sector, source_start, target_start);
                 assert_eq!(
                     toward_target.current_sector,
                     Some(target_sector.id),
@@ -1793,14 +1789,8 @@ mod tests {
                     target_sector.id
                 );
 
-                let toward_source = simulate_forward_steps(
-                    &sectors,
-                    target_sector.id,
-                    target_start,
-                    target_sector.floor.0,
-                    direction_toward(target_start, source_centroid),
-                    30,
-                );
+                let toward_source =
+                    walk_until_entry(target_sector, source_sector, target_start, source_start);
                 assert_eq!(
                     toward_source.current_sector,
                     Some(source_sector.id),
