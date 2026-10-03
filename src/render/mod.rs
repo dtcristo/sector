@@ -186,18 +186,14 @@ impl From<Position2> for Pixel {
 pub enum Automap {
     Off,
     RotateFull,
-    RotateVisible,
     NorthUpFull,
-    NorthUpVisible,
 }
 
 impl Automap {
     pub fn next(self) -> Self {
         match self {
-            Self::Off => Self::RotateVisible,
-            Self::RotateVisible => Self::RotateFull,
-            Self::RotateFull => Self::NorthUpVisible,
-            Self::NorthUpVisible => Self::NorthUpFull,
+            Self::Off => Self::RotateFull,
+            Self::RotateFull => Self::NorthUpFull,
             Self::NorthUpFull => Self::Off,
         }
     }
@@ -866,24 +862,18 @@ mod tests {
     }
 
     #[test]
-    fn automap_mode_cycle_swaps_visible_and_full_order() {
+    fn automap_cycles_relative_absolute_and_off() {
         let mut mode = Automap::Off;
         let mut seen = Vec::new();
 
-        for _ in 0..5 {
+        for _ in 0..3 {
             mode = mode.next();
             seen.push(mode);
         }
 
         assert_eq!(
             seen,
-            vec![
-                Automap::RotateVisible,
-                Automap::RotateFull,
-                Automap::NorthUpVisible,
-                Automap::NorthUpFull,
-                Automap::Off,
-            ]
+            vec![Automap::RotateFull, Automap::NorthUpFull, Automap::Off,]
         );
     }
 
