@@ -11,7 +11,7 @@ use bevy::{
     ecs::system::Commands,
     input::ButtonInput,
     math::vec3,
-    prelude::{Component, KeyCode, Vec3},
+    prelude::{Component, KeyCode, Vec2, Vec3},
 };
 
 const MOUSE_LOOK_SENSITIVITY: f32 = 0.005;
@@ -76,6 +76,8 @@ impl Player {
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct PlayerInput {
+    /// Local analog movement: positive X strafes right, positive Y walks forward.
+    pub movement_axes: Vec2,
     pub forward: bool,
     pub backward: bool,
     pub strafe_left: bool,
@@ -133,28 +135,16 @@ pub fn apply_player_look(player: &mut Player, input: PlayerInput) {
 }
 
 pub fn desired_horizontal_velocity(player: &Player, input: PlayerInput) -> Vec3 {
-    let mut velocity = Vec3::ZERO;
-
-    if input.forward {
-        velocity.x -= player.direction.0.sin();
-        velocity.y += player.direction.0.cos();
-    }
-    if input.backward {
-        velocity.x += player.direction.0.sin();
-        velocity.y -= player.direction.0.cos();
-    }
-    if input.strafe_left {
-        velocity.x -= player.direction.0.cos();
-        velocity.y -= player.direction.0.sin();
-    }
-    if input.strafe_right {
-        velocity.x += player.direction.0.cos();
-        velocity.y += player.direction.0.sin();
-    }
-
-    if velocity.length_squared() > 1.0 {
-        velocity = velocity.normalize();
-    }
+    let mut movement = input.movement_axes;
+    movement.x += f32::from(input.strafe_right) - f32::from(input.strafe_left);
+    movement.y += f32::from(input.forward) - f32::from(input.backward);
+    movement = movement.clamp_length_max(1.0);
+    let (sin, cos) = player.direction.0.sin_cos();
+    let velocity = vec3(
+        movement.x * cos - movement.y * sin,
+        movement.x * sin + movement.y * cos,
+        0.0,
+    );
 
     velocity * PLAYER_WALK_SPEED_MPS
 }

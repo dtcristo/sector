@@ -31,6 +31,9 @@ bevy_egui = { version = "0.40", optional = true }
 egui_plot = { version = "0.35", optional = true }
 rfd = { version = "0.15", optional = true }
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy_gilrs = { version = "0.19", optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1"
 wasm-bindgen = "=0.2.127"
@@ -47,6 +50,8 @@ protoc-bin-vendored = "3.2.0"
 
 [features]
 sector = [
+    "bevy/gamepad",
+    "dep:bevy_gilrs",
     "bevy/bevy_state",
     "bevy_pixels",
     "image"
