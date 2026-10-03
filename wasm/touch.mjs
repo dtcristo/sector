@@ -1,4 +1,4 @@
-// One owner per half, fixed at contact start even when a finger crosses the seam.
+// First contact chooses a role by half; the next takes the other role anywhere.
 export class TouchControls {
   constructor() {
     this.reset();
@@ -15,13 +15,13 @@ export class TouchControls {
   }
 
   start(id, x, y, width, time) {
-    const side = x < width / 2 ? "left" : "right";
     if (this.contacts.size >= 2) {
       if (this.mapGesture) this.mapGesture.valid = false;
       return false;
     }
     const first = this.contacts.values().next().value;
-    const owner = !first || first.side !== side;
+    const side = first ? (first.side === "left" ? "right" : "left") :
+      (x < width / 2 ? "left" : "right");
     if (this.mapGesture) this.mapGesture.valid = false;
     else if (first && !first.doubleTap && time - first.time <= 150 && !first.moved) {
       this.mapGesture = { remaining: new Set([...this.contacts.keys(), id]), time: first.time, valid: true };
@@ -29,10 +29,10 @@ export class TouchControls {
       this.jump = false;
     }
     const tap = this.taps[side];
-    const doubleTap = !this.mapGesture && owner && tap !== null && time - tap.time <= 300 &&
+    const doubleTap = !this.mapGesture && tap !== null && time - tap.time <= 300 &&
       Math.hypot(x - tap.x, y - tap.y) <= 32;
     this.taps[side] = null;
-    this.contacts.set(id, { side, owner, x, y, originX: x, originY: y, time,
+    this.contacts.set(id, { side, x, y, originX: x, originY: y, time,
       moved: false, crouch: side === "left" && doubleTap, doubleTap });
     this.active = true;
     if (side === "right" && doubleTap) this.jump = true;
@@ -42,7 +42,7 @@ export class TouchControls {
   move(id, x, y, width) {
     const contact = this.contacts.get(id);
     if (!contact) return;
-    if (contact.owner && contact.side === "right") this.look += (x - contact.x) * 320 / width;
+    if (contact.side === "right") this.look += (x - contact.x) * 480 / width;
     contact.x = x;
     contact.y = y;
     if (Math.hypot(x - contact.originX, y - contact.originY) > 12) {
@@ -64,7 +64,7 @@ export class TouchControls {
       this.contacts.delete(id);
       return;
     }
-    if (!cancelled && contact.owner && !contact.moved && !contact.doubleTap && time - contact.time <= 250) {
+    if (!cancelled && !contact.moved && !contact.doubleTap && time - contact.time <= 250) {
       this.taps[contact.side] = { x: contact.x, y: contact.y, time };
     }
     this.contacts.delete(id);
@@ -74,7 +74,7 @@ export class TouchControls {
   readButtons() {
     let mask = this.active ? 64 : 0;
     for (const contact of this.contacts.values()) {
-      if (!contact.owner || contact.side !== "left") continue;
+      if (contact.side !== "left") continue;
       const dx = contact.x - contact.originX;
       const dy = contact.y - contact.originY;
       if (dy < -16) mask |= 1;

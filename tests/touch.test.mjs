@@ -14,12 +14,12 @@ test("independent movement and look, contact ownership survives crossing the sea
   controls.move(1, 240, 160, 400);
   controls.move(2, 340, 200, 400);
   assert.equal(controls.readButtons(), 64 | 1 | 8);
-  assert.equal(controls.readLook(), 32);
+  assert.equal(controls.readLook(), 48);
   assert.equal(controls.readLook(), 0);
   controls.end(1, 500);
   assert.equal(controls.readButtons(), 64);
   controls.move(2, 300, 200, 400);
-  assert.equal(controls.readLook(), -32);
+  assert.equal(controls.readLook(), -48);
 });
 
 test("dead zone, backward and left movement, release stops", () => {
@@ -52,7 +52,7 @@ test("left double tap holds crouch while moving and looking, release stands", ()
   controls.move(2, 105, 150, 400);
   controls.move(3, 330, 200, 400);
   assert.equal(controls.readButtons(), 64 | 1 | 16);
-  assert.equal(controls.readLook(), 24);
+  assert.equal(controls.readLook(), 36);
   controls.end(2, 600);
   assert.equal(controls.readButtons(), 64);
 });
@@ -90,7 +90,7 @@ test("look sensitivity scales with viewport width in either orientation", () => 
     const controls = new TouchControls();
     controls.start(1, width * 0.7, 200, width, 0);
     controls.move(1, width * 0.8, 200, width);
-    assert.ok(Math.abs(controls.readLook() - 32) < 0.0001);
+    assert.ok(Math.abs(controls.readLook() - 48) < 0.0001);
   }
 });
 
@@ -160,5 +160,26 @@ test("moving, held, cancelled or three-finger contacts cannot open the map", () 
     controls.end(1, 80, scenario === "cancelled");
     controls.end(2, scenario === "held" ? 500 : 90);
     assert.equal(controls.readButtons(), 64, scenario);
+  }
+});
+
+
+test("second finger takes the opposite role anywhere and replacement preserves surviving role", () => {
+  for (const firstX of [100, 300]) {
+    const controls = new TouchControls();
+    controls.start(1, firstX, 200, 400, 0);
+    controls.start(2, firstX + 10, 200, 400, 200);
+    const moveId = firstX < 200 ? 1 : 2;
+    const lookId = moveId === 1 ? 2 : 1;
+    controls.move(moveId, firstX + (moveId === 2 ? 10 : 0), 150, 400);
+    controls.move(lookId, firstX + (lookId === 2 ? 10 : 0) + 40, 200, 400);
+    assert.equal(controls.readButtons(), 64 | 1);
+    assert.equal(controls.readLook(), 48);
+    controls.end(1, 500);
+    const survivor = controls.contacts.get(2);
+    const role = survivor.side;
+    controls.start(3, firstX, 200, 400, 600);
+    assert.equal(controls.contacts.get(2).side, role);
+    assert.notEqual(controls.contacts.get(3).side, role);
   }
 });
