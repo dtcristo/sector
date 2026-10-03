@@ -57,7 +57,7 @@ impl ControllerSnapshot {
 pub struct ControllerInput {
     pub active: bool,
     pub map_pending: bool,
-    pub dpad_turns: bool,
+    pub dpad_strafes: bool,
     id: Option<u64>,
     last_buttons: u32,
     movement: Vec2,
@@ -71,9 +71,9 @@ pub struct ControllerInput {
 
 impl ControllerInput {
     fn clear(&mut self) {
-        let dpad_turns = self.dpad_turns;
+        let dpad_strafes = self.dpad_strafes;
         *self = Self {
-            dpad_turns,
+            dpad_strafes,
             ..default()
         };
     }
@@ -97,7 +97,7 @@ impl ControllerInput {
         self.last_buttons = snapshot.buttons;
         self.active |= snapshot.has_input();
         if pressed & SWAP_DPAD != 0 {
-            self.dpad_turns = !self.dpad_turns;
+            self.dpad_strafes = !self.dpad_strafes;
         }
         if pressed & TOGGLE_CROUCH != 0 {
             self.crouch_toggle = !self.crouch_toggle;
@@ -109,10 +109,10 @@ impl ControllerInput {
         let bumper = f32::from(snapshot.buttons & RIGHT_BUMPER != 0)
             - f32::from(snapshot.buttons & LEFT_BUMPER != 0);
         let stick = radial_dead_zone(snapshot.left_stick);
-        let (strafe, turn) = if self.dpad_turns {
-            (bumper, snapshot.dpad.x)
-        } else {
+        let (strafe, turn) = if self.dpad_strafes {
             (snapshot.dpad.x, bumper)
+        } else {
+            (bumper, snapshot.dpad.x)
         };
         self.movement = (stick + Vec2::new(strafe, snapshot.dpad.y)).clamp_length_max(1.0);
         self.turn = (axis_dead_zone(snapshot.right_x) + turn).clamp(-1.0, 1.0);
@@ -218,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn stickless_dpad_moves_and_bumpers_turn_then_y_swaps_horizontal_roles() {
+    fn stickless_dpad_turns_and_bumpers_strafe_then_y_swaps_horizontal_roles() {
         let mut input = ControllerInput::default();
         input.sample(Some(snapshot(RIGHT_BUMPER, Vec2::new(1.0, 1.0))));
         assert!(input.active);
@@ -228,14 +228,14 @@ mod tests {
             SWAP_DPAD | RIGHT_BUMPER,
             Vec2::new(-1.0, 1.0),
         )));
-        assert!(input.dpad_turns);
-        assert_eq!(input.movement, Vec2::ONE.normalize());
-        assert_eq!(input.turn_delta(1.0), -TURN_SPEED);
+        assert!(input.dpad_strafes);
+        assert_eq!(input.movement, Vec2::new(-1.0, 1.0).normalize());
+        assert_eq!(input.turn_delta(1.0), TURN_SPEED);
         input.sample(Some(snapshot(SWAP_DPAD, Vec2::ZERO)));
-        assert!(input.dpad_turns, "holding Y must not toggle every frame");
+        assert!(input.dpad_strafes, "holding Y must not toggle every frame");
         input.sample(Some(snapshot(0, Vec2::ZERO)));
         input.sample(Some(snapshot(SWAP_DPAD, Vec2::ZERO)));
-        assert!(!input.dpad_turns);
+        assert!(!input.dpad_strafes);
     }
 
     #[test]
@@ -311,7 +311,7 @@ mod tests {
         assert!(input.merge(PlayerInput::default()).crouch_pressed);
         input.sample(None);
         assert!(!input.active);
-        assert!(input.dpad_turns);
+        assert!(input.dpad_strafes);
         assert_eq!(input.merge(PlayerInput::default()), PlayerInput::default());
     }
 
@@ -364,8 +364,8 @@ mod tests {
         let entity = app.world_mut().spawn(pad).id();
         app.update();
         let input = app.world().resource::<ControllerInput>();
-        assert_eq!(input.movement, Vec2::new(-1.0, 1.0).normalize());
-        assert_eq!(input.turn, 1.0);
+        assert_eq!(input.movement, Vec2::ONE.normalize());
+        assert_eq!(input.turn, -1.0);
         app.world_mut().despawn(entity);
         app.update();
         assert!(!app.world().resource::<ControllerInput>().active);
