@@ -1,6 +1,5 @@
 use super::{
     frame::{draw_line_with_metrics, draw_pixel_with_metrics, Pixel},
-    math::clip_wall_with_metrics,
     Automap, RenderMetrics, RenderView,
 };
 use crate::game::PLAYER_RADIUS_METERS;
@@ -54,18 +53,9 @@ pub(crate) fn render_automap_with_metrics(
 
             let view_left = wall.left.transform(view_matrix);
             let view_right = wall.right.transform(view_matrix);
-            let clipped = clip_wall_with_metrics(metrics, view_left, view_right);
 
             let Some((left, right)) = automap_segment(
-                metrics,
-                automap,
-                wall.left,
-                wall.right,
-                view_left,
-                view_right,
-                clipped,
-                player_xy,
-                inverse_view_rotation,
+                metrics, automap, wall.left, wall.right, view_left, view_right, player_xy,
             ) else {
                 continue;
             };
@@ -121,9 +111,7 @@ fn automap_segment(
     world_right: Position2,
     view_left: Position2,
     view_right: Position2,
-    clipped: Option<(Position2, Position2)>,
     player_xy: Vec2,
-    inverse_view_rotation: Mat3,
 ) -> Option<(Pixel, Pixel)> {
     match automap {
         Automap::Off => None,
@@ -131,22 +119,10 @@ fn automap_segment(
             metrics.pixel_from_automap_position(view_left),
             metrics.pixel_from_automap_position(view_right),
         )),
-        Automap::RotateVisible => clipped.map(|(left, right)| {
-            (
-                metrics.pixel_from_automap_position(left),
-                metrics.pixel_from_automap_position(right),
-            )
-        }),
         Automap::NorthUpFull => Some((
             metrics.pixel_from_automap_position(Position2(world_left.0 - player_xy)),
             metrics.pixel_from_automap_position(Position2(world_right.0 - player_xy)),
         )),
-        Automap::NorthUpVisible => clipped.map(|(left, right)| {
-            (
-                metrics.pixel_from_automap_position(left.transform(inverse_view_rotation)),
-                metrics.pixel_from_automap_position(right.transform(inverse_view_rotation)),
-            )
-        }),
     }
 }
 
@@ -162,14 +138,14 @@ fn automap_overlay(
 ) -> Option<(Pixel, Pixel, Pixel, Pixel, Pixel)> {
     match automap {
         Automap::Off => None,
-        Automap::RotateFull | Automap::RotateVisible => Some((
+        Automap::RotateFull => Some((
             metrics.pixel_from_automap_position(view_player),
             metrics.pixel_from_automap_position(view_near_left),
             metrics.pixel_from_automap_position(view_near_right),
             metrics.pixel_from_automap_position(view_far_left),
             metrics.pixel_from_automap_position(view_far_right),
         )),
-        Automap::NorthUpFull | Automap::NorthUpVisible => {
+        Automap::NorthUpFull => {
             let player = Position2(vec2(0.0, 0.0));
             Some((
                 metrics.pixel_from_automap_position(player),
@@ -286,41 +262,6 @@ mod tests {
     }
 
     #[test]
-    fn north_up_visible_automap_omits_back_wall() {
-        let sectors = [sector(
-            0,
-            &[(-6.0, 10.0), (6.0, 10.0), (6.0, -10.0), (-6.0, -10.0)],
-            &[None, None, None, None],
-        )];
-        let view = RenderView::new(
-            Position3(Vec3::new(0.0, 0.0, crate::game::PLAYER_EYE_HEIGHT_METERS)),
-            0.0,
-            None,
-        );
-        let mut frame = super::super::FrameBuffer::new();
-
-        render_automap(
-            frame.as_mut_slice(),
-            &view,
-            &sectors,
-            Automap::NorthUpVisible,
-        );
-
-        let center_x = super::super::WIDTH as usize / 2;
-        let front_y = (super::super::HEIGHT as usize / 2).saturating_sub(80);
-        let back_y = super::super::HEIGHT as usize / 2 + 80;
-        let wall = [
-            AUTOMAP_WALL_COLOR.0[0],
-            AUTOMAP_WALL_COLOR.0[1],
-            AUTOMAP_WALL_COLOR.0[2],
-            255,
-        ];
-
-        assert_eq!(frame.pixel(center_x, front_y), wall);
-        assert_eq!(frame.pixel(center_x, back_y), [0, 0, 0, 255]);
-    }
-
-    #[test]
     fn north_up_automap_draws_portals_red_once() {
         let sectors = [
             sector(
@@ -382,38 +323,5 @@ mod tests {
 
         assert_eq!(frame.pixel(center_x, center_y), player);
         assert_eq!(frame.pixel(center_x + radius, center_y), player);
-    }
-
-    #[test]
-    fn rotate_visible_automap_omits_back_wall() {
-        let sectors = [sector(
-            0,
-            &[(-6.0, 10.0), (6.0, 10.0), (6.0, -10.0), (-6.0, -10.0)],
-            &[None, None, None, None],
-        )];
-        let view = RenderView::new(
-            Position3(Vec3::new(0.0, 0.0, crate::game::PLAYER_EYE_HEIGHT_METERS)),
-            0.0,
-            None,
-        );
-        let mut frame = super::super::FrameBuffer::new();
-
-        render_automap(
-            frame.as_mut_slice(),
-            &view,
-            &sectors,
-            Automap::RotateVisible,
-        );
-
-        let center_x = super::super::WIDTH as usize / 2;
-        let wall = [
-            AUTOMAP_WALL_COLOR.0[0],
-            AUTOMAP_WALL_COLOR.0[1],
-            AUTOMAP_WALL_COLOR.0[2],
-            255,
-        ];
-
-        assert_eq!(frame.pixel(center_x, 40), wall);
-        assert_eq!(frame.pixel(center_x, 200), [0, 0, 0, 255]);
     }
 }

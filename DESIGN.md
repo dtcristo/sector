@@ -169,10 +169,10 @@ When two adjacent portal-connected sectors both use `no_ceiling`, the renderer s
 
 The automap shares the world data and projection helpers with the renderer. It supports:
 
-- rotating full map
-- rotating visible-only map
-- north-up full map
-- north-up visible-only map
+- relative full map, rotating with the player
+- absolute full map, north-up
+
+The cycle is Off → Relative → Absolute → Off. Walls behind the player remain visible; map drawing does not perform view-frustum clipping.
 
 Portal edges are deduplicated so a shared portal is only drawn once.
 Its frustum overlay and map-space projection now use the same per-frame render metrics as the main renderer, so wide or tall windows show the correct current view cone instead of a fixed 4:3 frustum.
@@ -237,7 +237,7 @@ The project leans on fast unit tests instead of heavy end-to-end harnesses:
 - map tests verify validation rules and asset expectations
 - physics tests cover collision, stepping, jumping, crouching, and portal transitions
 - renderer tests cover filling behavior, portal continuity, shading, and outline behavior, including the shipped E1M1 outdoor clipping failure at baseline, wide, and tall buffer sizes
-- automap tests cover visible/full modes and portal edge handling
+- automap tests cover full-map modes and portal edge handling
 
 This keeps feedback quick while still protecting the important visual and gameplay invariants.
 
@@ -269,6 +269,12 @@ The working conventions tied to the current design are:
 
 ## Browser touch input
 
-`wasm/touch.mjs` tracks at most two pointer contacts with independent movement/look owners, assigned to the left or right half at contact start. Left displacement drives movement with a 16 CSS pixel dead zone. Right movement accumulates horizontal look, scaled to viewport width. Double taps require a short, stationary first tap followed by a nearby contact within 300 ms. Left double-tap holds crouch, right double-tap queues one jump. A stationary two-finger tap within 250 ms queues an automap cycle, including when both fingers start on the same half. Movement, cancellation, or a third finger invalidates that gesture. Pointer capture preserves contact ownership across the center seam. Cancellation, lost capture, resize, blur, and page hiding clear held controls.
+`wasm/touch.mjs` tracks at most two pointer contacts with independent movement/look owners. The first contact chooses its role from its starting half; a second contact gets the opposite role regardless of position. A surviving contact keeps its role, and a replacement fills the other role. Left displacement drives movement with a 16 CSS pixel dead zone. Right movement accumulates horizontal look, scaled to viewport width at 480 look units per full-width swipe (50% faster than the original touch controls). Double taps require a short, stationary first tap followed by a nearby contact within 300 ms. Left double-tap holds crouch, right double-tap queues one jump. A stationary two-finger tap within 250 ms queues an automap cycle, including when both fingers start on the same half. Movement, cancellation, or a third finger invalidates that gesture. Pointer capture preserves contact ownership across the center seam. Cancellation, lost capture, resize, blur, and page hiding clear held controls.
 
 `src/bin/sector/touch.rs` samples browser state in `PreUpdate`, before fixed simulation. Jump edges stay queued until one fixed tick consumes them. Touch activates simulation without pointer lock and uses the existing player physics. Only keyboard Space taps feed the flight toggle. Native builds use empty touch state. Gesture processing is bounded to two contacts and does no work per rendered pixel.
+
+## Gamepad input
+
+`src/bin/sector/controller.rs` consumes a common snapshot from native Bevy gamepad components or the browser Gamepad API bridge in `wasm/gamepad.mjs`. Native builds install Gilrs with its controller mapping database; browser builds poll directly, including a fallback for eight-button, two-axis SNES USB pads. The native backend is excluded from WASM. One active controller owns input; an idle controller can yield to another controller with input.
+
+Snapshots are sampled after Bevy input processing in `PreUpdate`. The shared state applies a radial 20% movement dead zone and a rescaled turn dead zone. Analog movement adds to keyboard/touch input and caps combined speed, including diagonals. Stick and bumper turning use elapsed time at 2.5 radians per second. Jump and automap edges remain queued until consumed once; only keyboard Space feeds the flight toggle. D-pad left/right turns and bumpers strafe by default. Y swaps horizontal D-pad and bumper roles without changing stick bindings. Focus loss and disconnect clear held state and crouch toggles while retaining the chosen D-pad layout. Refocusing requires neutral input before accepting held controls again.

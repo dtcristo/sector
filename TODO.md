@@ -2,6 +2,8 @@
 
 ## Runtime and gameplay
 
+- Test controller feel on physical modern and USB SNES pads; add browser profiles for other unmapped adapters as needed.
+
 - Tune touch sensitivity and gesture thresholds from physical iOS/Android playtesting.
 
 - Add interactive doors, lifts, and other moving sector boundaries instead of baking them open into maps.

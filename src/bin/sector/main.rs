@@ -1,3 +1,7 @@
+mod controller;
+
+use controller::{sample_controller_input, ControllerInput};
+
 mod touch;
 
 use touch::{sample_touch_input, TouchInput};
@@ -144,6 +148,11 @@ impl Plugin for SectorRuntimePlugin {
             .insert_resource(RendererTimingState::default())
             .insert_resource(FlyToggleTracker::default())
             .init_resource::<TouchInput>()
+            .init_resource::<ControllerInput>()
+            .add_systems(
+                PreUpdate,
+                sample_controller_input.after(bevy::input::InputSystems),
+            )
             .add_systems(PreUpdate, sample_touch_input)
             .insert_resource(WindowTitleTimer(Timer::new(
                 Duration::from_millis(500),
@@ -249,6 +258,9 @@ fn main() {
                 }),
         )
         .add_plugins(FrameTimeDiagnosticsPlugin::default());
+
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(bevy_gilrs::GilrsPlugin);
 
     configure_runtime_plugins(&mut app);
 
@@ -551,8 +563,11 @@ fn switch_automap_system(
     mut automap: ResMut<AutomapMode>,
     key: Res<ButtonInput<KeyCode>>,
     mut touch: ResMut<TouchInput>,
+    mut controller: ResMut<ControllerInput>,
 ) {
-    if std::mem::take(&mut touch.map_pending) || key.just_pressed(KeyCode::Tab) {
+    let controller_map = std::mem::take(&mut controller.map_pending);
+    let touch_map = std::mem::take(&mut touch.map_pending);
+    if controller_map || touch_map || key.just_pressed(KeyCode::Tab) {
         automap.0 = automap.0.next();
     }
 }
@@ -785,8 +800,12 @@ fn vec3_components(vector: Vec3) -> [f32; 3] {
     [vector.x, vector.y, vector.z]
 }
 
-fn player_controls_active(cursor: Res<State<CursorCaptureState>>, touch: Res<TouchInput>) -> bool {
-    *cursor.get() == CursorCaptureState::Captured || touch.active
+fn player_controls_active(
+    cursor: Res<State<CursorCaptureState>>,
+    touch: Res<TouchInput>,
+    controller: Res<ControllerInput>,
+) -> bool {
+    *cursor.get() == CursorCaptureState::Captured || touch.active || controller.active
 }
 
 fn player_look_system(
@@ -795,6 +814,8 @@ fn player_look_system(
     key: Res<ButtonInput<KeyCode>>,
     cursor_capture_state: Res<State<CursorCaptureState>>,
     touch: Res<TouchInput>,
+    controller: Res<ControllerInput>,
+    time: Res<Time>,
 ) {
     let Ok(mut player) = player_query.single_mut() else {
         return;
@@ -810,6 +831,7 @@ fn player_look_system(
         cursor_locked || touch.active,
     );
     apply_player_look(&mut player, input);
+    player.direction.0 -= controller.turn_delta(time.delta_secs());
 }
 
 fn player_simulation_system(
@@ -817,6 +839,7 @@ fn player_simulation_system(
     key: Res<ButtonInput<KeyCode>>,
     mut fly_toggle_tracker: ResMut<FlyToggleTracker>,
     mut touch: ResMut<TouchInput>,
+    mut controller: ResMut<ControllerInput>,
     time: Res<Time<Fixed>>,
     runtime_sectors: Option<Res<RuntimeSectors>>,
 ) {
@@ -842,10 +865,10 @@ fn player_simulation_system(
         );
     }
 
-    let input = touch.merge(PlayerInput::from_keys(
+    let input = controller.merge(touch.merge(PlayerInput::from_keys(
         &key,
         jump_just_pressed && !toggled_fly_mode && !player.fly_mode,
-    ));
+    )));
     simulate_player(
         &mut player,
         input,

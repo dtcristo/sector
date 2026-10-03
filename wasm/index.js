@@ -1,6 +1,8 @@
+import { installGamepadControls } from "/gamepad.mjs";
 import { installTouchControls } from "/touch.mjs";
 
 installTouchControls();
+installGamepadControls();
 
 const bootError = document.getElementById("boot-error");
 const path = window.location.pathname.trim().replace(/^\/+|\/+$/g, "").toLowerCase();

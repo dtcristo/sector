@@ -174,8 +174,18 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 ### Phone controls
 
-Touch controls have no buttons. On the left half, drag up/down to walk forward/backward and left/right to strafe. Keep holding to move, release to stop. On the right half, swipe horizontally to look, or double-tap to jump. Double-tap the left half and hold the second tap to crouch; drag that held finger to walk while crouched. Release to stand when headroom allows. A quick stationary two-finger tap anywhere cycles the automap. Both thumbs work together in portrait and landscape. Touch jumping never toggles flight.
+Touch controls have no buttons. Your first finger chooses a role: starting on the left controls movement; starting on the right controls looking. A second finger takes the other role anywhere on screen, even on the same half. Roles stay fixed until each finger lifts. For movement, drag up/down to walk forward/backward and left/right to strafe. Keep holding to move, release to stop. For looking, swipe horizontally to look, or double-tap to jump. Double-tap with the movement finger and hold the second tap to crouch; drag that held finger to walk while crouched. Release to stand when headroom allows. A quick stationary two-finger tap anywhere cycles the automap: Off → Relative → Absolute → Off. Both thumbs work together in portrait and landscape. Touch jumping never toggles flight.
 
 A short hint appears on touch devices and disappears after your first interaction. Turning the phone or leaving the page clears held gestures. Desktop keyboard and mouse controls remain available.
 
 Run the fast gesture regression tests with `node --test tests/touch.test.mjs`.
+
+### Gamepad controls
+
+Native and browser play support gamepads without mouse capture. Press a controller button or move a stick to start. Left stick walks and strafes with analog speed; right stick turns horizontally. A jumps, B holds crouch, left-stick click toggles crouch, and Select cycles the automap. Jump never toggles flight.
+
+Stickless controllers use D-pad up/down to walk, left/right to turn, and L/R bumpers to strafe. Press Y to swap the horizontal bindings: D-pad left/right strafes and bumpers turn. Up/down and the sticks keep their original roles. Y toggles once per press and the selected layout lasts until Y is pressed again or the runtime restarts.
+
+Native input uses platform controller mappings. Browsers support standard-mapped controllers and a common unmapped eight-button USB SNES profile: Y, B, A, X, L, R, Select, Start at button indices 0 through 7, with D-pad axes 0 and 1. USB adapters with other raw layouts need a matching profile. Release controls after returning from another window; focus loss and disconnect clear held movement, crouch and queued actions.
+
+Run browser input tests with `node --test tests/touch.test.mjs tests/gamepad.test.mjs`.
