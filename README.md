@@ -13,7 +13,7 @@
 
 `sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional open ceilings with either black fallback or flat sky tint, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
 
-The native runtime and editor share the same `SectorMap` data model across both RON and Protobuf assets in `assets/maps/*.map.ron` and `assets/maps/*.map.pb`. The runtime now treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 21:9 or growing vertically to 9:16 before letterboxing extreme shapes. The web build ships the play runtime only, bundles the shipped maps, and resolves the current map from the URL path.
+The native runtime and editor share the same `SectorMap` data model across RON and Protobuf assets. Shipped maps use Protobuf in `assets/maps/*.map.pb`; the editor also supports RON for authoring. The runtime treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 21:9 or growing vertically to 9:16 before letterboxing extreme shapes. The web build ships the play runtime and serves each map as a separate static asset selected from the URL path.
 
 ## Repository docs
 
@@ -36,11 +36,11 @@ The native runtime and editor share the same `SectorMap` data model across both 
 
 ```sh
 cargo test --features "sector sector_edit doom_import"
-cargo run --features sector --bin sector -- assets/maps/default.map.ron
+cargo run --features sector --bin sector -- assets/maps/default.map.pb
 cargo run --features sector --bin sector -- assets/maps/e1m1.map.pb
 cargo run --features sector_edit --bin sector_edit
 cargo run --bin sector_import_doom --features doom_import -- ../DOOM1.WAD E1M1
-cargo run --bin sector_validate -- assets/maps/default.map.ron
+cargo run --bin sector_validate -- assets/maps/default.map.pb
 ```
 
 If you use `just`, the current shortcuts are:
@@ -89,15 +89,17 @@ cargo install wasm-bindgen-cli --version 0.2.127 --locked
 - `/` or `/default` loads the default map
 - `/e1m1` loads E1M1
 
-Map names are not hardcoded in the runtime; the web bundle scans `assets/maps/` at build time and embeds every shipped map so new maps can be exposed by route after rebuilding the web output.
+The web build records shipped map names and paths at build time without embedding their contents in Wasm. The runtime fetches the selected `.map.pb` from `assets/maps/` after startup, so maps remain independent static assets. Add a shipped Protobuf map and rebuild to expose it at `/<map-name>`.
 
 The browser build uses the same adaptive viewport rules as native play, so route-selected maps keep the same 4:3 baseline feel while still making better use of wide and tall windows. The canvas follows the browser viewport even below the native 320x240 minimum, and the GPU surface catches up with any resize during startup. Native and web builds use published `bevy_pixels` 0.17 with Bevy 0.19. No sibling checkout is needed. Protobuf maps use the same `.map.pb` schema on both platforms through the pure Rust `prost` runtime.
 
 ## CI/CD
 
-`.github/workflows/ci-cd.yml` runs formatting, native checks, tests, shipped-map validation, and the web bundle build on pushes and pull requests. Pushes to `main` then deploy the generated `wasm/` bundle to Cloudflare Pages project `sector`.
+`.github/workflows/ci-cd.yml` runs formatting, native checks, tests, shipped-map validation, and the web bundle build on pushes and pull requests. Pushes to `main` deploy the generated `wasm/` bundle to Cloudflare Pages project `sector`.
 
-Deployment uses `cloudflare/wrangler-action@v4`. Configure repository Actions secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` before deploying. The token needs Account > Cloudflare Pages > Edit permission for the project's account.
+Cloudflare Pages limits each static asset to 25 MiB. The deploy job Brotli-compresses the Wasm runtime and each shipped `.map.pb` file in place, then sets `Content-Encoding: br` while preserving their URLs. It also serves Wasm with `application/wasm`; browsers decode all Brotli assets automatically.
+
+Keep the GitHub `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` Actions secrets configured. The token needs Account > Cloudflare Pages > Edit permission for the project's account. No Cloudflare dashboard changes are needed for this compression.
 
 ## Shipped maps
 

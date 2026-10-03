@@ -27,13 +27,13 @@ The repository currently has four primary binaries:
 
 The shared library code lives in `src/`:
 
-- `src/map.rs`: RON/Protobuf map asset formats, load/save helpers, wasm embedded-map lookup, and structural validation.
+- `src/map.rs`: RON/Protobuf map asset formats, load/save helpers, shipped-map lookup, and structural validation.
 - `src/world.rs`: runtime sector types and allocation-free wall expansion helpers.
 - `src/game/`: player state, input, and physics/movement simulation.
 - `src/render/`: software renderer, automap, projection math, and frame utilities.
 - `src/bin/sector_import_doom/importer.rs`: WAD parsing, color extraction, geometry conversion, and map emission for imported DOOM levels.
 - `src/color.rs`, `src/geometry.rs`, `src/player.rs`: shared primitive types and gameplay constants.
-- `build.rs`: scans shipped maps and generates the embedded map registry used by the wasm runtime.
+- `build.rs`: scans shipped maps and generates the lightweight name/path registry used by the wasm runtime.
 
 ## Default demo map
 
@@ -57,7 +57,7 @@ This is a classic sector graph rather than a general polygon soup. Each sector i
 
 ### Asset format
 
-Maps are stored as either RON (`*.map.ron`) or Protobuf (`*.map.pb`) in `assets/maps/`. `SectorMap` mirrors the runtime world but stays asset-friendly:
+Shipped maps use Protobuf (`*.map.pb`) in `assets/maps/`. The editor also reads and writes RON (`*.map.ron`) for authoring. `SectorMap` mirrors the runtime world but stays asset-friendly:
 
 - `initial_sector`
 - `initial_position`
@@ -76,7 +76,7 @@ Maps are stored as either RON (`*.map.ron`) or Protobuf (`*.map.pb`) in `assets/
     - optional `upper_color`
     - optional `lower_color`
 
-The binary `.map.pb` flavor is defined by the checked-in `proto/sector_map.proto` schema and compiled during `build.rs` with `prost-build` and vendored `protoc`, so the runtime/editor/importer all share one binary layout instead of ad-hoc serializers. `prost` keeps decoding and encoding in pure Rust so the wasm target does not need the C runtime used by the former Protobuf v4 backend.
+The binary `.map.pb` flavor is defined by the checked-in `proto/sector_map.proto` schema and compiled during `build.rs` with `prost-build` and vendored `protoc`, so the runtime/editor/importer all share one binary layout instead of ad-hoc serializers. `prost` keeps decoding and encoding in pure Rust so the wasm target does not need the C runtime used by the former Protobuf v4 backend. Wasm startup loads the selected map asynchronously from its separate static asset; Brotli content encoding is decoded by the browser before the map loader parses it.
 
 Flat wall, floor, and ceiling colors are the material system today. There are no textures, no slopes, and no per-surface UVs. A sector without a rendered ceiling still keeps a numeric ceiling height for collision and portal opening checks, and may optionally carry a `sky_color` so open ceilings can render as a flat sky tint instead of the black fallback.
 
@@ -94,7 +94,7 @@ The runtime:
 
 On native builds, the runtime accepts an optional map path argument and otherwise falls back to `DEFAULT_MAP_FILE_PATH` from `src/lib.rs`.
 
-On wasm builds, the runtime derives the map name from the browser path (`/`, `/default`, `/e1m1`, and so on) and loads the map from a build-generated embedded registry. This avoids filesystem access in the browser while keeping route-based map switching dynamic across whatever maps were present in `assets/maps/` when the web bundle was built.
+On wasm builds, the runtime derives the map name from the browser path (`/`, `/default`, `/e1m1`, and so on) and looks up its asset path in a build-generated registry. Bevy fetches that map as a separate static asset before runtime initialization; the map bytes are not embedded in Wasm.
 
 ### Player and movement
 

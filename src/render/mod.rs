@@ -976,8 +976,7 @@ mod tests {
 
     #[test]
     fn default_map_initial_view_renders_non_black_frame() {
-        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
-            .unwrap();
+        let map = crate::map::load_map_from_path("assets/maps/default.map.pb").unwrap();
         let (initial_sector, sectors) = map_to_sectors(&map).unwrap();
         let initial_floor = sectors
             .iter()

@@ -943,8 +943,7 @@ mod tests {
     }
 
     fn default_map_sectors() -> (SectorMap, Vec<Sector>) {
-        let map = ron::de::from_str::<SectorMap>(include_str!("../../assets/maps/default.map.ron"))
-            .unwrap();
+        let map = crate::map::load_map_from_path("assets/maps/default.map.pb").unwrap();
         let (_, sectors) = map_to_sectors(&map).unwrap();
         (map, sectors)
     }

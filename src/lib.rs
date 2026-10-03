@@ -16,4 +16,4 @@ pub use color::{
 pub use geometry::{Length, Position2, Position3};
 pub use world::{InitialSector, Sector, SectorId, WallSegment};
 
-pub const DEFAULT_MAP_FILE_PATH: &str = "maps/default.map.ron";
+pub const DEFAULT_MAP_FILE_PATH: &str = "maps/default.map.pb";

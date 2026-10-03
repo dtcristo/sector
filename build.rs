@@ -25,21 +25,21 @@ fn main() {
             }
 
             let file_name = path.file_name()?.to_string_lossy();
-            let (map_name, _) = file_name.split_once(".map.")?;
+            let map_name = file_name.strip_suffix(".map.pb")?;
             let asset_path = format!("assets/maps/{file_name}");
-            Some((map_name.to_string(), asset_path, path))
+            Some((map_name.to_string(), asset_path))
         })
         .collect::<Vec<_>>();
     maps.sort_by(|left, right| left.0.cmp(&right.0).then(left.1.cmp(&right.1)));
 
-    let mut generated = String::from("static EMBEDDED_MAPS: &[EmbeddedMap] = &[\n");
-    for (_map_name, asset_path, source_path) in maps {
+    let mut generated = String::from("static SHIPPED_MAPS: &[ShippedMap] = &[\n");
+    for (map_name, asset_path) in maps {
         generated.push_str(&format!(
-            "    EmbeddedMap {{ asset_path: {asset_path:?}, bytes: include_bytes!({source_path:?}) }},\n"
+            "    ShippedMap {{ name: {map_name:?}, asset_path: {asset_path:?} }},\n"
         ));
     }
     generated.push_str("];\n");
 
-    fs::write(out_dir.join("embedded_maps.rs"), generated)
-        .expect("failed to write embedded map registry");
+    fs::write(out_dir.join("shipped_maps.rs"), generated)
+        .expect("failed to write shipped map registry");
 }

@@ -14,13 +14,13 @@
 - Runtime entry: `src/bin/sector/main.rs`
 - Editor entry: `src/bin/sector_edit/main.rs`
 - Core library: `src/game/` (player + physics), `src/render/` (software renderer), `src/map.rs` (RON/Protobuf map formats), `src/world.rs` (shared sector data)
-- Maps live in `assets/maps/*.map.ron` and `assets/maps/*.map.pb`
+- Shipped maps live in `assets/maps/*.map.pb`; RON remains supported for editor-authored maps
 - Map dimensions are meters, spawn lives in the map, and sector winding should stay clockwise for stable rendering
 - Main commands:
   - `cargo test --features "sector sector_edit"`
   - `cargo run --features sector --bin sector`
   - `cargo run --features sector_edit --bin sector_edit`
-  - `cargo run --bin sector_validate -- assets/maps/default.map.ron`
+  - `cargo run --bin sector_validate -- assets/maps/default.map.pb`
 
 ## Working rules
 

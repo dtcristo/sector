@@ -1,4 +1,6 @@
 //! Rebuild the shipped demo using only the existing map geometry and portals.
+#[cfg(test)]
+use sector::map::load_map_from_path;
 use sector::map::{save_map_to_path, MapSector, MapVertex, MapWall, SectorMap};
 
 const TRIM: [u8; 3] = [72, 72, 76];
@@ -517,7 +519,7 @@ fn build_demo() -> SectorMap {
 }
 
 fn main() {
-    save_map_to_path(&build_demo(), "assets/maps/default.map.ron").expect("demo must validate");
+    save_map_to_path(&build_demo(), "assets/maps/default.map.pb").expect("demo must validate");
 }
 
 #[cfg(test)]
@@ -526,8 +528,7 @@ mod tests {
     #[test]
     fn shipped_demo_matches_generator() {
         let mut generated = build_demo();
-        let shipped: SectorMap =
-            ron::from_str(include_str!("../../../assets/maps/default.map.ron")).unwrap();
+        let shipped = load_map_from_path("assets/maps/default.map.pb").unwrap();
         assert!(
             (generated.initial_direction_degrees - shipped.initial_direction_degrees).abs()
                 < 0.0001
