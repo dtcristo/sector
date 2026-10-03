@@ -22,8 +22,8 @@ pub(crate) const SHADE_BANDS: usize = 16;
 pub(crate) const BRIGHTNESS_NEAR: f32 = 1.0;
 pub(crate) const BRIGHTNESS_FAR: f32 = 0.35;
 const DEFAULT_ASPECT_RATIO: f32 = WIDTH as f32 / HEIGHT as f32;
-const MIN_ASPECT_RATIO: f32 = 9.0 / 16.0;
-const MAX_ASPECT_RATIO: f32 = 21.0 / 9.0;
+const MIN_ASPECT_RATIO: f32 = 9.0 / 21.0;
+const MAX_ASPECT_RATIO: f32 = 32.0 / 9.0;
 const FOV_X_RADIANS: f32 = std::f32::consts::FRAC_PI_2;
 const AUTOMAP_SCALE: f32 = 8.0;
 
@@ -516,6 +516,27 @@ mod tests {
             (400, 200)
         );
         assert_eq!(RenderMetrics::buffer_size_for_window(0.0, 0.0), (1, 1));
+    }
+
+    #[test]
+    fn buffer_size_fills_phone_orientations_and_super_ultrawide_displays() {
+        for (width, height) in [
+            (390.0, 844.0),
+            (844.0, 390.0),
+            (360.0, 840.0),
+            (840.0, 360.0),
+            (1080.0, 320.0),
+            (5120.0, 1440.0),
+        ] {
+            let (buffer_width, buffer_height) =
+                RenderMetrics::buffer_size_for_window(width, height);
+            let scale = (width / WIDTH as f32)
+                .min(height / HEIGHT as f32)
+                .floor()
+                .max(1.0);
+            assert!((buffer_width as f32 * scale - width).abs() < scale);
+            assert!((buffer_height as f32 * scale - height).abs() < scale);
+        }
     }
 
     #[test]

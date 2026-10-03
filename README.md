@@ -13,7 +13,7 @@
 
 `sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional open ceilings with either black fallback or flat sky tint, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
 
-The native runtime and editor share the same `SectorMap` data model across RON and Protobuf assets. Shipped maps use Protobuf in `assets/maps/*.map.pb`; the editor also supports RON for authoring. The runtime treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 21:9 or growing vertically to 9:16 before letterboxing extreme shapes. The web build ships the play runtime and serves each map as a separate static asset selected from the URL path.
+The native runtime and editor share the same `SectorMap` data model across RON and Protobuf assets. Shipped maps use Protobuf in `assets/maps/*.map.pb`; the editor also supports RON for authoring. The runtime treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 32:9 or growing vertically to 9:21 before letterboxing extreme shapes. The web build ships the play runtime and serves each map as a separate static asset selected from the URL path.
 
 ## Repository docs
 
@@ -171,3 +171,11 @@ at your option.
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be dual licensed as above, without any additional terms or conditions.
+
+### Phone controls
+
+Touch controls have no buttons. On the left half, drag up/down to walk forward/backward and left/right to strafe. Keep holding to move, release to stop. On the right half, swipe horizontally to look, or double-tap to jump. Double-tap the left half and hold the second tap to crouch; drag that held finger to walk while crouched. Release to stand when headroom allows. A quick stationary two-finger tap anywhere cycles the automap. Both thumbs work together in portrait and landscape. Touch jumping never toggles flight.
+
+A short hint appears on touch devices and disappears after your first interaction. Turning the phone or leaving the page clears held gestures. Desktop keyboard and mouse controls remain available.
+
+Run the fast gesture regression tests with `node --test tests/touch.test.mjs`.
