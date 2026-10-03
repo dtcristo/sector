@@ -48,7 +48,7 @@ test("left double tap holds crouch while moving and looking, release stands", ()
   const controls = new TouchControls();
   tap(controls, 1, 100, 0);
   controls.start(2, 105, 200, 400, 150);
-  controls.start(3, 300, 200, 400, 350);
+  controls.start(3, 300, 200, 400, 160);
   controls.move(2, 105, 150, 400);
   controls.move(3, 330, 200, 400);
   assert.equal(controls.readButtons(), 64 | 1 | 16);

@@ -23,11 +23,10 @@ export class TouchControls {
     const first = this.contacts.values().next().value;
     const owner = !first || first.side !== side;
     if (this.mapGesture) this.mapGesture.valid = false;
-    else if (first && time - first.time <= 150 && !first.moved) {
+    else if (first && !first.doubleTap && time - first.time <= 150 && !first.moved) {
       this.mapGesture = { remaining: new Set([...this.contacts.keys(), id]), time: first.time, valid: true };
       this.taps = { left: null, right: null };
       this.jump = false;
-      first.crouch = false;
     }
     const tap = this.taps[side];
     const doubleTap = !this.mapGesture && owner && tap !== null && time - tap.time <= 300 &&

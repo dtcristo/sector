@@ -664,7 +664,10 @@ fn dump_runtime_state_system(
         .separate_tuple_members(true);
     let ron = ron::ser::to_string_pretty(&dump, pretty)
         .expect("runtime state dump should serialize to RON");
+    #[cfg(not(target_arch = "wasm32"))]
     println!("runtime_state: {ron}");
+    #[cfg(target_arch = "wasm32")]
+    web_sys::console::log_1(&format!("runtime_state: {ron}").into());
 }
 
 fn toggle_noclip_system(mut player_query: Query<&mut Player>, key: Res<ButtonInput<KeyCode>>) {
@@ -803,11 +806,7 @@ fn player_look_system(
     let cursor_locked = *cursor_capture_state.get() == CursorCaptureState::Captured;
 
     let input = PlayerInput::from_keys(&key, key.just_pressed(KeyCode::Space)).with_mouse_look(
-        if touch.active {
-            touch.look_delta
-        } else {
-            mouse_delta_x
-        },
+        touch.look_delta + if cursor_locked { mouse_delta_x } else { 0.0 },
         cursor_locked || touch.active,
     );
     apply_player_look(&mut player, input);
