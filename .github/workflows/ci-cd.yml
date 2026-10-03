@@ -47,7 +47,7 @@ jobs:
 
       - name: Validate shipped maps
         run: |
-          cargo run --bin sector_validate -- assets/maps/default.map.ron
+          cargo run --bin sector_validate -- assets/maps/default.map.pb
           cargo run --bin sector_validate -- assets/maps/e1m1.map.pb
 
       - name: Build web bundle
@@ -78,6 +78,14 @@ jobs:
         with:
           name: dist
           path: dist
+
+      - name: Install Brotli
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends brotli
+
+      - name: Prepare Pages assets
+        run: scripts/prepare-pages-assets.sh dist
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v4

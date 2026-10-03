@@ -9,7 +9,7 @@ use sector::{
 };
 
 fn demo() -> Vec<Sector> {
-    let map = load_map_from_path("assets/maps/default.map.ron").unwrap();
+    let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
     map_to_sectors(&map).unwrap().1
 }
 
@@ -55,7 +55,7 @@ fn walk(player: &mut Player, sectors: &[Sector], goal: Vec2, expected_sector: u3
 }
 
 fn entrance() -> Player {
-    let map = load_map_from_path("assets/maps/default.map.ron").unwrap();
+    let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
     Player {
         position: Position3(vec3(map.initial_position.0, map.initial_position.1, 0.)),
         current_sector: Some(SectorId(0)),

@@ -12,10 +12,8 @@ use bevy::{
 };
 use prost::Message;
 use serde::{Deserialize, Serialize};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::fs;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 mod proto_map {
@@ -79,13 +77,13 @@ impl SectorMap {
 pub struct SectorMapLoader;
 
 #[cfg(target_arch = "wasm32")]
-struct EmbeddedMap {
+struct ShippedMap {
+    name: &'static str,
     asset_path: &'static str,
-    bytes: &'static [u8],
 }
 
 #[cfg(target_arch = "wasm32")]
-include!(concat!(env!("OUT_DIR"), "/embedded_maps.rs"));
+include!(concat!(env!("OUT_DIR"), "/shipped_maps.rs"));
 
 const MAP_EPSILON: f32 = 0.0001;
 
@@ -285,19 +283,11 @@ pub fn shipped_map_path(map_name: &str) -> PathBuf {
     })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn load_map_from_path(path: impl AsRef<Path>) -> Result<SectorMap, SectorMapError> {
     let path = path.as_ref();
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        return load_map_from_embedded_path(path);
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let bytes = fs::read(path)?;
-        parse_map_bytes_with_format(&bytes, map_data_format_for_path(path))
-    }
+    let bytes = fs::read(path)?;
+    parse_map_bytes_with_format(&bytes, map_data_format_for_path(path))
 }
 
 fn parse_map_bytes_with_format(
@@ -312,35 +302,6 @@ fn parse_map_bytes_with_format(
     Ok(map)
 }
 
-#[cfg(target_arch = "wasm32")]
-fn load_map_from_embedded_path(path: &Path) -> Result<SectorMap, SectorMapError> {
-    let bytes = embedded_map_bytes_for_path(path).ok_or_else(|| {
-        std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("web map asset is not bundled: {}", path.display()),
-        )
-    })?;
-    parse_map_bytes_with_format(bytes, map_data_format_for_path(path))
-}
-
-#[cfg(target_arch = "wasm32")]
-fn embedded_map_bytes_for_path(path: &Path) -> Option<&'static [u8]> {
-    let requested = normalized_embedded_map_path(path);
-    EMBEDDED_MAPS.iter().find_map(|embedded| {
-        let asset_path = embedded.asset_path.trim_start_matches("./");
-        let short_path = asset_path.strip_prefix("assets/").unwrap_or(asset_path);
-        (requested == asset_path || requested == short_path).then_some(embedded.bytes)
-    })
-}
-
-#[cfg(target_arch = "wasm32")]
-fn normalized_embedded_map_path(path: &Path) -> String {
-    path.to_string_lossy()
-        .replace('\\', "/")
-        .trim_start_matches("./")
-        .to_string()
-}
-
 fn normalized_map_name(map_name: &str) -> String {
     let trimmed = map_name.trim().trim_matches('/');
     if trimmed.is_empty() {
@@ -353,13 +314,10 @@ fn normalized_map_name(map_name: &str) -> String {
 fn resolve_shipped_map_path(map_name: &str) -> Option<PathBuf> {
     #[cfg(target_arch = "wasm32")]
     {
-        return EMBEDDED_MAPS.iter().find_map(|embedded| {
-            let file_name = Path::new(embedded.asset_path).file_name()?.to_str()?;
-            let (embedded_name, _) = file_name.split_once(".map.")?;
-            embedded_name
-                .eq_ignore_ascii_case(map_name)
-                .then(|| PathBuf::from(embedded.asset_path))
-        });
+        return SHIPPED_MAPS
+            .iter()
+            .find(|map| map.name.eq_ignore_ascii_case(map_name))
+            .map(|map| PathBuf::from(map.asset_path));
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1352,8 +1310,7 @@ mod tests {
 
     #[test]
     fn parses_default_map_asset() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
         validate_map(&map).unwrap();
     }
 
@@ -1426,8 +1383,7 @@ mod tests {
 
     #[test]
     fn default_map_has_walkable_steps_and_many_rooms() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
 
         assert!(map.sectors.len() >= 20);
 
@@ -1448,8 +1404,7 @@ mod tests {
 
     #[test]
     fn default_map_uses_dark_grey_portal_trims_for_stairs_and_windows() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
 
         const STAIR_PORTAL_UPPER: [u8; 3] = [72, 72, 76];
         const STAIR_PORTAL_LOWER: [u8; 3] = [44, 44, 48];
@@ -1481,8 +1436,7 @@ mod tests {
 
     #[test]
     fn default_map_has_many_step_spiral_staircase_to_upper_level() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
 
         for sector_index in 48_usize..95 {
             let sector = &map.sectors[sector_index];
@@ -1529,8 +1483,7 @@ mod tests {
 
     #[test]
     fn default_map_has_room_above_room_on_upper_level() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
 
         let lower_room = &map.sectors[8];
         let upper_room = &map.sectors[37];
@@ -1541,8 +1494,7 @@ mod tests {
 
     #[test]
     fn default_map_spawn_faces_entrance() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
         let initial_sector = &map.sectors[map.initial_sector];
         let stair_wall_index = initial_sector
             .walls
@@ -1593,8 +1545,7 @@ mod tests {
 
     #[test]
     fn default_map_has_crouch_only_connector() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
 
         let has_crouch_connector = map.sectors.iter().any(|sector| {
             let headroom = sector.ceil - sector.floor;
@@ -1608,8 +1559,7 @@ mod tests {
 
     #[test]
     fn default_map_has_angled_walls_and_explicit_spawn() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
 
         assert_ne!(map.initial_position, MapVertex::default());
         assert!(map.initial_direction_degrees.abs() > f32::EPSILON);
@@ -1627,8 +1577,7 @@ mod tests {
 
     #[test]
     fn default_map_has_large_drop_and_only_bidirectional_portals() {
-        let map =
-            ron::de::from_str::<SectorMap>(include_str!("../assets/maps/default.map.ron")).unwrap();
+        let map = load_map_from_path("assets/maps/default.map.pb").unwrap();
 
         let has_large_drop = map
             .sectors

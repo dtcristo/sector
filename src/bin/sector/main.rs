@@ -1,3 +1,5 @@
+#[cfg(target_arch = "wasm32")]
+use bevy::asset::LoadState;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::{app::AppExit, ecs::message::MessageWriter};
 use bevy::{
@@ -13,12 +15,17 @@ use bevy::{
 };
 use bevy_pixels::prelude::*;
 use ron::ser::PrettyConfig;
+#[cfg(not(target_arch = "wasm32"))]
+use sector::map::load_map_from_path;
+use sector::map::SectorMap;
+#[cfg(target_arch = "wasm32")]
+use sector::map::SectorMapLoader;
 use sector::{
     game::{
         apply_player_look, player_render_view, resolve_player_sector, sector_contains_player,
         setup_player_system, simulate_player, Player, PlayerInput,
     },
-    map::{load_map_from_path, map_to_sectors, shipped_map_path},
+    map::{map_to_sectors, shipped_map_path},
     render::{
         render_frame_with_metrics, render_frame_with_metrics_and_timings, Automap, RenderMetrics,
         RenderTimings, HEIGHT, WIDTH, WINDOW_SCALE,
@@ -107,6 +114,10 @@ struct RuntimeMapPath(PathBuf);
 #[derive(Resource, Debug, Clone)]
 struct RuntimeSectors(Vec<Sector>);
 
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource)]
+struct LoadingMap(Handle<SectorMap>);
+
 impl RuntimeSectors {
     fn as_slice(&self) -> &[Sector] {
         &self.0
@@ -133,7 +144,6 @@ impl Plugin for SectorRuntimePlugin {
                 TimerMode::Repeating,
             )))
             .insert_resource(Time::<Fixed>::from_hz(FIXED_SIMULATION_HZ))
-            .add_systems(Startup, (setup_player_system, init_runtime_system).chain())
             .add_systems(
                 OnEnter(CursorCaptureState::Captured),
                 apply_captured_cursor_system,
@@ -162,6 +172,18 @@ impl Plugin for SectorRuntimePlugin {
                 player_simulation_system.run_if(in_state(CursorCaptureState::Captured)),
             )
             .add_systems(Draw, draw_frame_system);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(Startup, (setup_player_system, init_runtime_system).chain());
+
+        #[cfg(target_arch = "wasm32")]
+        app.init_asset::<SectorMap>()
+            .init_asset_loader::<SectorMapLoader>()
+            .add_systems(
+                Startup,
+                (setup_player_system, request_web_map_system).chain(),
+            )
+            .add_systems(Update, finish_web_map_load_system);
     }
 }
 
@@ -188,6 +210,8 @@ fn main() {
             DefaultPlugins
                 .set(AssetPlugin {
                     watch_for_changes_override: Some(true),
+                    #[cfg(target_arch = "wasm32")]
+                    meta_check: bevy::asset::AssetMetaCheck::Never,
                     ..default()
                 })
                 .set(WindowPlugin {
@@ -305,12 +329,61 @@ fn map_name_from_route_component(route: &str) -> Option<String> {
     Some(map_name.to_ascii_lowercase())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn init_runtime_system(world: &mut World) {
     let map_path = world.resource::<RuntimeMapPath>().0.clone();
     println!("sector: loading map from {}", map_path.display());
 
     let map = load_map_from_path(&map_path)
         .unwrap_or_else(|error| panic!("failed to load map from {}: {error}", map_path.display()));
+    initialize_runtime_with_map(world, &map_path, map);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn request_web_map_system(world: &mut World) {
+    let map_path = world.resource::<RuntimeMapPath>().0.clone();
+    let asset_path = map_path
+        .strip_prefix("assets")
+        .unwrap_or(&map_path)
+        .to_string_lossy()
+        .trim_start_matches('/')
+        .to_owned();
+    println!("sector: loading map from {}", map_path.display());
+    let handle = world
+        .resource::<AssetServer>()
+        .load::<SectorMap>(asset_path);
+    world.insert_resource(LoadingMap(handle));
+}
+
+#[cfg(target_arch = "wasm32")]
+fn finish_web_map_load_system(world: &mut World) {
+    let Some(handle) = world
+        .get_resource::<LoadingMap>()
+        .map(|loading| loading.0.clone())
+    else {
+        return;
+    };
+
+    match world.resource::<AssetServer>().get_load_state(handle.id()) {
+        Some(LoadState::Loaded) => {
+            let map = world
+                .resource::<Assets<SectorMap>>()
+                .get(&handle)
+                .cloned()
+                .expect("loaded map asset should exist");
+            let map_path = world.resource::<RuntimeMapPath>().0.clone();
+            initialize_runtime_with_map(world, &map_path, map);
+            world.remove_resource::<LoadingMap>();
+        }
+        Some(LoadState::Failed(error)) => {
+            let map_path = world.resource::<RuntimeMapPath>().0.display();
+            panic!("failed to load map from {map_path}: {error}");
+        }
+        _ => {}
+    }
+}
+
+fn initialize_runtime_with_map(world: &mut World, map_path: &Path, map: SectorMap) {
     let (initial_sector, sectors) = map_to_sectors(&map).unwrap_or_else(|error| {
         panic!("failed to convert map from {}: {error}", map_path.display())
     });
@@ -412,8 +485,10 @@ fn request_cursor_capture_system(
     mouse_button: Res<ButtonInput<MouseButton>>,
     cursor_capture_state: Res<State<CursorCaptureState>>,
     mut next_cursor_capture_state: ResMut<NextState<CursorCaptureState>>,
+    runtime_sectors: Option<Res<RuntimeSectors>>,
 ) {
-    if *cursor_capture_state.get() == CursorCaptureState::Released
+    if runtime_sectors.is_some()
+        && *cursor_capture_state.get() == CursorCaptureState::Released
         && mouse_button.just_pressed(MouseButton::Left)
     {
         next_cursor_capture_state.set(CursorCaptureState::Captured);
@@ -558,13 +633,16 @@ fn debug_dump_requested(keys: &ButtonInput<KeyCode>) -> bool {
 
 fn dump_runtime_state_system(
     map_path: Res<RuntimeMapPath>,
-    runtime_sectors: Res<RuntimeSectors>,
+    runtime_sectors: Option<Res<RuntimeSectors>>,
     key: Res<ButtonInput<KeyCode>>,
     player_query: Query<&Player>,
 ) {
     if !debug_dump_requested(&key) {
         return;
     }
+    let Some(runtime_sectors) = runtime_sectors else {
+        return;
+    };
 
     let Ok(player) = player_query.single() else {
         return;
@@ -719,8 +797,11 @@ fn player_simulation_system(
     key: Res<ButtonInput<KeyCode>>,
     mut fly_toggle_tracker: ResMut<FlyToggleTracker>,
     time: Res<Time<Fixed>>,
-    runtime_sectors: Res<RuntimeSectors>,
+    runtime_sectors: Option<Res<RuntimeSectors>>,
 ) {
+    let Some(runtime_sectors) = runtime_sectors else {
+        return;
+    };
     let Ok(mut player) = player_query.single_mut() else {
         return;
     };
@@ -755,10 +836,13 @@ fn player_simulation_system(
 fn draw_frame_system(
     automap: Res<AutomapMode>,
     player_query: Query<&Player>,
-    runtime_sectors: Res<RuntimeSectors>,
+    runtime_sectors: Option<Res<RuntimeSectors>>,
     mut timing_state: ResMut<RendererTimingState>,
     mut wrapper_query: Query<(&mut PixelsWrapper, &PixelsOptions)>,
 ) {
+    let Some(runtime_sectors) = runtime_sectors else {
+        return;
+    };
     let Ok(player) = player_query.single() else {
         return;
     };
@@ -890,8 +974,13 @@ mod tests {
     #[test]
     fn web_route_defaults_to_default_map() {
         assert_eq!(map_name_from_route("/"), "default");
+        assert_eq!(map_name_from_route("/default"), "default");
         assert_eq!(
             runtime_map_path_from_web_route("/"),
+            shipped_map_path("default")
+        );
+        assert_eq!(
+            runtime_map_path_from_web_route("/default"),
             shipped_map_path("default")
         );
     }
