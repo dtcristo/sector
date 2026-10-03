@@ -266,3 +266,9 @@ The working conventions tied to the current design are:
 - CI/CD should mirror that native verification set before building and deploying the wasm runtime bundle
 
 `README.md` should describe the user-facing workflow, while this file should remain the durable source of truth for architecture and design intent.
+
+## Browser touch input
+
+`wasm/touch.mjs` tracks at most two pointer contacts with independent movement/look owners, assigned to the left or right half at contact start. Left displacement drives movement with a 16 CSS pixel dead zone. Right movement accumulates horizontal look, scaled to viewport width. Double taps require a short, stationary first tap followed by a nearby contact within 300 ms. Left double-tap holds crouch, right double-tap queues one jump. A stationary two-finger tap within 250 ms queues an automap cycle, including when both fingers start on the same half. Movement, cancellation, or a third finger invalidates that gesture. Pointer capture preserves contact ownership across the center seam. Cancellation, lost capture, resize, blur, and page hiding clear held controls.
+
+`src/bin/sector/touch.rs` samples browser state in `PreUpdate`, before fixed simulation. Jump edges stay queued until one fixed tick consumes them. Touch activates simulation without pointer lock and uses the existing player physics. Only keyboard Space taps feed the flight toggle. Native builds use empty touch state. Gesture processing is bounded to two contacts and does no work per rendered pixel.

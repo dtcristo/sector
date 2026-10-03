@@ -2,6 +2,8 @@
 
 ## Runtime and gameplay
 
+- Tune touch sensitivity and gesture thresholds from physical iOS/Android playtesting.
+
 - Add interactive doors, lifts, and other moving sector boundaries instead of baking them open into maps.
 - Support richer map startup options beyond the current CLI/web-route flow, including selecting maps and spawn points from the runtime and editor UI.
 - Add simple gameplay objects such as pickups, switches, keys, and scripted triggers.

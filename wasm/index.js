@@ -1,3 +1,7 @@
+import { installTouchControls } from "/touch.mjs";
+
+installTouchControls();
+
 const bootError = document.getElementById("boot-error");
 const path = window.location.pathname.trim().replace(/^\/+|\/+$/g, "").toLowerCase();
 const mapName = path.split("/").pop();

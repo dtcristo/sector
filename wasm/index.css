@@ -5,6 +5,10 @@ body {
   margin: 0;
   overflow: hidden;
   background: #000;
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 canvas {
@@ -37,4 +41,23 @@ canvas:focus-visible {
   color: #fff;
   white-space: pre-wrap;
   font: 14px/1.4 monospace;
+}
+
+#touch-hint {
+  display: none;
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  margin: 0;
+  color: #fff;
+  background: #000b;
+  padding: 8px;
+  font: 12px/1.5 monospace;
+  text-align: center;
+  pointer-events: none;
+}
+
+@media (any-pointer: coarse) {
+  #touch-hint:not([hidden]) { display: block; }
 }

@@ -171,3 +171,11 @@ at your option.
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be dual licensed as above, without any additional terms or conditions.
+
+### Phone controls
+
+Touch controls have no buttons. On the left half, drag up/down to walk forward/backward and left/right to strafe. Keep holding to move, release to stop. On the right half, swipe horizontally to look, or double-tap to jump. Double-tap the left half and hold the second tap to crouch; drag that held finger to walk while crouched. Release to stand when headroom allows. A quick stationary two-finger tap anywhere cycles the automap. Both thumbs work together in portrait and landscape. Touch jumping never toggles flight.
+
+A short hint appears on touch devices and disappears after your first interaction. Turning the phone or leaving the page clears held gestures. Desktop keyboard and mouse controls remain available.
+
+Run the fast gesture regression tests with `node --test tests/touch.test.mjs`.
