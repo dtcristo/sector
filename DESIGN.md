@@ -123,7 +123,7 @@ Bevy's scheduler now splits runtime work intentionally: `Update` handles input, 
 The renderer is a software rasterizer built around a 320x240, 4:3 baseline, but it no longer treats that size as a hard lock. The runtime first chooses a dynamic logical buffer size from the current window and then derives `RenderMetrics` from that live size:
 
 - 4:3 stays the preferred baseline view
-- aspect ratio is clamped so play widens only up to 21:9 and grows vertically only up to 9:16
+- aspect ratio is clamped so play widens only up to 32:9 and grows vertically only up to 9:21
 - integer pixel scale still defines the current presentation step
 - between integer steps the logical buffer grows so the player sees slightly more world instead of more black border
 - when the next integer step is reached, the logical buffer snaps back toward the baseline density

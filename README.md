@@ -13,7 +13,7 @@
 
 `sector` is an experimental software-rendered engine for Doom-style 2.5D environments. It uses convex sectors, explicit portals, flat floor/ceiling planes, optional open ceilings with either black fallback or flat sky tint, and per-surface flat colors to produce a crisp retro look with banded shading and single-pixel seams.
 
-The native runtime and editor share the same `SectorMap` data model across RON and Protobuf assets. Shipped maps use Protobuf in `assets/maps/*.map.pb`; the editor also supports RON for authoring. The runtime treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 21:9 or growing vertically to 9:16 before letterboxing extreme shapes. The web build ships the play runtime and serves each map as a separate static asset selected from the URL path.
+The native runtime and editor share the same `SectorMap` data model across RON and Protobuf assets. Shipped maps use Protobuf in `assets/maps/*.map.pb`; the editor also supports RON for authoring. The runtime treats 4:3 as the baseline view but adapts its logical render buffer to the current window, widening out to 32:9 or growing vertically to 9:21 before letterboxing extreme shapes. The web build ships the play runtime and serves each map as a separate static asset selected from the URL path.
 
 ## Repository docs
 

@@ -15,7 +15,7 @@
 
 - Introduce textured walls, floors, and ceilings without losing the crisp software-rendered look.
 - Add real skybox art or skyline rendering for `no_ceiling` sectors instead of the current flat sky tint / black fallback.
-- Expose player-facing viewport presets and tuning over the current adaptive resize behavior, such as a strict 4:3 lock, per-platform pixel density caps, or configurable FOV limits.
+- Expose player-facing viewport presets and tuning over the current adaptive resize behavior, such as a strict 4:3 lock, per-platform pixel density caps, or configurable FOV limits within the 9:21 to 32:9 range.
 - Continue profiling sector-tree traversal and outline masking to reduce overdraw and full-frame post-pass cost on dense imported maps.
 - Reuse renderer scratch buffers across frames so surface tags, clip spans, and deferred wall columns do not reallocate on every draw.
 - Explore wider support for stacked spaces or room-over-room approximations that preserve current performance goals.
